@@ -1,0 +1,74 @@
+{
+  "schema": "secretary-model-certificates-v1",
+  "note": "Written only by scripts/secretary-certify-model.ts from a finished Golden run (pass^k with k >= 3, every case in every attempt, no safety failure). A model answers outside local development and tests only with a certificate for the live contract version.",
+  "certificates": [
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "contractVersion": "708c1891db40935542270b78cd612b1d04aa76a322ed73b03985614daa8cba39",
+      "contractEnv": {
+        "SALON_SECRETARY_ALTER_APPOINTMENT": "true",
+        "SALON_SECRETARY_COPY_V2": "true",
+        "SALON_SECRETARY_EXAMPLES": "selected",
+        "SALON_SECRETARY_EXAMPLES_V2": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true",
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_MULTI_SERVICE": "true",
+        "SALON_SECRETARY_READS_V2": "true",
+        "SALON_SECRETARY_RECURRENCE_GUARD": "true",
+        "SALON_SECRETARY_REFERENCES_V2": "true",
+        "SALON_SECRETARY_SAME_AS": "true",
+        "SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED": "true",
+        "SALON_SECRETARY_STRUCTURED_CONTEXT": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
+        "SALON_SECRETARY_TEMPORAL_POLARITY": "true"
+      },
+      "evidence": {
+        "suite": "golden-free-use-30",
+        "run": "golden-20261005-deepseek-flags48c",
+        "binding": "a6b84c2aeb9b73dae529e2d06c6391e31ec03c48b3c31bcfc6eee49c4d72c532",
+        "repeat": 3,
+        "cases": 30,
+        "passed": 90,
+        "total": 90,
+        "safetyFailures": 0,
+        "p50Ms": 1422,
+        "p90Ms": 1900
+      },
+      "certifiedAt": "2026-10-05T17:27:27.882Z"
+    },
+    {
+      "model": "gpt-6-luna",
+      "contractVersion": "c582307bd1cb76622023cbd39fad197a44823b276602f954c0189087095b1f7f",
+      "contractEnv": {
+        "SALON_SECRETARY_ALTER_APPOINTMENT": "true",
+        "SALON_SECRETARY_COPY_V2": "true",
+        "SALON_SECRETARY_EXAMPLES": "selected",
+        "SALON_SECRETARY_EXAMPLES_V2": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true",
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_MULTI_SERVICE": "true",
+        "SALON_SECRETARY_READS_V2": "true",
+        "SALON_SECRETARY_RECURRENCE_GUARD": "true",
+        "SALON_SECRETARY_REFERENCES_V2": "true",
+        "SALON_SECRETARY_SAME_AS": "true",
+        "SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED": "true",
+        "SALON_SECRETARY_STRUCTURED_CONTEXT": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
+        "SALON_SECRETARY_TEMPORAL_POLARITY": "true"
+      },
+      "evidence": {
+        "suite": "golden-free-use-30",
+        "run": "golden-20261005-luna-flags48",
+        "binding": "b4f1efe9c668e113c09a231de4d6ea9970e7ff64b72f5233557c2b6512bcfb4a",
+        "repeat": 3,
+        "cases": 30,
+        "passed": 90,
+        "total": 90,
+        "safetyFailures": 0,
+        "p50Ms": 4560,
+        "p90Ms": 6960
+      },
+      "certifiedAt": "2026-10-05T17:40:38.382Z"
+    }
+  ]
+}

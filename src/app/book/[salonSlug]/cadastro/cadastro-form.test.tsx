@@ -50,6 +50,20 @@ describe("CadastroForm", () => {
     await user.type(screen.getByPlaceholderText("seu@email.com"), "ana@example.com");
   }
 
+  it("avisa sobre termos e privacidade com links que abrem em nova aba", () => {
+    render(<CadastroForm salonSlug="studio-a" />);
+
+    expect(screen.getByText(/Ao criar a conta você concorda com os/)).toBeInTheDocument();
+    const terms = screen.getByRole("link", { name: /^Termos/ });
+    const privacy = screen.getByRole("link", { name: /^Política de Privacidade/ });
+    expect(terms).toHaveAttribute("href", "/termos");
+    expect(privacy).toHaveAttribute("href", "/privacidade");
+    for (const link of [terms, privacy]) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    }
+  });
+
   it("rejeita senha curta antes de chamar a action", async () => {
     const user = userEvent.setup();
     render(<CadastroForm salonSlug="studio-a" />);

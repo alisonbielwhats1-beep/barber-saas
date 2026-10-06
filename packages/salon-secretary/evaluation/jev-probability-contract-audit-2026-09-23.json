@@ -1,0 +1,2859 @@
+{
+  "version": "jev-probability-contract-audit-v1",
+  "date": "2026-09-23",
+  "scope": "offline persisted evidence only; no provider calls",
+  "sourceSha256": {
+    "flat-first-response.json": "f5eaa6c42eff1a1708af30b2e4fcfbc64921863a89ce269a535ad88e4f4148b6",
+    "conditional-real-response.json": "f96ccc6a7b1fe8b1384873cc1d274f8189826caf3bc93815c173c897dbef481d",
+    "acceptance-calibration-real-2026-09-23.json": "c114a7fe1220503ab86bf6913c68056cc7834930b59486e1b9f86843baf19616",
+    "acceptance-calibration-continuation-real-2026-09-23.json": "9e17a0c0c4c345d4ec03879453942b6a22c9d92b7155b24eb1e1495027d1b9d9"
+  },
+  "caveats": [
+    "Response artifacts contain parsed and reserialized numbers; decimalPlacesByChoice describes the persisted JSON representation, not provably the original HTTP numeric lexeme.",
+    "Historical failed case 18 lacks a sanitized probability vector and cannot be counted.",
+    "Duplicate JSON keys cannot be reconstructed from parsed artifacts."
+  ],
+  "summary": {
+    "responseArtifacts": 4,
+    "callsWithAtLeastOneVector": 38,
+    "vectors": 74,
+    "bySource": {
+      "flat-first-response.json": 7,
+      "conditional-real-response.json": 9,
+      "acceptance-calibration-real-2026-09-23.json": 52,
+      "acceptance-calibration-continuation-real-2026-09-23.json": 6
+    },
+    "byChoiceCount": {
+      "4": 1,
+      "5": 25,
+      "6": 1,
+      "7": 8,
+      "9": 37,
+      "10": 1,
+      "21": 1
+    },
+    "deltaMin": 0,
+    "deltaMedian": 0,
+    "deltaMax": 0.01,
+    "deltaCounts": {
+      "0": 73,
+      "0.01": 1
+    },
+    "withinExistingTolerance": 73,
+    "outsideExistingTolerance": 1
+  },
+  "vectors": [
+    {
+      "sourceFile": "flat-first-response.json",
+      "callId": "flat-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "financial": 0.99,
+        "out_of_catalog": 0,
+        "unclear": 0,
+        "communication": 0,
+        "multiple": 0.01,
+        "inventory": 0,
+        "services": 0,
+        "customers": 0,
+        "scheduling": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "financial": 2,
+        "out_of_catalog": 0,
+        "unclear": 0,
+        "communication": 0,
+        "multiple": 2,
+        "inventory": 0,
+        "services": 0,
+        "customers": 0,
+        "scheduling": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "financial",
+        "probability": 0.99
+      },
+      "top2": {
+        "choice": "multiple",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "flat-first-response.json",
+      "callId": "flat-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "operation",
+      "selectedChoice": "financial.report",
+      "choiceCount": 21,
+      "probabilities": {
+        "availability.get": 0,
+        "out_of_catalog": 0.1,
+        "customer.change": 0,
+        "appointment.list": 0,
+        "customer.read": 0,
+        "multiple": 0,
+        "customer.message": 0,
+        "schedule.block": 0,
+        "customer.create": 0,
+        "appointment.read": 0,
+        "stock.balance": 0,
+        "service.change": 0,
+        "product.search": 0,
+        "appointment.cancel": 0,
+        "appointment.create": 0,
+        "unclear": 0.14,
+        "stock.movement": 0,
+        "appointment.change": 0,
+        "service.create": 0,
+        "customer.search": 0,
+        "financial.report": 0.76
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "availability.get": 0,
+        "out_of_catalog": 1,
+        "customer.change": 0,
+        "appointment.list": 0,
+        "customer.read": 0,
+        "multiple": 0,
+        "customer.message": 0,
+        "schedule.block": 0,
+        "customer.create": 0,
+        "appointment.read": 0,
+        "stock.balance": 0,
+        "service.change": 0,
+        "product.search": 0,
+        "appointment.cancel": 0,
+        "appointment.create": 0,
+        "unclear": 2,
+        "stock.movement": 0,
+        "appointment.change": 0,
+        "service.create": 0,
+        "customer.search": 0,
+        "financial.report": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "financial.report",
+        "probability": 0.76
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.14
+      }
+    },
+    {
+      "sourceFile": "flat-first-response.json",
+      "callId": "flat-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "dependent": 0,
+        "out_of_catalog": 0.25,
+        "independent": 0.05,
+        "unclear": 0.02,
+        "single": 0.68
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "dependent": 0,
+        "out_of_catalog": 2,
+        "independent": 2,
+        "unclear": 2,
+        "single": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.68
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.25
+      }
+    },
+    {
+      "sourceFile": "flat-first-response.json",
+      "callId": "flat-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "period",
+      "selectedChoice": "yesterday",
+      "choiceCount": 9,
+      "probabilities": {
+        "today": 0,
+        "this_month": 0,
+        "this_week": 0,
+        "unclear": 0,
+        "last_week": 0,
+        "yesterday": 1,
+        "comparison": 0,
+        "none": 0,
+        "last_month": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "today": 0,
+        "this_month": 0,
+        "this_week": 0,
+        "unclear": 0,
+        "last_week": 0,
+        "yesterday": 0,
+        "comparison": 0,
+        "none": 0,
+        "last_month": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "yesterday",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "today",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "flat-first-response.json",
+      "callId": "flat-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "metric",
+      "selectedChoice": "service_revenue",
+      "choiceCount": 9,
+      "probabilities": {
+        "realized_revenue": 0.01,
+        "completed_count": 0,
+        "unclear": 0.02,
+        "received_revenue": 0,
+        "none": 0.01,
+        "multiple": 0,
+        "service_revenue": 0.96,
+        "outstanding_receivables": 0,
+        "average_ticket": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "realized_revenue": 2,
+        "completed_count": 0,
+        "unclear": 2,
+        "received_revenue": 0,
+        "none": 2,
+        "multiple": 0,
+        "service_revenue": 2,
+        "outstanding_receivables": 0,
+        "average_ticket": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "service_revenue",
+        "probability": 0.96
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.02
+      }
+    },
+    {
+      "sourceFile": "flat-first-response.json",
+      "callId": "flat-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "inventory",
+      "selectedChoice": "none",
+      "choiceCount": 7,
+      "probabilities": {
+        "low_stock": 0,
+        "OUT": 0,
+        "none": 0.95,
+        "IN": 0,
+        "balance": 0.01,
+        "unclear": 0.04,
+        "search": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "low_stock": 0,
+        "OUT": 0,
+        "none": 2,
+        "IN": 0,
+        "balance": 2,
+        "unclear": 2,
+        "search": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "none",
+        "probability": 0.95
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.04
+      }
+    },
+    {
+      "sourceFile": "flat-first-response.json",
+      "callId": "flat-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "communication",
+      "selectedChoice": "unspecified",
+      "choiceCount": 5,
+      "probabilities": {
+        "none": 0.3,
+        "unspecified": 0.31,
+        "EXACT": 0.25,
+        "unclear": 0.1,
+        "GENERATED": 0.04
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "none": 1,
+        "unspecified": 2,
+        "EXACT": 2,
+        "unclear": 1,
+        "GENERATED": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "unspecified",
+        "probability": 0.31
+      },
+      "top2": {
+        "choice": "none",
+        "probability": 0.3
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "financial-revenue-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "services": 0,
+        "scheduling": 0,
+        "financial": 1,
+        "multiple": 0,
+        "unclear": 0,
+        "customers": 0,
+        "communication": 0,
+        "inventory": 0,
+        "out_of_catalog": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "services": 0,
+        "scheduling": 0,
+        "financial": 0,
+        "multiple": 0,
+        "unclear": 0,
+        "customers": 0,
+        "communication": 0,
+        "inventory": 0,
+        "out_of_catalog": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "financial",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "services",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "financial-revenue-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "dependent": 0.01,
+        "unclear": 0.02,
+        "single": 0.69,
+        "independent": 0.05,
+        "out_of_catalog": 0.23
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "dependent": 2,
+        "unclear": 2,
+        "single": 2,
+        "independent": 2,
+        "out_of_catalog": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.69
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.23
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "financial-revenue-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "operation",
+      "selectedChoice": "financial.report",
+      "choiceCount": 4,
+      "probabilities": {
+        "unclear": 0.21,
+        "out_of_catalog": 0.1,
+        "multiple": 0.01,
+        "financial.report": 0.68
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "out_of_catalog": 1,
+        "multiple": 2,
+        "financial.report": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "financial.report",
+        "probability": 0.68
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.21
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "financial-revenue-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "metric",
+      "selectedChoice": "service_revenue",
+      "choiceCount": 9,
+      "probabilities": {
+        "unclear": 0.01,
+        "completed_count": 0,
+        "none": 0,
+        "received_revenue": 0,
+        "average_ticket": 0,
+        "realized_revenue": 0.01,
+        "multiple": 0,
+        "service_revenue": 0.98,
+        "outstanding_receivables": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "completed_count": 0,
+        "none": 0,
+        "received_revenue": 0,
+        "average_ticket": 0,
+        "realized_revenue": 2,
+        "multiple": 0,
+        "service_revenue": 2,
+        "outstanding_receivables": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "service_revenue",
+        "probability": 0.98
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "financial-revenue-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "period",
+      "selectedChoice": "yesterday",
+      "choiceCount": 9,
+      "probabilities": {
+        "unclear": 0,
+        "yesterday": 1,
+        "none": 0,
+        "last_week": 0,
+        "this_month": 0,
+        "this_week": 0,
+        "today": 0,
+        "last_month": 0,
+        "comparison": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 0,
+        "yesterday": 0,
+        "none": 0,
+        "last_week": 0,
+        "this_month": 0,
+        "this_week": 0,
+        "today": 0,
+        "last_month": 0,
+        "comparison": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "yesterday",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "inventory-low-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "inventory",
+      "choiceCount": 9,
+      "probabilities": {
+        "out_of_catalog": 0,
+        "scheduling": 0,
+        "multiple": 0,
+        "services": 0,
+        "inventory": 1,
+        "communication": 0,
+        "financial": 0,
+        "customers": 0,
+        "unclear": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "out_of_catalog": 0,
+        "scheduling": 0,
+        "multiple": 0,
+        "services": 0,
+        "inventory": 0,
+        "communication": 0,
+        "financial": 0,
+        "customers": 0,
+        "unclear": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "inventory",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "inventory-low-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "single": 0.83,
+        "independent": 0.05,
+        "dependent": 0,
+        "out_of_catalog": 0.09,
+        "unclear": 0.03
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "single": 2,
+        "independent": 2,
+        "dependent": 0,
+        "out_of_catalog": 2,
+        "unclear": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.83
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.09
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "inventory-low-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "operation",
+      "selectedChoice": "stock.balance",
+      "choiceCount": 6,
+      "probabilities": {
+        "product.search": 0.16,
+        "unclear": 0.25,
+        "stock.movement": 0.01,
+        "stock.balance": 0.44,
+        "multiple": 0.03,
+        "out_of_catalog": 0.11
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "product.search": 2,
+        "unclear": 2,
+        "stock.movement": 2,
+        "stock.balance": 2,
+        "multiple": 2,
+        "out_of_catalog": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "stock.balance",
+        "probability": 0.44
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.25
+      }
+    },
+    {
+      "sourceFile": "conditional-real-response.json",
+      "callId": "inventory-low-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "inventory",
+      "selectedChoice": "low_stock",
+      "choiceCount": 7,
+      "probabilities": {
+        "balance": 0,
+        "OUT": 0,
+        "unclear": 0,
+        "low_stock": 1,
+        "search": 0,
+        "none": 0,
+        "IN": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "balance": 0,
+        "OUT": 0,
+        "unclear": 0,
+        "low_stock": 0,
+        "search": 0,
+        "none": 0,
+        "IN": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "low_stock",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "balance",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "1-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "communication": 0,
+        "services": 0,
+        "inventory": 0,
+        "multiple": 0,
+        "customers": 0,
+        "financial": 1,
+        "out_of_catalog": 0,
+        "unclear": 0,
+        "scheduling": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "communication": 0,
+        "services": 0,
+        "inventory": 0,
+        "multiple": 0,
+        "customers": 0,
+        "financial": 0,
+        "out_of_catalog": 0,
+        "unclear": 0,
+        "scheduling": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "financial",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "communication",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "1-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "out_of_catalog": 0.23,
+        "independent": 0.07,
+        "unclear": 0.02,
+        "dependent": 0,
+        "single": 0.68
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "out_of_catalog": 2,
+        "independent": 2,
+        "unclear": 2,
+        "dependent": 0,
+        "single": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.68
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.23
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "1-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "metric",
+      "selectedChoice": "service_revenue",
+      "choiceCount": 9,
+      "probabilities": {
+        "none": 0,
+        "realized_revenue": 0,
+        "completed_count": 0,
+        "unclear": 0.01,
+        "received_revenue": 0,
+        "multiple": 0,
+        "average_ticket": 0,
+        "outstanding_receivables": 0,
+        "service_revenue": 0.99
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "none": 0,
+        "realized_revenue": 0,
+        "completed_count": 0,
+        "unclear": 2,
+        "received_revenue": 0,
+        "multiple": 0,
+        "average_ticket": 0,
+        "outstanding_receivables": 0,
+        "service_revenue": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "service_revenue",
+        "probability": 0.99
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "1-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "period",
+      "selectedChoice": "yesterday",
+      "choiceCount": 9,
+      "probabilities": {
+        "this_month": 0,
+        "last_month": 0,
+        "today": 0,
+        "this_week": 0,
+        "yesterday": 1,
+        "unclear": 0,
+        "comparison": 0,
+        "last_week": 0,
+        "none": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "this_month": 0,
+        "last_month": 0,
+        "today": 0,
+        "this_week": 0,
+        "yesterday": 0,
+        "unclear": 0,
+        "comparison": 0,
+        "last_week": 0,
+        "none": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "yesterday",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "this_month",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "2-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "inventory",
+      "choiceCount": 9,
+      "probabilities": {
+        "communication": 0,
+        "out_of_catalog": 0,
+        "inventory": 1,
+        "multiple": 0,
+        "financial": 0,
+        "unclear": 0,
+        "services": 0,
+        "customers": 0,
+        "scheduling": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "communication": 0,
+        "out_of_catalog": 0,
+        "inventory": 0,
+        "multiple": 0,
+        "financial": 0,
+        "unclear": 0,
+        "services": 0,
+        "customers": 0,
+        "scheduling": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "inventory",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "communication",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "2-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "independent": 0.08,
+        "dependent": 0,
+        "unclear": 0.04,
+        "single": 0.78,
+        "out_of_catalog": 0.1
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "independent": 2,
+        "dependent": 0,
+        "unclear": 2,
+        "single": 2,
+        "out_of_catalog": 1
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.78
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.1
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "2-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "inventory",
+      "selectedChoice": "low_stock",
+      "choiceCount": 7,
+      "probabilities": {
+        "OUT": 0,
+        "unclear": 0,
+        "search": 0,
+        "low_stock": 1,
+        "IN": 0,
+        "balance": 0,
+        "none": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "OUT": 0,
+        "unclear": 0,
+        "search": 0,
+        "low_stock": 0,
+        "IN": 0,
+        "balance": 0,
+        "none": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "low_stock",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "OUT",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "3-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "unclear": 0,
+        "out_of_catalog": 0,
+        "scheduling": 0,
+        "customers": 0,
+        "inventory": 0,
+        "financial": 1,
+        "multiple": 0,
+        "services": 0,
+        "communication": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 0,
+        "out_of_catalog": 0,
+        "scheduling": 0,
+        "customers": 0,
+        "inventory": 0,
+        "financial": 0,
+        "multiple": 0,
+        "services": 0,
+        "communication": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "financial",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "3-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "unclear": 0.02,
+        "dependent": 0,
+        "independent": 0.05,
+        "out_of_catalog": 0.28,
+        "single": 0.65
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "dependent": 0,
+        "independent": 2,
+        "out_of_catalog": 2,
+        "single": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.65
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.28
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "3-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "metric",
+      "selectedChoice": "service_revenue",
+      "choiceCount": 9,
+      "probabilities": {
+        "multiple": 0,
+        "outstanding_receivables": 0,
+        "unclear": 0.01,
+        "none": 0,
+        "service_revenue": 0.98,
+        "realized_revenue": 0.01,
+        "received_revenue": 0,
+        "completed_count": 0,
+        "average_ticket": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "multiple": 0,
+        "outstanding_receivables": 0,
+        "unclear": 2,
+        "none": 0,
+        "service_revenue": 2,
+        "realized_revenue": 2,
+        "received_revenue": 0,
+        "completed_count": 0,
+        "average_ticket": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "service_revenue",
+        "probability": 0.98
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "3-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "period",
+      "selectedChoice": "yesterday",
+      "choiceCount": 9,
+      "probabilities": {
+        "yesterday": 1,
+        "last_month": 0,
+        "this_month": 0,
+        "this_week": 0,
+        "today": 0,
+        "unclear": 0,
+        "none": 0,
+        "last_week": 0,
+        "comparison": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "yesterday": 0,
+        "last_month": 0,
+        "this_month": 0,
+        "this_week": 0,
+        "today": 0,
+        "unclear": 0,
+        "none": 0,
+        "last_week": 0,
+        "comparison": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "yesterday",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "last_month",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "4-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "inventory",
+      "choiceCount": 9,
+      "probabilities": {
+        "communication": 0,
+        "inventory": 1,
+        "unclear": 0,
+        "scheduling": 0,
+        "customers": 0,
+        "services": 0,
+        "financial": 0,
+        "out_of_catalog": 0,
+        "multiple": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "communication": 0,
+        "inventory": 0,
+        "unclear": 0,
+        "scheduling": 0,
+        "customers": 0,
+        "services": 0,
+        "financial": 0,
+        "out_of_catalog": 0,
+        "multiple": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "inventory",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "communication",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "4-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "single": 0.78,
+        "independent": 0.07,
+        "unclear": 0.03,
+        "out_of_catalog": 0.12,
+        "dependent": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "single": 2,
+        "independent": 2,
+        "unclear": 2,
+        "out_of_catalog": 2,
+        "dependent": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.78
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.12
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "4-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "inventory",
+      "selectedChoice": "low_stock",
+      "choiceCount": 7,
+      "probabilities": {
+        "IN": 0,
+        "none": 0,
+        "balance": 0,
+        "search": 0,
+        "OUT": 0,
+        "low_stock": 1,
+        "unclear": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "IN": 0,
+        "none": 0,
+        "balance": 0,
+        "search": 0,
+        "OUT": 0,
+        "low_stock": 0,
+        "unclear": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "low_stock",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "IN",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "5-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "financial": 1,
+        "out_of_catalog": 0,
+        "multiple": 0,
+        "communication": 0,
+        "services": 0,
+        "unclear": 0,
+        "customers": 0,
+        "inventory": 0,
+        "scheduling": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "financial": 0,
+        "out_of_catalog": 0,
+        "multiple": 0,
+        "communication": 0,
+        "services": 0,
+        "unclear": 0,
+        "customers": 0,
+        "inventory": 0,
+        "scheduling": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "financial",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "5-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "out_of_catalog": 0.22,
+        "single": 0.71,
+        "independent": 0.05,
+        "dependent": 0,
+        "unclear": 0.02
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "out_of_catalog": 2,
+        "single": 2,
+        "independent": 2,
+        "dependent": 0,
+        "unclear": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.71
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.22
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "5-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "metric",
+      "selectedChoice": "service_revenue",
+      "choiceCount": 9,
+      "probabilities": {
+        "service_revenue": 0.97,
+        "received_revenue": 0,
+        "unclear": 0.02,
+        "multiple": 0,
+        "none": 0,
+        "realized_revenue": 0.01,
+        "outstanding_receivables": 0,
+        "completed_count": 0,
+        "average_ticket": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "service_revenue": 2,
+        "received_revenue": 0,
+        "unclear": 2,
+        "multiple": 0,
+        "none": 0,
+        "realized_revenue": 2,
+        "outstanding_receivables": 0,
+        "completed_count": 0,
+        "average_ticket": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "service_revenue",
+        "probability": 0.97
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.02
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "5-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "period",
+      "selectedChoice": "yesterday",
+      "choiceCount": 9,
+      "probabilities": {
+        "comparison": 0,
+        "unclear": 0,
+        "last_month": 0,
+        "none": 0,
+        "yesterday": 1,
+        "today": 0,
+        "this_week": 0,
+        "this_month": 0,
+        "last_week": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "comparison": 0,
+        "unclear": 0,
+        "last_month": 0,
+        "none": 0,
+        "yesterday": 0,
+        "today": 0,
+        "this_week": 0,
+        "this_month": 0,
+        "last_week": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "yesterday",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "comparison",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "6-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "inventory",
+      "choiceCount": 9,
+      "probabilities": {
+        "services": 0,
+        "scheduling": 0,
+        "financial": 0,
+        "multiple": 0,
+        "customers": 0,
+        "unclear": 0,
+        "communication": 0,
+        "inventory": 1,
+        "out_of_catalog": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "services": 0,
+        "scheduling": 0,
+        "financial": 0,
+        "multiple": 0,
+        "customers": 0,
+        "unclear": 0,
+        "communication": 0,
+        "inventory": 0,
+        "out_of_catalog": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "inventory",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "services",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "6-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "dependent": 0,
+        "unclear": 0.03,
+        "single": 0.8200000000000001,
+        "independent": 0.06,
+        "out_of_catalog": 0.09
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "dependent": 0,
+        "unclear": 2,
+        "single": 16,
+        "independent": 2,
+        "out_of_catalog": 2
+      },
+      "maxDecimalPlaces": 16,
+      "top1": {
+        "choice": "single",
+        "probability": 0.8200000000000001
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.09
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "6-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "inventory",
+      "selectedChoice": "low_stock",
+      "choiceCount": 7,
+      "probabilities": {
+        "OUT": 0,
+        "none": 0,
+        "IN": 0,
+        "low_stock": 1,
+        "balance": 0,
+        "search": 0,
+        "unclear": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "OUT": 0,
+        "none": 0,
+        "IN": 0,
+        "low_stock": 0,
+        "balance": 0,
+        "search": 0,
+        "unclear": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "low_stock",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "OUT",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "7-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "communication": 0.01,
+        "multiple": 0.01,
+        "inventory": 0,
+        "services": 0,
+        "out_of_catalog": 0,
+        "scheduling": 0,
+        "unclear": 0.02,
+        "customers": 0,
+        "financial": 0.96
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "communication": 2,
+        "multiple": 2,
+        "inventory": 0,
+        "services": 0,
+        "out_of_catalog": 0,
+        "scheduling": 0,
+        "unclear": 2,
+        "customers": 0,
+        "financial": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "financial",
+        "probability": 0.96
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.02
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "7-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "unclear": 0.07,
+        "single": 0.56,
+        "out_of_catalog": 0.3,
+        "dependent": 0.01,
+        "independent": 0.06
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "single": 2,
+        "out_of_catalog": 1,
+        "dependent": 2,
+        "independent": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.56
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.3
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "7-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "metric",
+      "selectedChoice": "received_revenue",
+      "choiceCount": 9,
+      "probabilities": {
+        "none": 0,
+        "outstanding_receivables": 0,
+        "unclear": 0,
+        "average_ticket": 0,
+        "service_revenue": 0,
+        "received_revenue": 1,
+        "completed_count": 0,
+        "multiple": 0,
+        "realized_revenue": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "none": 0,
+        "outstanding_receivables": 0,
+        "unclear": 0,
+        "average_ticket": 0,
+        "service_revenue": 0,
+        "received_revenue": 0,
+        "completed_count": 0,
+        "multiple": 0,
+        "realized_revenue": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "received_revenue",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "none",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "7-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "period",
+      "selectedChoice": "yesterday",
+      "choiceCount": 9,
+      "probabilities": {
+        "today": 0,
+        "none": 0,
+        "this_week": 0,
+        "unclear": 0,
+        "comparison": 0,
+        "yesterday": 1,
+        "last_week": 0,
+        "last_month": 0,
+        "this_month": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "today": 0,
+        "none": 0,
+        "this_week": 0,
+        "unclear": 0,
+        "comparison": 0,
+        "yesterday": 0,
+        "last_week": 0,
+        "last_month": 0,
+        "this_month": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "yesterday",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "today",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "8-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "unclear": 0.11,
+        "financial": 0.85,
+        "scheduling": 0,
+        "out_of_catalog": 0.01,
+        "services": 0,
+        "communication": 0.02,
+        "customers": 0,
+        "multiple": 0.01,
+        "inventory": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "financial": 2,
+        "scheduling": 0,
+        "out_of_catalog": 2,
+        "services": 0,
+        "communication": 2,
+        "customers": 0,
+        "multiple": 2,
+        "inventory": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "financial",
+        "probability": 0.85
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.11
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "8-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "unclear": 0.37,
+        "single": 0.4,
+        "independent": 0.04,
+        "out_of_catalog": 0.18,
+        "dependent": 0.01
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "single": 1,
+        "independent": 2,
+        "out_of_catalog": 2,
+        "dependent": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.4
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.37
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "8-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "metric",
+      "selectedChoice": "outstanding_receivables",
+      "choiceCount": 9,
+      "probabilities": {
+        "none": 0,
+        "realized_revenue": 0,
+        "completed_count": 0,
+        "unclear": 0,
+        "received_revenue": 0.01,
+        "multiple": 0,
+        "average_ticket": 0,
+        "outstanding_receivables": 0.99,
+        "service_revenue": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "none": 0,
+        "realized_revenue": 0,
+        "completed_count": 0,
+        "unclear": 0,
+        "received_revenue": 2,
+        "multiple": 0,
+        "average_ticket": 0,
+        "outstanding_receivables": 2,
+        "service_revenue": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "outstanding_receivables",
+        "probability": 0.99
+      },
+      "top2": {
+        "choice": "received_revenue",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "8-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "period",
+      "selectedChoice": "none",
+      "choiceCount": 9,
+      "probabilities": {
+        "this_month": 0,
+        "last_month": 0,
+        "today": 0,
+        "yesterday": 0,
+        "this_week": 0,
+        "unclear": 0.09,
+        "comparison": 0,
+        "last_week": 0,
+        "none": 0.91
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "this_month": 0,
+        "last_month": 0,
+        "today": 0,
+        "yesterday": 0,
+        "this_week": 0,
+        "unclear": 2,
+        "comparison": 0,
+        "last_week": 0,
+        "none": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "none",
+        "probability": 0.91
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.09
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "9-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "unclear",
+      "choiceCount": 9,
+      "probabilities": {
+        "financial": 0.28,
+        "communication": 0.02,
+        "customers": 0,
+        "multiple": 0.09,
+        "inventory": 0,
+        "unclear": 0.51,
+        "services": 0,
+        "scheduling": 0.07,
+        "out_of_catalog": 0.03
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "financial": 2,
+        "communication": 2,
+        "customers": 0,
+        "multiple": 2,
+        "inventory": 0,
+        "unclear": 2,
+        "services": 0,
+        "scheduling": 2,
+        "out_of_catalog": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "unclear",
+        "probability": 0.51
+      },
+      "top2": {
+        "choice": "financial",
+        "probability": 0.28
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "9-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "single": 0.37,
+        "dependent": 0.13,
+        "independent": 0.04,
+        "unclear": 0.34,
+        "out_of_catalog": 0.12
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "single": 2,
+        "dependent": 2,
+        "independent": 2,
+        "unclear": 2,
+        "out_of_catalog": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.37
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.34
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "10-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "services": 0,
+        "unclear": 0,
+        "communication": 0,
+        "financial": 0.94,
+        "scheduling": 0,
+        "out_of_catalog": 0,
+        "inventory": 0,
+        "multiple": 0.06,
+        "customers": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "services": 0,
+        "unclear": 0,
+        "communication": 0,
+        "financial": 2,
+        "scheduling": 0,
+        "out_of_catalog": 0,
+        "inventory": 0,
+        "multiple": 2,
+        "customers": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "financial",
+        "probability": 0.94
+      },
+      "top2": {
+        "choice": "multiple",
+        "probability": 0.06
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "10-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "independent",
+      "choiceCount": 5,
+      "probabilities": {
+        "single": 0.07,
+        "out_of_catalog": 0.06,
+        "independent": 0.72,
+        "unclear": 0.02,
+        "dependent": 0.13
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "single": 2,
+        "out_of_catalog": 2,
+        "independent": 2,
+        "unclear": 2,
+        "dependent": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "independent",
+        "probability": 0.72
+      },
+      "top2": {
+        "choice": "dependent",
+        "probability": 0.13
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "11-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "inventory",
+      "choiceCount": 9,
+      "probabilities": {
+        "out_of_catalog": 0,
+        "unclear": 0.01,
+        "scheduling": 0,
+        "customers": 0,
+        "inventory": 0.97,
+        "financial": 0,
+        "multiple": 0,
+        "services": 0,
+        "communication": 0.02
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "out_of_catalog": 0,
+        "unclear": 2,
+        "scheduling": 0,
+        "customers": 0,
+        "inventory": 2,
+        "financial": 0,
+        "multiple": 0,
+        "services": 0,
+        "communication": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "inventory",
+        "probability": 0.97
+      },
+      "top2": {
+        "choice": "communication",
+        "probability": 0.02
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "11-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "out_of_catalog": 0.15,
+        "dependent": 0.01,
+        "independent": 0.1,
+        "unclear": 0.08,
+        "single": 0.66
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "out_of_catalog": 2,
+        "dependent": 2,
+        "independent": 1,
+        "unclear": 2,
+        "single": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.66
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.15
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "11-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "inventory",
+      "selectedChoice": "balance",
+      "choiceCount": 7,
+      "probabilities": {
+        "IN": 0,
+        "search": 0.01,
+        "none": 0,
+        "low_stock": 0,
+        "OUT": 0,
+        "unclear": 0,
+        "balance": 0.99
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "IN": 0,
+        "search": 2,
+        "none": 0,
+        "low_stock": 0,
+        "OUT": 0,
+        "unclear": 0,
+        "balance": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "balance",
+        "probability": 0.99
+      },
+      "top2": {
+        "choice": "search",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "12-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "inventory",
+      "choiceCount": 9,
+      "probabilities": {
+        "scheduling": 0,
+        "customers": 0,
+        "services": 0,
+        "unclear": 0.01,
+        "financial": 0,
+        "communication": 0.02,
+        "inventory": 0.97,
+        "out_of_catalog": 0,
+        "multiple": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "scheduling": 0,
+        "customers": 0,
+        "services": 0,
+        "unclear": 2,
+        "financial": 0,
+        "communication": 2,
+        "inventory": 2,
+        "out_of_catalog": 0,
+        "multiple": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "inventory",
+        "probability": 0.97
+      },
+      "top2": {
+        "choice": "communication",
+        "probability": 0.02
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "12-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "unclear": 0.03,
+        "dependent": 0,
+        "out_of_catalog": 0.03,
+        "single": 0.91,
+        "independent": 0.03
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "dependent": 0,
+        "out_of_catalog": 2,
+        "single": 2,
+        "independent": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.91
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.03
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "12-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "inventory",
+      "selectedChoice": "IN",
+      "choiceCount": 7,
+      "probabilities": {
+        "unclear": 0,
+        "balance": 0,
+        "search": 0,
+        "IN": 1,
+        "none": 0,
+        "OUT": 0,
+        "low_stock": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 0,
+        "balance": 0,
+        "search": 0,
+        "IN": 0,
+        "none": 0,
+        "OUT": 0,
+        "low_stock": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "IN",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "13-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "inventory",
+      "choiceCount": 9,
+      "probabilities": {
+        "financial": 0,
+        "multiple": 0,
+        "inventory": 0.98,
+        "communication": 0,
+        "out_of_catalog": 0.01,
+        "scheduling": 0,
+        "unclear": 0.01,
+        "customers": 0,
+        "services": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "financial": 0,
+        "multiple": 0,
+        "inventory": 2,
+        "communication": 0,
+        "out_of_catalog": 2,
+        "scheduling": 0,
+        "unclear": 2,
+        "customers": 0,
+        "services": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "inventory",
+        "probability": 0.98
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "13-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "unclear": 0.02,
+        "single": 0.92,
+        "out_of_catalog": 0.05,
+        "dependent": 0,
+        "independent": 0.01
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "single": 2,
+        "out_of_catalog": 2,
+        "dependent": 0,
+        "independent": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.92
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.05
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "13-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "inventory",
+      "selectedChoice": "OUT",
+      "choiceCount": 7,
+      "probabilities": {
+        "OUT": 0.99,
+        "none": 0.01,
+        "low_stock": 0,
+        "search": 0,
+        "balance": 0,
+        "unclear": 0,
+        "IN": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "OUT": 2,
+        "none": 2,
+        "low_stock": 0,
+        "search": 0,
+        "balance": 0,
+        "unclear": 0,
+        "IN": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "OUT",
+        "probability": 0.99
+      },
+      "top2": {
+        "choice": "none",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "14-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "scheduling",
+      "choiceCount": 9,
+      "probabilities": {
+        "unclear": 0,
+        "customers": 0,
+        "communication": 0.02,
+        "multiple": 0.11,
+        "financial": 0,
+        "inventory": 0,
+        "out_of_catalog": 0,
+        "scheduling": 0.87,
+        "services": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 0,
+        "customers": 0,
+        "communication": 2,
+        "multiple": 2,
+        "financial": 0,
+        "inventory": 0,
+        "out_of_catalog": 0,
+        "scheduling": 2,
+        "services": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "scheduling",
+        "probability": 0.87
+      },
+      "top2": {
+        "choice": "multiple",
+        "probability": 0.11
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "14-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "independent": 0.01,
+        "out_of_catalog": 0.01,
+        "unclear": 0.01,
+        "single": 0.97,
+        "dependent": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "independent": 2,
+        "out_of_catalog": 2,
+        "unclear": 2,
+        "single": 2,
+        "dependent": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.97
+      },
+      "top2": {
+        "choice": "independent",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "14-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "operation",
+      "selectedChoice": "appointment.cancel",
+      "choiceCount": 10,
+      "probabilities": {
+        "availability.get": 0,
+        "out_of_catalog": 0,
+        "appointment.list": 0,
+        "multiple": 0,
+        "appointment.read": 0,
+        "appointment.create": 0,
+        "appointment.cancel": 1,
+        "appointment.change": 0,
+        "schedule.block": 0,
+        "unclear": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "availability.get": 0,
+        "out_of_catalog": 0,
+        "appointment.list": 0,
+        "multiple": 0,
+        "appointment.read": 0,
+        "appointment.create": 0,
+        "appointment.cancel": 0,
+        "appointment.change": 0,
+        "schedule.block": 0,
+        "unclear": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "appointment.cancel",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "availability.get",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "15-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "scheduling",
+      "choiceCount": 9,
+      "probabilities": {
+        "unclear": 0,
+        "inventory": 0,
+        "multiple": 0.11,
+        "services": 0,
+        "financial": 0,
+        "out_of_catalog": 0,
+        "scheduling": 0.89,
+        "communication": 0,
+        "customers": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 0,
+        "inventory": 0,
+        "multiple": 2,
+        "services": 0,
+        "financial": 0,
+        "out_of_catalog": 0,
+        "scheduling": 2,
+        "communication": 0,
+        "customers": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "scheduling",
+        "probability": 0.89
+      },
+      "top2": {
+        "choice": "multiple",
+        "probability": 0.11
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "15-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "dependent",
+      "choiceCount": 5,
+      "probabilities": {
+        "out_of_catalog": 0,
+        "unclear": 0,
+        "independent": 0.02,
+        "dependent": 0.93,
+        "single": 0.05
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "out_of_catalog": 0,
+        "unclear": 0,
+        "independent": 2,
+        "dependent": 2,
+        "single": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "dependent",
+        "probability": 0.93
+      },
+      "top2": {
+        "choice": "single",
+        "probability": 0.05
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "16-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "communication",
+      "choiceCount": 9,
+      "probabilities": {
+        "communication": 0.98,
+        "out_of_catalog": 0.01,
+        "inventory": 0,
+        "multiple": 0.01,
+        "financial": 0,
+        "scheduling": 0,
+        "services": 0,
+        "unclear": 0,
+        "customers": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "communication": 2,
+        "out_of_catalog": 2,
+        "inventory": 0,
+        "multiple": 2,
+        "financial": 0,
+        "scheduling": 0,
+        "services": 0,
+        "unclear": 0,
+        "customers": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "communication",
+        "probability": 0.98
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.01
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "16-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "independent": 0.02,
+        "dependent": 0,
+        "unclear": 0,
+        "single": 0.87,
+        "out_of_catalog": 0.11
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "independent": 2,
+        "dependent": 0,
+        "unclear": 0,
+        "single": 2,
+        "out_of_catalog": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.87
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.11
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "16-2",
+      "evidenceKind": "persisted_response",
+      "dimension": "communication",
+      "selectedChoice": "EXACT",
+      "choiceCount": 5,
+      "probabilities": {
+        "EXACT": 1,
+        "unclear": 0,
+        "unspecified": 0,
+        "none": 0,
+        "GENERATED": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "EXACT": 0,
+        "unclear": 0,
+        "unspecified": 0,
+        "none": 0,
+        "GENERATED": 0
+      },
+      "maxDecimalPlaces": 0,
+      "top1": {
+        "choice": "EXACT",
+        "probability": 1
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "17-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "multiple",
+      "choiceCount": 9,
+      "probabilities": {
+        "inventory": 0,
+        "customers": 0,
+        "communication": 0.08,
+        "out_of_catalog": 0.01,
+        "scheduling": 0.04,
+        "financial": 0,
+        "multiple": 0.87,
+        "services": 0,
+        "unclear": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "inventory": 0,
+        "customers": 0,
+        "communication": 2,
+        "out_of_catalog": 2,
+        "scheduling": 2,
+        "financial": 0,
+        "multiple": 2,
+        "services": 0,
+        "unclear": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "multiple",
+        "probability": 0.87
+      },
+      "top2": {
+        "choice": "communication",
+        "probability": 0.08
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-real-2026-09-23.json",
+      "callId": "17-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "dependent",
+      "choiceCount": 5,
+      "probabilities": {
+        "out_of_catalog": 0.05,
+        "independent": 0.07,
+        "single": 0.07,
+        "dependent": 0.8,
+        "unclear": 0.01
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "out_of_catalog": 2,
+        "independent": 2,
+        "single": 2,
+        "dependent": 1,
+        "unclear": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "dependent",
+        "probability": 0.8
+      },
+      "top2": {
+        "choice": "independent",
+        "probability": 0.07
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-continuation-real-2026-09-23.json",
+      "callId": "18-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "multiple",
+      "choiceCount": 9,
+      "probabilities": {
+        "unclear": 0,
+        "services": 0.01,
+        "multiple": 0.95,
+        "out_of_catalog": 0,
+        "inventory": 0,
+        "scheduling": 0,
+        "financial": 0.04,
+        "customers": 0,
+        "communication": 0
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 0,
+        "services": 2,
+        "multiple": 2,
+        "out_of_catalog": 0,
+        "inventory": 0,
+        "scheduling": 0,
+        "financial": 2,
+        "customers": 0,
+        "communication": 0
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "multiple",
+        "probability": 0.95
+      },
+      "top2": {
+        "choice": "financial",
+        "probability": 0.04
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-continuation-real-2026-09-23.json",
+      "callId": "18-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "independent",
+      "choiceCount": 5,
+      "probabilities": {
+        "unclear": 0.02,
+        "out_of_catalog": 0.04,
+        "dependent": 0.03,
+        "independent": 0.9,
+        "single": 0.01
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "unclear": 2,
+        "out_of_catalog": 2,
+        "dependent": 2,
+        "independent": 1,
+        "single": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "independent",
+        "probability": 0.9
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.04
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-continuation-real-2026-09-23.json",
+      "callId": "19-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "skill",
+      "selectedChoice": "financial",
+      "choiceCount": 9,
+      "probabilities": {
+        "inventory": 0,
+        "unclear": 0.03,
+        "out_of_catalog": 0.02,
+        "financial": 0.75,
+        "services": 0,
+        "scheduling": 0,
+        "customers": 0.01,
+        "communication": 0.16,
+        "multiple": 0.03
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "inventory": 0,
+        "unclear": 2,
+        "out_of_catalog": 2,
+        "financial": 2,
+        "services": 0,
+        "scheduling": 0,
+        "customers": 2,
+        "communication": 2,
+        "multiple": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "financial",
+        "probability": 0.75
+      },
+      "top2": {
+        "choice": "communication",
+        "probability": 0.16
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-continuation-real-2026-09-23.json",
+      "callId": "19-1",
+      "evidenceKind": "persisted_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "dependent": 0.01,
+        "unclear": 0.06,
+        "independent": 0.02,
+        "out_of_catalog": 0.07,
+        "single": 0.84
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "dependent": 2,
+        "unclear": 2,
+        "independent": 2,
+        "out_of_catalog": 2,
+        "single": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.84
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.07
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-continuation-real-2026-09-23.json",
+      "callId": "20-1",
+      "evidenceKind": "sanitized_invalid_response",
+      "dimension": "skill",
+      "selectedChoice": "out_of_catalog",
+      "choiceCount": 9,
+      "probabilities": {
+        "services": 0,
+        "customers": 0,
+        "scheduling": 0,
+        "financial": 0,
+        "inventory": 0,
+        "communication": 0.19,
+        "multiple": 0.02,
+        "unclear": 0.21,
+        "out_of_catalog": 0.58
+      },
+      "probabilitySum": 1,
+      "probabilitySumDelta": 0,
+      "decimalPlacesByChoice": {
+        "services": 0,
+        "customers": 0,
+        "scheduling": 0,
+        "financial": 0,
+        "inventory": 0,
+        "communication": 2,
+        "multiple": 2,
+        "unclear": 2,
+        "out_of_catalog": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "out_of_catalog",
+        "probability": 0.58
+      },
+      "top2": {
+        "choice": "unclear",
+        "probability": 0.21
+      }
+    },
+    {
+      "sourceFile": "acceptance-calibration-continuation-real-2026-09-23.json",
+      "callId": "20-1",
+      "evidenceKind": "sanitized_invalid_response",
+      "dimension": "shape",
+      "selectedChoice": "single",
+      "choiceCount": 5,
+      "probabilities": {
+        "single": 0.8,
+        "independent": 0.01,
+        "dependent": 0,
+        "unclear": 0.01,
+        "out_of_catalog": 0.17
+      },
+      "probabilitySum": 0.99,
+      "probabilitySumDelta": 0.01,
+      "decimalPlacesByChoice": {
+        "single": 1,
+        "independent": 2,
+        "dependent": 0,
+        "unclear": 2,
+        "out_of_catalog": 2
+      },
+      "maxDecimalPlaces": 2,
+      "top1": {
+        "choice": "single",
+        "probability": 0.8
+      },
+      "top2": {
+        "choice": "out_of_catalog",
+        "probability": 0.17
+      }
+    }
+  ]
+}

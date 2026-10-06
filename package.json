@@ -33,6 +33,7 @@
     "test:appointment-integration": "vitest run src/lib/__tests__/appointment-postgres.integration.test.ts src/lib/__tests__/comanda-postgres.integration.test.ts src/lib/__tests__/public-salon-lock-postgres.integration.test.ts src/lib/__tests__/public-salon-runtime-rls-postgres.integration.test.ts"
   },
   "dependencies": {
+    "@everflair/salon-secretary": "file:packages/salon-secretary",
     "@everflare/agents": "file:packages/hq-agents",
     "@hookform/resolvers": "^3.9.0",
     "@next/env": "15.5.25",

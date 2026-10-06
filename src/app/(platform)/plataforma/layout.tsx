@@ -32,7 +32,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
       </header>
       <nav className="border-b border-border bg-background/80" aria-label="Administração global">
         <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-5 py-2">
-          {isHqEnabled() && <PlatformNavLink href="/hq/dashboard" label="Everflare HQ" icon={LayoutDashboard} />}
+          {isHqEnabled() && <PlatformNavLink href="/hq/dashboard" label="Everflair HQ" icon={LayoutDashboard} />}
           <PlatformNavLink href="/plataforma" label="Visão geral" icon={LayoutDashboard} />
           <PlatformNavLink href="/plataforma/solicitacoes" label="Estabelecimentos" icon={Building2} />
           {billingEnabled ? (

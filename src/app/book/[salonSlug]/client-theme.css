@@ -19,6 +19,103 @@
 }
 .client-home-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .client-home-actions > * { flex-shrink: 0; }
+.client-account-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--accent) / .45);
+  background: hsl(var(--accent) / .16);
+  color: hsl(var(--foreground));
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.client-account-avatar:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.client-home-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .25rem .875rem;
+  margin-top: .375rem;
+  font-size: .75rem;
+  color: hsl(var(--muted-foreground));
+}
+.client-home-facts > * { display: inline-flex; align-items: center; gap: .3rem; min-height: 1.75rem; }
+.client-home-facts a { border-radius: .375rem; }
+.client-home-facts a:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.client-inline-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding-inline: .125rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+}
+.client-inline-link:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; border-radius: .375rem; }
+/* Capa e ação principal num só cartão: a foto aparece inteira, o verde embaixo. */
+.client-booking-card {
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid #368967;
+  background: #126949;
+  box-shadow: 0 12px 32px -20px #19875f;
+}
+.client-app .client-booking-card .client-booking-cta { border: 0; border-radius: 0; box-shadow: none; }
+/* No tema claro o primário também é verde: o botão vira branco para não sumir no cartão. */
+.client-app[data-theme="salon-light"] .client-booking-cta-action { background: #fff; color: #0f5b40; }
+.client-team-avatar {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-inline: auto;
+  border-radius: 9999px;
+  border: 2px solid hsl(var(--border));
+}
+.client-service-group {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  background: hsl(var(--card));
+}
+.client-service-book {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 2rem;
+  padding-inline: .75rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--primary) / .45);
+  color: hsl(var(--primary));
+  font-size: .75rem;
+  font-weight: 600;
+}
+/* Abas fixas no topo ao rolar, abaixo da área segura do iPhone. */
+.client-home-tabs {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 20;
+  margin-inline: -1rem;
+  padding-inline: 1rem;
+  background: hsl(var(--background) / .96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid hsl(var(--border));
+}
+.client-home-tablist { display: flex; gap: 1.25rem; overflow-x: auto; scrollbar-width: none; }
+.client-home-tablist::-webkit-scrollbar { display: none; }
+.client-home-tab {
+  flex-shrink: 0;
+  min-height: 2.75rem;
+  padding: .625rem 0 .5rem;
+  border-bottom: 2px solid transparent;
+  color: hsl(var(--muted-foreground));
+  font-size: .875rem;
+  font-weight: 600;
+}
+.client-home-tab.is-active { color: hsl(var(--foreground)); border-color: hsl(var(--primary)); }
+.client-home-tab:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; border-radius: .375rem; }
+@media (min-width: 640px) { .client-home-tabs { margin-inline: -1.25rem; padding-inline: 1.25rem; } }
+@media (min-width: 1024px) { .client-home-tabs { margin-inline: 0; padding-inline: 0; } }
 .client-access {
   width: 100%;
   max-width: 30rem;

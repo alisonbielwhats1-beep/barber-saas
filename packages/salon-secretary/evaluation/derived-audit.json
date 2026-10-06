@@ -1,0 +1,3215 @@
+{
+  "planVersion": "derived-v3",
+  "executed": false,
+  "oracleOnlyOfflinePlan": true,
+  "catalog": {
+    "version": "decision-derivations-v1",
+    "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+    "bindings": [
+      {
+        "skill": "financial",
+        "dimension": "metric",
+        "value": "service_revenue",
+        "operations": [
+          "financial.report"
+        ],
+        "evidence": "src/financial-skill.ts#financialRequirements"
+      },
+      {
+        "skill": "financial",
+        "dimension": "metric",
+        "value": "realized_revenue",
+        "operations": [
+          "financial.report"
+        ],
+        "evidence": "src/financial-skill.ts#financialRequirements"
+      },
+      {
+        "skill": "financial",
+        "dimension": "metric",
+        "value": "received_revenue",
+        "operations": [
+          "financial.report"
+        ],
+        "evidence": "src/financial-skill.ts#financialRequirements"
+      },
+      {
+        "skill": "financial",
+        "dimension": "metric",
+        "value": "completed_count",
+        "operations": [
+          "financial.report"
+        ],
+        "evidence": "src/financial-skill.ts#financialRequirements"
+      },
+      {
+        "skill": "financial",
+        "dimension": "metric",
+        "value": "average_ticket",
+        "operations": [
+          "financial.report"
+        ],
+        "evidence": "src/financial-skill.ts#financialRequirements"
+      },
+      {
+        "skill": "financial",
+        "dimension": "metric",
+        "value": "outstanding_receivables",
+        "operations": [
+          "financial.report"
+        ],
+        "evidence": "src/financial-skill.ts#financialRequirements"
+      },
+      {
+        "skill": "inventory",
+        "dimension": "inventory",
+        "value": "low_stock",
+        "operations": [
+          "product.search"
+        ],
+        "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+      },
+      {
+        "skill": "inventory",
+        "dimension": "inventory",
+        "value": "search",
+        "operations": [
+          "product.search"
+        ],
+        "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+      },
+      {
+        "skill": "inventory",
+        "dimension": "inventory",
+        "value": "balance",
+        "operations": [
+          "stock.balance"
+        ],
+        "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+      },
+      {
+        "skill": "inventory",
+        "dimension": "inventory",
+        "value": "IN",
+        "operations": [
+          "stock.movement"
+        ],
+        "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+      },
+      {
+        "skill": "inventory",
+        "dimension": "inventory",
+        "value": "OUT",
+        "operations": [
+          "stock.movement"
+        ],
+        "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+      },
+      {
+        "skill": "communication",
+        "dimension": "communication",
+        "value": "EXACT",
+        "operations": [
+          "customer.message"
+        ],
+        "evidence": "src/communication-skill.ts#communicationRequirements"
+      },
+      {
+        "skill": "communication",
+        "dimension": "communication",
+        "value": "GENERATED",
+        "operations": [
+          "customer.message"
+        ],
+        "evidence": "src/communication-skill.ts#communicationRequirements"
+      }
+    ]
+  },
+  "datasetFingerprint": "685328f7ae1506a2eff841c07469b6c6dfc85931349d2ba4ba8122b03469fca0",
+  "matrix": [
+    {
+      "skill": "services",
+      "dimensions": [
+        {
+          "dimension": "skill",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "operation",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "shape",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "period",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "metric",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "inventory",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "communication",
+          "applicable": false,
+          "classification": null
+        }
+      ],
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "service_ref",
+          "normalização",
+          "requirements/patch/revisão/autorização"
+        ]
+      },
+      "open": {
+        "classification": "LUNA_REQUIRED",
+        "responsibilities": [
+          "nome/alvo",
+          "valor/duração fora do fast-path"
+        ]
+      },
+      "continuation": {
+        "classification": "FAST_PATH",
+        "fields": [
+          "durationMin"
+        ],
+        "operationSource": "DETERMINISTIC_DERIVATION: contexto autorizado do draft, não reclassificação",
+        "condition": "Somente contexto de draft autorizado e formato aceito pelo parser existente; caso contrário LUNA_REQUIRED."
+      }
+    },
+    {
+      "skill": "customers",
+      "dimensions": [
+        {
+          "dimension": "skill",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "operation",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "shape",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "period",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "metric",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "inventory",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "communication",
+          "applicable": false,
+          "classification": null
+        }
+      ],
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref",
+          "duplicidade/desambiguação",
+          "validação telefone/e-mail"
+        ]
+      },
+      "open": {
+        "classification": "LUNA_REQUIRED",
+        "responsibilities": [
+          "nome composto/alvo",
+          "contato/patch explícito"
+        ]
+      },
+      "continuation": {
+        "classification": "LUNA_REQUIRED",
+        "fields": [],
+        "operationSource": "DETERMINISTIC_DERIVATION: contexto autorizado do draft, não reclassificação",
+        "condition": "Somente contexto de draft autorizado e formato aceito pelo parser existente; caso contrário LUNA_REQUIRED."
+      }
+    },
+    {
+      "skill": "scheduling",
+      "dimensions": [
+        {
+          "dimension": "skill",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "operation",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "shape",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "period",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "metric",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "inventory",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "communication",
+          "applicable": false,
+          "classification": null
+        }
+      ],
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "open": {
+        "classification": "LUNA_REQUIRED",
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ]
+      },
+      "continuation": {
+        "classification": "FAST_PATH",
+        "fields": [
+          "time",
+          "date"
+        ],
+        "operationSource": "DETERMINISTIC_DERIVATION: contexto autorizado do draft, não reclassificação",
+        "condition": "Somente contexto de draft autorizado e formato aceito pelo parser existente; caso contrário LUNA_REQUIRED."
+      }
+    },
+    {
+      "skill": "financial",
+      "dimensions": [
+        {
+          "dimension": "skill",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "operation",
+          "applicable": true,
+          "classification": "DETERMINISTIC_DERIVATION"
+        },
+        {
+          "dimension": "shape",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "period",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "metric",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "inventory",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "communication",
+          "applicable": false,
+          "classification": null
+        }
+      ],
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "intervalo absoluto/timezone",
+          "cálculos/agregados/T09",
+          "autorização/tenant"
+        ]
+      },
+      "open": {
+        "classification": "LUNA_REQUIRED",
+        "responsibilities": [
+          "períodos de comparação",
+          "múltiplas métricas/agrupamentos"
+        ]
+      },
+      "continuation": {
+        "classification": "LUNA_REQUIRED",
+        "fields": [],
+        "operationSource": "DETERMINISTIC_DERIVATION: contexto autorizado do draft, não reclassificação",
+        "condition": "Somente contexto de draft autorizado e formato aceito pelo parser existente; caso contrário LUNA_REQUIRED."
+      }
+    },
+    {
+      "skill": "inventory",
+      "dimensions": [
+        {
+          "dimension": "skill",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "operation",
+          "applicable": true,
+          "classification": "DETERMINISTIC_DERIVATION"
+        },
+        {
+          "dimension": "shape",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "period",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "metric",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "inventory",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "communication",
+          "applicable": false,
+          "classification": null
+        }
+      ],
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "product_ref",
+          "saldo/mínimo/unidade/projeção",
+          "revisão/autorização"
+        ]
+      },
+      "open": {
+        "classification": "LUNA_REQUIRED",
+        "responsibilities": [
+          "nome do produto",
+          "quantidade/motivo explícitos fora do fast-path"
+        ]
+      },
+      "continuation": {
+        "classification": "FAST_PATH",
+        "fields": [
+          "quantity"
+        ],
+        "operationSource": "DETERMINISTIC_DERIVATION: contexto autorizado do draft, não reclassificação",
+        "condition": "Somente contexto de draft autorizado e formato aceito pelo parser existente; caso contrário LUNA_REQUIRED."
+      }
+    },
+    {
+      "skill": "communication",
+      "dimensions": [
+        {
+          "dimension": "skill",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "operation",
+          "applicable": true,
+          "classification": "DETERMINISTIC_DERIVATION"
+        },
+        {
+          "dimension": "shape",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        },
+        {
+          "dimension": "period",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "metric",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "inventory",
+          "applicable": false,
+          "classification": null
+        },
+        {
+          "dimension": "communication",
+          "applicable": true,
+          "classification": "LINGUISTIC_DECISION"
+        }
+      ],
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "recipient_ref/telefone",
+          "canal permitido/preview/EXACT",
+          "dependência/outbox/status/idempotência"
+        ]
+      },
+      "open": {
+        "classification": "LUNA_REQUIRED",
+        "responsibilities": [
+          "destinatário/canal/texto",
+          "geração explícita ou extração literal",
+          "dependência e mesma pessoa"
+        ]
+      },
+      "continuation": {
+        "classification": "FAST_PATH",
+        "fields": [
+          "channel"
+        ],
+        "operationSource": "DETERMINISTIC_DERIVATION: contexto autorizado do draft, não reclassificação",
+        "condition": "Somente contexto de draft autorizado e formato aceito pelo parser existente; caso contrário LUNA_REQUIRED."
+      }
+    }
+  ],
+  "cases": [
+    {
+      "caseId": "services-create",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "service_ref",
+          "normalização",
+          "requirements/patch/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome/alvo",
+          "valor/duração fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "name": "Massagem",
+          "priceCents": 5000,
+          "missing": [
+            "durationMin"
+          ]
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "services",
+        "operation": "service.create",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1542,
+      "plannedJsonBytes": 1542
+    },
+    {
+      "caseId": "services-price",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "service_ref",
+          "normalização",
+          "requirements/patch/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome/alvo",
+          "valor/duração fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "target_name": "massagem",
+          "priceCents": 8000
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "services",
+        "operation": "service.change",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1556,
+      "plannedJsonBytes": 1556
+    },
+    {
+      "caseId": "services-duration",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": []
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": "service.create",
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "service_ref",
+          "normalização",
+          "requirements/patch/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "durationMin": 45
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": true,
+        "waitingFor": "durationMin"
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "services",
+        "operation": "service.create",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 0,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 0,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 0,
+      "plannedJsonBytes": 0
+    },
+    {
+      "caseId": "services-rename",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "service_ref",
+          "normalização",
+          "requirements/patch/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome/alvo",
+          "valor/duração fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "target_name": "Massagem",
+          "name": "Massagem Relaxante"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "services",
+        "operation": "service.change",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1560,
+      "plannedJsonBytes": 1560
+    },
+    {
+      "caseId": "customers-create",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref",
+          "duplicidade/desambiguação",
+          "validação telefone/e-mail"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome composto/alvo",
+          "contato/patch explícito"
+        ],
+        "oracleOpenRequirements": {
+          "name": "Amanda Souza",
+          "missing": []
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "customers",
+        "operation": "customer.create",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1571,
+      "plannedJsonBytes": 1571
+    },
+    {
+      "caseId": "customers-phone",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref",
+          "duplicidade/desambiguação",
+          "validação telefone/e-mail"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome composto/alvo",
+          "contato/patch explícito"
+        ],
+        "oracleOpenRequirements": {
+          "target_name": "Amanda",
+          "requested_fields": [
+            "phone"
+          ]
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "customers",
+        "operation": "customer.change",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1583,
+      "plannedJsonBytes": 1583
+    },
+    {
+      "caseId": "customers-email",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref",
+          "duplicidade/desambiguação",
+          "validação telefone/e-mail"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome composto/alvo",
+          "contato/patch explícito"
+        ],
+        "oracleOpenRequirements": {
+          "target_name": "Amanda Souza",
+          "requested_fields": [
+            "email"
+          ]
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "customers",
+        "operation": "customer.change",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1587,
+      "plannedJsonBytes": 1587
+    },
+    {
+      "caseId": "customers-full-name",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref",
+          "duplicidade/desambiguação",
+          "validação telefone/e-mail"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome composto/alvo",
+          "contato/patch explícito"
+        ],
+        "oracleOpenRequirements": {
+          "name": "Maria Clara de Souza"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "customers",
+        "operation": "customer.create",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1587,
+      "plannedJsonBytes": 1587
+    },
+    {
+      "caseId": "customers-ambiguous",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref",
+          "duplicidade/desambiguação",
+          "validação telefone/e-mail"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome composto/alvo",
+          "contato/patch explícito"
+        ],
+        "oracleOpenRequirements": {
+          "target_name": "Amanda",
+          "resolution": "backend_must_disambiguate_if_multiple"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "customers",
+        "operation": "customer.read",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1561,
+      "plannedJsonBytes": 1561
+    },
+    {
+      "caseId": "scheduling-create",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ],
+        "oracleOpenRequirements": {
+          "customer_name": "Amanda",
+          "professional_name": "Tatiana",
+          "service_name": "Progressiva",
+          "day_offset": 1,
+          "time": "10:00"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "appointment.create",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1728,
+      "plannedJsonBytes": 1728
+    },
+    {
+      "caseId": "scheduling-cancel",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ],
+        "oracleOpenRequirements": {
+          "customer_name": "Beatriz",
+          "day_offset": 1,
+          "time": "14:00",
+          "reason": "teste controlado"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "appointment.cancel",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1730,
+      "plannedJsonBytes": 1730
+    },
+    {
+      "caseId": "scheduling-change",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ],
+        "oracleOpenRequirements": {
+          "customer_name": "Amanda",
+          "source_day_offset": 1,
+          "source_time": "10:00",
+          "time": "11:00"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "appointment.change",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1696,
+      "plannedJsonBytes": 1696
+    },
+    {
+      "caseId": "scheduling-block",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ],
+        "oracleOpenRequirements": {
+          "professional_name": "Tatiana",
+          "day_offset": 1,
+          "time": "13:00",
+          "end_time": "15:00"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "schedule.block",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1716,
+      "plannedJsonBytes": 1716
+    },
+    {
+      "caseId": "scheduling-occupied",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "operation"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ],
+        "oracleOpenRequirements": {
+          "customer_name": "Amanda",
+          "service_name": "Progressiva",
+          "day_offset": 1,
+          "time": "10:00",
+          "availability": "backend_only_conflict_fixture"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "appointment.create",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 3,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1704,
+      "plannedJsonBytes": 1704
+    },
+    {
+      "caseId": "scheduling-missing-service",
+      "category": "C",
+      "path": "EXISTING_DRAFT_MODEL_FALLBACK",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": []
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": "appointment.create",
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ],
+        "oracleOpenRequirements": {
+          "service_name": "Progressiva",
+          "preserve": [
+            "customer",
+            "date",
+            "time"
+          ]
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "appointment.create",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 0,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 0,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 0,
+      "plannedJsonBytes": 0
+    },
+    {
+      "caseId": "scheduling-ambiguous-period",
+      "category": "C",
+      "path": "EXISTING_DRAFT_MODEL_FALLBACK",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": []
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": "appointment.change",
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ],
+        "oracleOpenRequirements": {
+          "period": "afternoon",
+          "time": "must_not_invent",
+          "status": "NEEDS_INPUT"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "appointment.change",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 0,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 0,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 0,
+      "plannedJsonBytes": 0
+    },
+    {
+      "caseId": "scheduling-batch",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas"
+        ],
+        "oracleOpenRequirements": {
+          "customer_names": [
+            "Amanda",
+            "Fábio"
+          ],
+          "service_name": "corte masculino",
+          "released_slot_of": 0
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "multiple",
+        "shape": "dependent",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 1066,
+      "plannedJsonBytes": 1066
+    },
+    {
+      "caseId": "scheduling-time",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": []
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": "appointment.change",
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "time": "11:00"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": true,
+        "waitingFor": "time"
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "appointment.change",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 0,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 0,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 0,
+      "plannedJsonBytes": 0
+    },
+    {
+      "caseId": "scheduling-date",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": []
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": "appointment.create",
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "day_offset": 1
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": true,
+        "waitingFor": "date"
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "scheduling",
+        "operation": "appointment.create",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 0,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 0,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 0,
+      "plannedJsonBytes": 0
+    },
+    {
+      "caseId": "financial-revenue",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "intervalo absoluto/timezone",
+          "cálculos/agregados/T09",
+          "autorização/tenant"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "yesterday",
+        "metric": "service_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 5,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 2580,
+      "plannedJsonBytes": 2200
+    },
+    {
+      "caseId": "financial-received",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "received_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "intervalo absoluto/timezone",
+          "cálculos/agregados/T09",
+          "autorização/tenant"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "metrics": [
+            "received_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "yesterday",
+        "metric": "received_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 5,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 2584,
+      "plannedJsonBytes": 2204
+    },
+    {
+      "caseId": "financial-outstanding",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "outstanding_receivables"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "intervalo absoluto/timezone",
+          "cálculos/agregados/T09",
+          "autorização/tenant"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": null
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "none",
+        "metric": "outstanding_receivables",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 5,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 2584,
+      "plannedJsonBytes": 2204
+    },
+    {
+      "caseId": "financial-comparison",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "intervalo absoluto/timezone",
+          "cálculos/agregados/T09",
+          "autorização/tenant"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "períodos de comparação",
+          "múltiplas métricas/agrupamentos"
+        ],
+        "oracleOpenRequirements": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "this_week",
+          "compare_period": "last_week"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "inventory",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "comparison",
+        "metric": "service_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 5,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 2620,
+      "plannedJsonBytes": 2240
+    },
+    {
+      "caseId": "financial-multiple",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "intervalo absoluto/timezone",
+          "cálculos/agregados/T09",
+          "autorização/tenant"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "períodos de comparação",
+          "múltiplas métricas/agrupamentos"
+        ],
+        "oracleOpenRequirements": {
+          "metrics": [
+            "service_revenue",
+            "average_ticket"
+          ],
+          "group_by": [
+            "professional",
+            "service"
+          ],
+          "period": "this_month"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "financial",
+        "operation": "multiple",
+        "shape": "independent",
+        "period": "this_month",
+        "metric": "multiple",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 1037,
+      "plannedJsonBytes": 1037
+    },
+    {
+      "caseId": "inventory-balance",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "inventory"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "stock.balance",
+            "source": {
+              "skill": "inventory",
+              "dimension": "inventory",
+              "value": "balance"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "product_ref",
+          "saldo/mínimo/unidade/projeção",
+          "revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome do produto",
+          "quantidade/motivo explícitos fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "product_name": "Shampoo X"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "inventory",
+        "operation": "stock.balance",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "balance",
+        "communication": "none"
+      },
+      "previousQuestions": 4,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1952,
+      "plannedJsonBytes": 1531
+    },
+    {
+      "caseId": "inventory-low",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "inventory"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "product.search",
+            "source": {
+              "skill": "inventory",
+              "dimension": "inventory",
+              "value": "low_stock"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "product_ref",
+          "saldo/mínimo/unidade/projeção",
+          "revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "low_stock": true
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "inventory",
+        "operation": "product.search",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "low_stock",
+        "communication": "none"
+      },
+      "previousQuestions": 4,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1954,
+      "plannedJsonBytes": 1533
+    },
+    {
+      "caseId": "inventory-in",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "inventory"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "stock.movement",
+            "source": {
+              "skill": "inventory",
+              "dimension": "inventory",
+              "value": "IN"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "product_ref",
+          "saldo/mínimo/unidade/projeção",
+          "revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome do produto",
+          "quantidade/motivo explícitos fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "product_name": "Shampoo X",
+          "mode": "IN",
+          "quantity": 10
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "inventory",
+        "operation": "stock.movement",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "IN",
+        "communication": "none"
+      },
+      "previousQuestions": 4,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1942,
+      "plannedJsonBytes": 1521
+    },
+    {
+      "caseId": "inventory-out-missing",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "inventory"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "stock.movement",
+            "source": {
+              "skill": "inventory",
+              "dimension": "inventory",
+              "value": "OUT"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/inventory-skill.ts#inventorySkill + src/skill-registry.ts#discoveryInstructions"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "product_ref",
+          "saldo/mínimo/unidade/projeção",
+          "revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome do produto",
+          "quantidade/motivo explícitos fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "product_name": "Shampoo Y",
+          "mode": "OUT",
+          "missing": [
+            "quantity"
+          ]
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "expectedUnchanged": {
+        "skill": "inventory",
+        "operation": "stock.movement",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "OUT",
+        "communication": "none"
+      },
+      "previousQuestions": 4,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1920,
+      "plannedJsonBytes": 1499
+    },
+    {
+      "caseId": "inventory-quantity",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": []
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": "stock.movement",
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "product_ref",
+          "saldo/mínimo/unidade/projeção",
+          "revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "quantity": 3
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": true,
+        "waitingFor": "quantity"
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "inventory",
+        "operation": "stock.movement",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "OUT",
+        "communication": "none"
+      },
+      "previousQuestions": 0,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 0,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 0,
+      "plannedJsonBytes": 0
+    },
+    {
+      "caseId": "communication-exact",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "communication"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "customer.message",
+            "source": {
+              "skill": "communication",
+              "dimension": "communication",
+              "value": "EXACT"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/communication-skill.ts#communicationRequirements"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "recipient_ref/telefone",
+          "canal permitido/preview/EXACT",
+          "dependência/outbox/status/idempotência"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "destinatário/canal/texto",
+          "geração explícita ou extração literal",
+          "dependência e mesma pessoa"
+        ],
+        "oracleOpenRequirements": {
+          "recipient_name": "Fábio",
+          "channel": "WHATSAPP",
+          "message_mode": "EXACT",
+          "content": "Serviço cancelado, Fábio."
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "expectedUnchanged": {
+        "skill": "communication",
+        "operation": "customer.message",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "EXACT"
+      },
+      "previousQuestions": 4,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 2018,
+      "plannedJsonBytes": 1638
+    },
+    {
+      "caseId": "communication-generated",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "communication"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [
+          {
+            "dimension": "operation",
+            "operation": "customer.message",
+            "source": {
+              "skill": "communication",
+              "dimension": "communication",
+              "value": "GENERATED"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/communication-skill.ts#communicationRequirements"
+          }
+        ],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "recipient_ref/telefone",
+          "canal permitido/preview/EXACT",
+          "dependência/outbox/status/idempotência"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "destinatário/canal/texto",
+          "geração explícita ou extração literal",
+          "dependência e mesma pessoa"
+        ],
+        "oracleOpenRequirements": {
+          "recipient_name": "Fábio",
+          "channel": "WHATSAPP",
+          "message_mode": "GENERATED",
+          "content": "requires_review_not_fixed_text"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "expectedUnchanged": {
+        "skill": "communication",
+        "operation": "customer.message",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "GENERATED"
+      },
+      "previousQuestions": 4,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 2016,
+      "plannedJsonBytes": 1636
+    },
+    {
+      "caseId": "communication-missing-channel",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape",
+          "communication"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": "MAPPING_MISSING"
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "recipient_ref/telefone",
+          "canal permitido/preview/EXACT",
+          "dependência/outbox/status/idempotência"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "destinatário/canal/texto",
+          "geração explícita ou extração literal",
+          "dependência e mesma pessoa"
+        ],
+        "oracleOpenRequirements": {
+          "recipient_name": "Fábio",
+          "channel": null,
+          "content": "do_not_generate_without_explicit_request"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "expectedUnchanged": {
+        "skill": "communication",
+        "operation": "customer.message",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "unspecified"
+      },
+      "previousQuestions": 4,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 2,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 1946,
+      "plannedJsonBytes": 1566
+    },
+    {
+      "caseId": "communication-channel",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": []
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": "customer.message",
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "recipient_ref/telefone",
+          "canal permitido/preview/EXACT",
+          "dependência/outbox/status/idempotência"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "channel": "WHATSAPP"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": true,
+        "waitingFor": "channel"
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "communication",
+        "operation": "customer.message",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "unspecified"
+      },
+      "previousQuestions": 0,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 0,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 0,
+      "plannedJsonBytes": 0
+    },
+    {
+      "caseId": "communication-dependent-name",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref/service_ref/professional_ref/appointment_ref",
+          "timezone/data absoluta",
+          "preço/duração/disponibilidade/recursos",
+          "grafo/revisão/autorização",
+          "recipient_ref/telefone",
+          "canal permitido/preview/EXACT",
+          "dependência/outbox/status/idempotência"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "entidades e papéis nominais",
+          "data/hora/período/reason abertos",
+          "operações/dependências múltiplas",
+          "destinatário/canal/texto",
+          "geração explícita ou extração literal",
+          "dependência e mesma pessoa"
+        ],
+        "oracleOpenRequirements": {
+          "customer_name": "Amanda Communication Sintética",
+          "recipient_name": "Amanda Communication Sintética",
+          "service_name": null,
+          "message_mode": "EXACT",
+          "content": "Amanda, seu horário foi cancelado."
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "multiple",
+        "operation": "multiple",
+        "shape": "dependent",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "EXACT"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 1099,
+      "plannedJsonBytes": 1099
+    },
+    {
+      "caseId": "compound-financial-services",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "intervalo absoluto/timezone",
+          "cálculos/agregados/T09",
+          "autorização/tenant",
+          "service_ref",
+          "normalização",
+          "requirements/patch/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "períodos de comparação",
+          "múltiplas métricas/agrupamentos",
+          "nome/alvo",
+          "valor/duração fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "period": "yesterday",
+          "target_name": "massagem",
+          "priceCents": 8000
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "multiple",
+        "operation": "multiple",
+        "shape": "independent",
+        "period": "yesterday",
+        "metric": "service_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 990,
+      "plannedJsonBytes": 990
+    },
+    {
+      "caseId": "compound-financial-inventory",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "intervalo absoluto/timezone",
+          "cálculos/agregados/T09",
+          "autorização/tenant",
+          "product_ref",
+          "saldo/mínimo/unidade/projeção",
+          "revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "períodos de comparação",
+          "múltiplas métricas/agrupamentos",
+          "nome do produto",
+          "quantidade/motivo explícitos fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "period": "yesterday",
+          "product_name": "Shampoo X",
+          "quantity": 10,
+          "mode": "IN"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "multiple",
+        "operation": "multiple",
+        "shape": "independent",
+        "period": "yesterday",
+        "metric": "service_revenue",
+        "inventory": "IN",
+        "communication": "none"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 990,
+      "plannedJsonBytes": 990
+    },
+    {
+      "caseId": "compound-customers-services",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": [
+          "customer_ref",
+          "duplicidade/desambiguação",
+          "validação telefone/e-mail",
+          "service_ref",
+          "normalização",
+          "requirements/patch/revisão/autorização"
+        ]
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": true,
+        "responsibilities": [
+          "nome composto/alvo",
+          "contato/patch explícito",
+          "nome/alvo",
+          "valor/duração fora do fast-path"
+        ],
+        "oracleOpenRequirements": {
+          "name": "Amanda Souza",
+          "target_name": "massagem",
+          "priceCents": 8000
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "multiple",
+        "operation": "multiple",
+        "shape": "independent",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 991,
+      "plannedJsonBytes": 991
+    },
+    {
+      "caseId": "outside-financial-write",
+      "category": "D",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": []
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "rejection": "financial_write_unpublished"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "out_of_catalog",
+        "operation": "out_of_catalog",
+        "shape": "out_of_catalog",
+        "period": "none",
+        "metric": "unclear",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 969,
+      "plannedJsonBytes": 969
+    },
+    {
+      "caseId": "outside-roles",
+      "category": "D",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": []
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "rejection": "credentials_roles_unpublished"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "out_of_catalog",
+        "operation": "out_of_catalog",
+        "shape": "out_of_catalog",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 965,
+      "plannedJsonBytes": 965
+    },
+    {
+      "caseId": "outside-campaign",
+      "category": "D",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "linguistic": {
+        "classification": "LINGUISTIC_DECISION",
+        "dimensions": [
+          "skill",
+          "shape"
+        ]
+      },
+      "deterministic": {
+        "classification": "DETERMINISTIC_DERIVATION",
+        "operations": [],
+        "knownContextOperation": null,
+        "failure": null
+      },
+      "backend": {
+        "classification": "BACKEND_RESOLUTION",
+        "responsibilities": []
+      },
+      "luna": {
+        "classification": "LUNA_REQUIRED",
+        "required": false,
+        "responsibilities": [],
+        "oracleOpenRequirements": {
+          "rejection": "external_campaign_unpublished"
+        }
+      },
+      "fastPath": {
+        "classification": "FAST_PATH",
+        "applicable": false,
+        "waitingFor": null
+      },
+      "notApplicable": [],
+      "expectedUnchanged": {
+        "skill": "out_of_catalog",
+        "operation": "out_of_catalog",
+        "shape": "out_of_catalog",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "previousQuestions": 2,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 989,
+      "plannedJsonBytes": 989
+    }
+  ],
+  "groups": [
+    {
+      "category": "A",
+      "cases": 5,
+      "questions": 0,
+      "averageQuestionsPerCase": 0,
+      "previousQuestions": 0,
+      "httpCalls": 0,
+      "jsonBytes": 0
+    },
+    {
+      "category": "B",
+      "cases": 14,
+      "questions": 46,
+      "averageQuestionsPerCase": 3.2857142857142856,
+      "previousQuestions": 54,
+      "httpCalls": 28,
+      "jsonBytes": 24501
+    },
+    {
+      "category": "C",
+      "cases": 18,
+      "questions": 42,
+      "averageQuestionsPerCase": 2.3333333333333335,
+      "previousQuestions": 45,
+      "httpCalls": 26,
+      "jsonBytes": 22565
+    },
+    {
+      "category": "D",
+      "cases": 3,
+      "questions": 6,
+      "averageQuestionsPerCase": 2,
+      "previousQuestions": 6,
+      "httpCalls": 3,
+      "jsonBytes": 2923
+    }
+  ],
+  "totals": {
+    "cases": 40,
+    "previousQuestions": 105,
+    "questions": 94,
+    "averageQuestionsPerCase": 2.35,
+    "httpCalls": 57,
+    "previousJsonBytes": 54333,
+    "jsonBytes": 49989
+  }
+}

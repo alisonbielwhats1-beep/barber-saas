@@ -42,7 +42,7 @@ export default async function ClientPortfolio({
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Nosso trabalho
           </p>
-          <p className="text-sm font-semibold">Portfolio</p>
+          <p className="text-sm font-semibold">Portfólio</p>
         </div>
         <CartBadge salonSlug={salonSlug} />
       </header>

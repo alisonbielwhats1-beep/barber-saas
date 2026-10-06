@@ -1,0 +1,17 @@
+{
+  "gate": "4.0B RUNNER PREFLIGHT OFFLINE",
+  "manifest_sha256": "b8c4c39b9ea338dbd2cbe80b9fe9f2efeb940391109da034b11bb480cbb0076e",
+  "protected_files_verified": 118,
+  "files": {
+    "packages/salon-secretary/evaluation/hard-conversations-fixtures.ts": "7fec5ad1a4111953fb04d9a65d9fce77aa6248651c743bbd1a3591f44ee0f268",
+    "packages/salon-secretary/evaluation/hard-conversations-preflight.ts": "258bc7e56c11d955b067740777983162741d62aaaef69454ff3a6ad8364ca773",
+    "packages/salon-secretary/evaluation/hard-conversations-runner.ts": "8820f8d2fd4231c15dbc729ec773f64258bea889c85670403142fadbf41445df",
+    "scripts/preflight-hard-conversations.ts": "10664788513ece857490d1a05ed5fb93c090dcf0677c0ae138f5273013c26ab0",
+    "src/lib/__tests__/hard-conversations-runner.test.ts": "174252e9f3d4efd6a7957ae00a093300bfda8738d1187c3363596dcf3f15f5a0",
+    "src/lib/__tests__/hard-conversations-runtime-probes.test.ts": "da49776f52f2bc47abb30ab5501a4e364b2a53fb8a76ab4c6c4b4e3cfe3c176f",
+    "docs/SECRETARIA_GATE_4_0B_RUNNER_PREFLIGHT.md": "451eecd82c4c9d8669bcebdaae131b0d737e002102eb9d4e41238473af79881e",
+    "docs/SECRETARIA_GATE_4_0B_RUNNER_VALIDATION.md": "9935577d48fd50020e9ef7f7ce69cc9e58dc3e737dc38a72d121065cfcd5e64c"
+  },
+  "report_sha256": "c7f5fa29a3e0a0617a1226ab29ffe2fd39642d557e0d674733e4d5a718336076",
+  "status": "STRUCTURAL_DRY_RUN_ONLY_REAL_ADAPTER_PENDING"
+}

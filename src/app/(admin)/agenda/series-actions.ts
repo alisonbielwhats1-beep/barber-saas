@@ -8,7 +8,7 @@ import { inspectAppointmentAvailabilityWithServiceSnapshots } from "@/lib/appoin
 import { requestStaffReschedule } from "@/lib/reschedule-proposals";
 import { addCalendarDays, toLocalDateTime } from "@/lib/time";
 
-const edit = z.object({ appointmentId: z.string().min(1), shiftDays: z.number().int().min(-365).max(365), time: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/), reason: z.string().trim().min(3).max(200) });
+const edit = z.object({ appointmentId: z.string().min(1), shiftDays: z.number().int().min(-365).max(365), time: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/), reason: z.string().trim().max(200).optional() });
 export async function previewSeriesEdit(input: z.infer<typeof edit>) {
   const ctx = await getTenantContext(); assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = edit.parse(input);
@@ -35,7 +35,8 @@ export async function previewSeriesEdit(input: z.infer<typeof edit>) {
   });
 }
 
-const apply = z.object({ reason: z.string().trim().min(3).max(200), items: z.array(z.object({ id: z.string().min(1), version: z.number().int().positive(), startLocal: z.string().length(16), requestId: z.string().uuid() })).min(1).max(52) });
+// O motivo é opcional: vazio vira "sem motivo" e requestStaffReschedule usa o texto padrão do estabelecimento.
+const apply = z.object({ reason: z.string().trim().max(200).optional(), items: z.array(z.object({ id: z.string().min(1), version: z.number().int().positive(), startLocal: z.string().length(16), requestId: z.string().uuid() })).min(1).max(52) });
 export async function applySeriesEdit(input: z.infer<typeof apply>) {
   const ctx = await getTenantContext(); assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = apply.parse(input);
@@ -45,7 +46,7 @@ export async function applySeriesEdit(input: z.infer<typeof apply>) {
       const result = await withTenant(ctx, async tx => {
         const appointment = await tx.appointment.findFirst({ where: { id: item.id, salonId: ctx.salonId, seriesId: { not: null }, startAt: { gt: new Date() }, status: { in: ["PENDING", "CONFIRMED"] } }, include: { serviceItems: { orderBy: { position: "asc" } } } });
         if (!appointment) throw new Error("Ocorrência alterada ou já iniciada");
-        return requestStaffReschedule(tx, { salonId: ctx.salonId, appointmentId: appointment.id, professionalId: appointment.professionalId, serviceIds: appointment.serviceItems.length ? appointment.serviceItems.map(s => s.serviceId) : [appointment.serviceId], startLocal: item.startLocal, expectedVersion: item.version, idempotencyKey: item.requestId, reason: data.reason, actor: { type: "STAFF", id: ctx.userId, name: "Equipe" } });
+        return requestStaffReschedule(tx, { salonId: ctx.salonId, appointmentId: appointment.id, professionalId: appointment.professionalId, serviceIds: appointment.serviceItems.length ? appointment.serviceItems.map(s => s.serviceId) : [appointment.serviceId], startLocal: item.startLocal, expectedVersion: item.version, idempotencyKey: item.requestId, reason: data.reason || null, actor: { type: "STAFF", id: ctx.userId, name: "Equipe" } });
       });
       results.push({ id: item.id, success: true, message: result.requiresAcceptance ? "Horário atualizado; aguardando resposta no aplicativo" : "Reagendado" });
     } catch { results.push({ id: item.id, success: false, message: "Mantido: horário indisponível ou ocorrência alterada. Revise individualmente." }); }

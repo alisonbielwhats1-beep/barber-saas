@@ -10,6 +10,7 @@ dist
 coverage
 playwright-report
 artifacts/
+packages/salon-secretary/evaluation/results/
 test-results
 *.db
 *.db-journal

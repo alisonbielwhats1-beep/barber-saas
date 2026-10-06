@@ -1,0 +1,2186 @@
+[
+  {
+    "id": "PD01",
+    "title": "Motivo longo com palavra de tempo; o serviço indica qual dos dois atendimentos",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "reason",
+      "service-hint",
+      "weekday"
+    ],
+    "expect": "A pigmentação do Agripino (dia +2) vai para o dia da semana de +4 às 17h com o Tibúrcio; o corte de amanhã fica. Nenhuma pergunta.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        {
+          "key": "degrade",
+          "name": "Corte degradê",
+          "durationMin": 40,
+          "priceCents": 5000
+        },
+        {
+          "key": "barba",
+          "name": "Barba com toalha quente",
+          "durationMin": 30,
+          "priceCents": 4000
+        },
+        {
+          "key": "pigmentacao",
+          "name": "Pigmentação de barba",
+          "durationMin": 45,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "tiburcio",
+        "name": "Tibúrcio Dorneles"
+      }
+    ],
+    "customers": [
+      {
+        "key": "agripino",
+        "name": "Agripino Queiroga",
+        "phone": "11973400101"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "agr_corte",
+        "customer": "agripino",
+        "professional": "tiburcio",
+        "service": "degrade",
+        "day": 1,
+        "time": "10:00"
+      },
+      {
+        "key": "agr_pigm",
+        "customer": "agripino",
+        "professional": "tiburcio",
+        "service": "pigmentacao",
+        "day": 2,
+        "time": "15:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "O Agripino vai pegar estrada amanhã cedo pra um velório no interior, então a pigmentação dele precisa ir pra {{d:+4|weekday}} às 17h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Agripino Queiroga",
+          "service": "Corte degradê",
+          "day": 1,
+          "time": "10:00",
+          "professional": "Tibúrcio Dorneles",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Agripino Queiroga",
+          "service": "Pigmentação de barba",
+          "day": 4,
+          "time": "17:00",
+          "professional": "Tibúrcio Dorneles",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD02",
+    "title": "Cortesias e pedido educado; o serviço indica o atendimento; mantém a profissional",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "courtesy",
+      "service-hint",
+      "weekday"
+    ],
+    "expect": "O spa dos pés da Florisbela (+2) vai para o dia da semana de +5 às 10h30 com a Adalgisa; a manicure de amanhã fica. Nenhuma pergunta.",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        {
+          "key": "mani",
+          "name": "Manicure tradicional",
+          "durationMin": 40,
+          "priceCents": 3500
+        },
+        {
+          "key": "spa",
+          "name": "Spa dos pés",
+          "durationMin": 50,
+          "priceCents": 5500
+        },
+        {
+          "key": "fibra",
+          "name": "Alongamento em fibra",
+          "durationMin": 120,
+          "priceCents": 18000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "19:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "urania",
+        "name": "Urânia Ourique"
+      },
+      {
+        "key": "adalgisa",
+        "name": "Adalgisa Hipólito",
+        "services": [
+          "mani",
+          "spa"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "florisbela",
+        "name": "Florisbela Junqueira",
+        "phone": "11973400102"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "flo_mani",
+        "customer": "florisbela",
+        "professional": "adalgisa",
+        "service": "mani",
+        "day": 1,
+        "time": "09:00"
+      },
+      {
+        "key": "flo_spa",
+        "customer": "florisbela",
+        "professional": "adalgisa",
+        "service": "spa",
+        "day": 2,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Boa tarde, tudo bem? Desculpa o incômodo, mas daria pra mudar o spa dos pés da Florisbela pra {{d:+5|weekday}} às 10h30, com a mesma profissional? Muito obrigada!"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Florisbela Junqueira",
+          "service": "Manicure tradicional",
+          "day": 1,
+          "time": "09:00",
+          "professional": "Adalgisa Hipólito",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Florisbela Junqueira",
+          "service": "Spa dos pés",
+          "day": 5,
+          "time": "10:30",
+          "professional": "Adalgisa Hipólito",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD03",
+    "title": "Correção do próprio horário na mesma frase, com o motivo",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "correction",
+      "weekday"
+    ],
+    "expect": "O corte da Laudelina (+2) vai para o dia da semana de +3 às 17h (a correção vale, 16h nunca é proposto). Nenhuma pergunta.",
+    "salon": {
+      "type": "salão de beleza",
+      "services": [
+        {
+          "key": "argila",
+          "name": "Banho de argila",
+          "durationMin": 150,
+          "priceCents": 25000
+        },
+        {
+          "key": "corte",
+          "name": "Corte feminino",
+          "durationMin": 50,
+          "priceCents": 7000
+        },
+        {
+          "key": "hidra",
+          "name": "Hidratação express",
+          "durationMin": 30,
+          "priceCents": 4500
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "21:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "ximena",
+        "name": "Ximena Valadão"
+      },
+      {
+        "key": "teotonio",
+        "name": "Teotônio Godinho",
+        "services": [
+          "corte",
+          "hidra"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "laudelina",
+        "name": "Laudelina Peixoto",
+        "phone": "11973400103"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "lau_corte",
+        "customer": "laudelina",
+        "professional": "teotonio",
+        "service": "corte",
+        "day": 2,
+        "time": "11:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Passa o corte da Laudelina pra {{d:+3|weekday}} às 16h... não, espera, às 17h, que ela sai do trabalho mais tarde"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Laudelina Peixoto",
+          "service": "Corte feminino",
+          "day": 3,
+          "time": "17:00",
+          "professional": "Teotônio Godinho",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD04",
+    "title": "Verificação de vaga que serve à própria remarcação, com troca de profissional",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "availability-check",
+      "change-professional",
+      "weekday"
+    ],
+    "expect": "A limpeza de pele do Olegário (+1, com a Abigail) vai para o dia da semana de +4 às 11h com o Elpídio. Nenhuma pergunta.",
+    "salon": {
+      "type": "estética",
+      "services": [
+        {
+          "key": "limpeza",
+          "name": "Limpeza de pele profunda",
+          "durationMin": 60,
+          "priceCents": 15000
+        },
+        {
+          "key": "peeling",
+          "name": "Peeling de diamante",
+          "durationMin": 45,
+          "priceCents": 13000
+        },
+        {
+          "key": "massagem",
+          "name": "Massagem modeladora",
+          "durationMin": 50,
+          "priceCents": 12000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "10:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "abigail",
+        "name": "Abigail Ornelas"
+      },
+      {
+        "key": "elpidio",
+        "name": "Elpídio Ibiapina",
+        "services": [
+          "limpeza",
+          "massagem"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "olegario",
+        "name": "Olegário Junqueira",
+        "phone": "11973400104"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "ole_limpeza",
+        "customer": "olegario",
+        "professional": "abigail",
+        "service": "limpeza",
+        "day": 1,
+        "time": "15:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Dá uma olhada se o Elpídio tem {{d:+4|weekday}} às 11h livre; havendo, a limpeza de pele do Olegário vai pra ele nesse horário"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Olegário Junqueira",
+          "service": "Limpeza de pele profunda",
+          "day": 4,
+          "time": "11:00",
+          "professional": "Elpídio Ibiapina",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD05",
+    "title": "Informação sobre o cliente; o dia da semana indica qual atendimento",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "customer-info",
+      "weekday"
+    ],
+    "expect": "A barba do Rosalvo (+2, com o Nivaldo) vai para o dia da semana de +6 às 10h; o corte de amanhã fica. Nenhuma pergunta.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        {
+          "key": "social",
+          "name": "Corte social",
+          "durationMin": 30,
+          "priceCents": 4000
+        },
+        {
+          "key": "barba",
+          "name": "Barba completa",
+          "durationMin": 30,
+          "priceCents": 3500
+        },
+        {
+          "key": "sobrancelha",
+          "name": "Sobrancelha na navalha",
+          "durationMin": 15,
+          "priceCents": 2000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "nivaldo",
+        "name": "Nivaldo Dorneles"
+      },
+      {
+        "key": "sinesio",
+        "name": "Sinésio Ourique",
+        "services": [
+          "social",
+          "barba"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "rosalvo",
+        "name": "Rosalvo Valadão",
+        "phone": "11973400105"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "ros_corte",
+        "customer": "rosalvo",
+        "professional": "sinesio",
+        "service": "social",
+        "day": 1,
+        "time": "18:00"
+      },
+      {
+        "key": "ros_barba",
+        "customer": "rosalvo",
+        "professional": "nivaldo",
+        "service": "barba",
+        "day": 2,
+        "time": "09:30"
+      }
+    ],
+    "steps": [
+      {
+        "say": "O Rosalvo é aquele senhor que vem de bengala; a de {{d:+2|weekday}} dele passa pra {{d:+6|weekday}} às 10h, que de manhã é mais tranquilo pra ele"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Rosalvo Valadão",
+          "service": "Corte social",
+          "day": 1,
+          "time": "18:00",
+          "professional": "Sinésio Ourique",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalvo Valadão",
+          "service": "Barba completa",
+          "day": 6,
+          "time": "10:00",
+          "professional": "Nivaldo Dorneles",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD06",
+    "title": "Motivo com \"amanhã\" no contexto; destino por dia do mês, mesmo horário",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "reason",
+      "day-of-month",
+      "ref-same-time"
+    ],
+    "expect": "A coloração do Higino (amanhã 9h) vai para o dia do mês de +5, às 9h. Nenhuma pergunta.",
+    "salon": {
+      "type": "salão de coloração",
+      "services": [
+        {
+          "key": "raiz",
+          "name": "Coloração raiz",
+          "durationMin": 90,
+          "priceCents": 16000
+        },
+        {
+          "key": "corte_escova",
+          "name": "Corte e escova",
+          "durationMin": 70,
+          "priceCents": 9000
+        },
+        {
+          "key": "botox",
+          "name": "Botox capilar",
+          "durationMin": 120,
+          "priceCents": 22000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "12:00"
+        },
+        {
+          "weekday": 0,
+          "from": "13:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "12:00"
+        },
+        {
+          "weekday": 1,
+          "from": "13:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "12:00"
+        },
+        {
+          "weekday": 2,
+          "from": "13:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "12:00"
+        },
+        {
+          "weekday": 3,
+          "from": "13:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "12:00"
+        },
+        {
+          "weekday": 4,
+          "from": "13:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "12:00"
+        },
+        {
+          "weekday": 5,
+          "from": "13:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "12:00"
+        },
+        {
+          "weekday": 6,
+          "from": "13:00",
+          "to": "19:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "joaquina",
+        "name": "Joaquina Ibiapina"
+      }
+    ],
+    "customers": [
+      {
+        "key": "higino",
+        "name": "Higino Ornelas",
+        "phone": "11973400106"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "hig_raiz",
+        "customer": "higino",
+        "professional": "joaquina",
+        "service": "raiz",
+        "day": 1,
+        "time": "09:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "O Higino vai fazer uma cirurgia no dente amanhã e não consegue vir; joga a coloração dele pro dia {{d:+5|d}}, no mesmo horário"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Higino Ornelas",
+          "service": "Coloração raiz",
+          "day": 5,
+          "time": "09:00",
+          "professional": "Joaquina Ibiapina",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD07",
+    "title": "Cortesia e agradecimento; o serviço escolhe entre três atendimentos",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "courtesy",
+      "service-hint",
+      "weekday"
+    ],
+    "expect": "O lash lifting da Gumersinda (+2) vai para o dia da semana de +3 às 19h com a Taciana; design e henna ficam. Nenhuma pergunta.",
+    "salon": {
+      "type": "estúdio de sobrancelha",
+      "services": [
+        {
+          "key": "design",
+          "name": "Design de sobrancelha",
+          "durationMin": 30,
+          "priceCents": 4500
+        },
+        {
+          "key": "henna",
+          "name": "Henna",
+          "durationMin": 20,
+          "priceCents": 3000
+        },
+        {
+          "key": "lash",
+          "name": "Lash lifting",
+          "durationMin": 60,
+          "priceCents": 12000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "10:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 1,
+          "from": "10:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 2,
+          "from": "10:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 3,
+          "from": "10:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 4,
+          "from": "10:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 5,
+          "from": "10:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 6,
+          "from": "10:00",
+          "to": "21:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "taciana",
+        "name": "Taciana Godinho"
+      },
+      {
+        "key": "dulcineia",
+        "name": "Dulcineia Queiroga",
+        "services": [
+          "design",
+          "henna"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "gumersinda",
+        "name": "Gumersinda Peixoto",
+        "phone": "11973400107"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "gum_design",
+        "customer": "gumersinda",
+        "professional": "dulcineia",
+        "service": "design",
+        "day": 1,
+        "time": "11:00"
+      },
+      {
+        "key": "gum_lash",
+        "customer": "gumersinda",
+        "professional": "taciana",
+        "service": "lash",
+        "day": 2,
+        "time": "16:00"
+      },
+      {
+        "key": "gum_henna",
+        "customer": "gumersinda",
+        "professional": "dulcineia",
+        "service": "henna",
+        "day": 6,
+        "time": "18:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Oi! A Gumersinda pediu com muito carinho pra trocar o horário do lash lifting dela: pode ser {{d:+3|weekday}} às 19h? Ela agradece demais"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Gumersinda Peixoto",
+          "service": "Design de sobrancelha",
+          "day": 1,
+          "time": "11:00",
+          "professional": "Dulcineia Queiroga",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Gumersinda Peixoto",
+          "service": "Lash lifting",
+          "day": 3,
+          "time": "19:00",
+          "professional": "Taciana Godinho",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Gumersinda Peixoto",
+          "service": "Henna",
+          "day": 6,
+          "time": "18:00",
+          "professional": "Dulcineia Queiroga",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD08",
+    "title": "Referência ao atendimento pelo serviço; só a hora muda no mesmo dia; horário no contexto",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "reference",
+      "service-hint",
+      "same-day"
+    ],
+    "expect": "A podologia da Vitalina (+2 às 8h30) vai para as 10h do mesmo dia; a reflexologia fica. Nenhuma pergunta.",
+    "salon": {
+      "type": "podologia",
+      "services": [
+        {
+          "key": "podo",
+          "name": "Podologia completa",
+          "durationMin": 60,
+          "priceCents": 11000
+        },
+        {
+          "key": "reflexo",
+          "name": "Reflexologia",
+          "durationMin": 40,
+          "priceCents": 8000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "18:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "18:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "18:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "18:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "18:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "18:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "18:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "epaminondas",
+        "name": "Epaminondas Junqueira"
+      }
+    ],
+    "customers": [
+      {
+        "key": "vitalina",
+        "name": "Vitalina Dorneles",
+        "phone": "11973400108"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "vit_podo",
+        "customer": "vitalina",
+        "professional": "epaminondas",
+        "service": "podo",
+        "day": 2,
+        "time": "08:30"
+      },
+      {
+        "key": "vit_reflexo",
+        "customer": "vitalina",
+        "professional": "epaminondas",
+        "service": "reflexo",
+        "day": 2,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Aquela podologia da Vitalina que tá marcada bem cedinho, dá pra empurrar pras 10h do mesmo dia? O ônibus dela só chega 9h40"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Vitalina Dorneles",
+          "service": "Podologia completa",
+          "day": 2,
+          "time": "10:00",
+          "professional": "Epaminondas Junqueira",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Vitalina Dorneles",
+          "service": "Reflexologia",
+          "day": 2,
+          "time": "14:00",
+          "professional": "Epaminondas Junqueira",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD09",
+    "title": "Troca de profissional e trinta minutos depois; horário do profissional dito como contexto",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "change-professional",
+      "relative-time"
+    ],
+    "expect": "O corte do Tertuliano (+2 às 17h com o Petrônio) passa para o Anacleto, trinta minutos depois (17h30), no mesmo dia. Nenhuma pergunta.",
+    "salon": {
+      "type": "salão masculino",
+      "services": [
+        {
+          "key": "tesoura",
+          "name": "Corte na tesoura",
+          "durationMin": 45,
+          "priceCents": 6000
+        },
+        {
+          "key": "barbo",
+          "name": "Barboterapia",
+          "durationMin": 40,
+          "priceCents": 5000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "petronio",
+        "name": "Petrônio Valadão"
+      },
+      {
+        "key": "anacleto",
+        "name": "Anacleto Ourique"
+      }
+    ],
+    "customers": [
+      {
+        "key": "tertuliano",
+        "name": "Tertuliano Ibiapina",
+        "phone": "11973400109"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "ter_corte",
+        "customer": "tertuliano",
+        "professional": "petronio",
+        "service": "tesoura",
+        "day": 2,
+        "time": "17:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Muda o corte do Tertuliano pro Anacleto... ah, e atrasa trinta minutos, porque o Anacleto chega 17h15 nesse dia"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Tertuliano Ibiapina",
+          "service": "Corte na tesoura",
+          "day": 2,
+          "time": "17:30",
+          "professional": "Anacleto Ourique",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD10",
+    "title": "Condição \"se tiver vaga\" e preferência dita como contexto; o serviço indica o atendimento",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "condition",
+      "service-hint",
+      "weekday"
+    ],
+    "expect": "As pedras quentes da Zoraide (+1 às 20h com a Orlandina) vão para o dia da semana de +4 às 20h com a Orlandina; o ofurô fica. Nenhuma pergunta.",
+    "salon": {
+      "type": "spa",
+      "services": [
+        {
+          "key": "drenagem",
+          "name": "Drenagem pós-treino",
+          "durationMin": 50,
+          "priceCents": 11000
+        },
+        {
+          "key": "ofuro",
+          "name": "Banho de ofurô",
+          "durationMin": 30,
+          "priceCents": 7000
+        },
+        {
+          "key": "pedras",
+          "name": "Pedras quentes",
+          "durationMin": 60,
+          "priceCents": 14000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "10:00",
+          "to": "22:00"
+        },
+        {
+          "weekday": 1,
+          "from": "10:00",
+          "to": "22:00"
+        },
+        {
+          "weekday": 2,
+          "from": "10:00",
+          "to": "22:00"
+        },
+        {
+          "weekday": 3,
+          "from": "10:00",
+          "to": "22:00"
+        },
+        {
+          "weekday": 4,
+          "from": "10:00",
+          "to": "22:00"
+        },
+        {
+          "weekday": 5,
+          "from": "10:00",
+          "to": "22:00"
+        },
+        {
+          "weekday": 6,
+          "from": "10:00",
+          "to": "22:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "orlandina",
+        "name": "Orlandina Hipólito"
+      },
+      {
+        "key": "salustiano",
+        "name": "Salustiano Godinho",
+        "services": [
+          "drenagem",
+          "ofuro"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "zoraide",
+        "name": "Zoraide Ibiapina",
+        "phone": "11973400110"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "zor_pedras",
+        "customer": "zoraide",
+        "professional": "orlandina",
+        "service": "pedras",
+        "day": 1,
+        "time": "20:00"
+      },
+      {
+        "key": "zor_ofuro",
+        "customer": "zoraide",
+        "professional": "salustiano",
+        "service": "ofuro",
+        "day": 2,
+        "time": "11:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Se a Orlandina tiver vaga, coloca as pedras quentes da Zoraide pra {{d:+4|weekday}} às 20h; ela anda muito cansada e prefere à noite"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "appointments": [
+        {
+          "customer": "Zoraide Ibiapina",
+          "service": "Pedras quentes",
+          "day": 4,
+          "time": "20:00",
+          "professional": "Orlandina Hipólito",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Zoraide Ibiapina",
+          "service": "Banho de ofurô",
+          "day": 2,
+          "time": "11:00",
+          "professional": "Salustiano Godinho",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD11",
+    "title": "R2: dois atendimentos do mesmo serviço; pergunta qual e a resposta escolhe",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "reason",
+      "service-hint",
+      "weekday",
+      "clarification"
+    ],
+    "expect": "O serviço citado tem dois atendimentos (+1 e +2): a Secretária pergunta qual; respondido \"o de <dia +2>\", só esse vai para o dia da semana de +5 às 11h.",
+    "salon": {
+      "type": "clínica capilar",
+      "services": [
+        {
+          "key": "escova",
+          "name": "Escova lisa",
+          "durationMin": 40,
+          "priceCents": 5000
+        },
+        {
+          "key": "antiqueda",
+          "name": "Tratamento antiqueda",
+          "durationMin": 50,
+          "priceCents": 9000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "19:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "brandina",
+        "name": "Brandina Dorneles"
+      }
+    ],
+    "customers": [
+      {
+        "key": "wilmar",
+        "name": "Wilmar Junqueira",
+        "phone": "11973400111"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "wil_a",
+        "customer": "wilmar",
+        "professional": "brandina",
+        "service": "antiqueda",
+        "day": 1,
+        "time": "10:00"
+      },
+      {
+        "key": "wil_b",
+        "customer": "wilmar",
+        "professional": "brandina",
+        "service": "antiqueda",
+        "day": 2,
+        "time": "16:00"
+      }
+    ],
+    "answers": {
+      "appointment_ref": "o de {{d:+2|weekday}}"
+    },
+    "steps": [
+      {
+        "say": "O Wilmar vai participar de um congresso fora, então o tratamento antiqueda dele precisa ir pra {{d:+5|weekday}} às 11h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "mustAsk": [
+        "appointment_ref"
+      ],
+      "appointments": [
+        {
+          "customer": "Wilmar Junqueira",
+          "service": "Tratamento antiqueda",
+          "day": 1,
+          "time": "10:00",
+          "professional": "Brandina Dorneles",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Wilmar Junqueira",
+          "service": "Tratamento antiqueda",
+          "day": 5,
+          "time": "11:00",
+          "professional": "Brandina Dorneles",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD12",
+    "title": "R2: dia da semana antes do atendimento original tem duas leituras; pergunta o dia",
+    "capability": [
+      "reschedule",
+      "pilot-e2a",
+      "context",
+      "reason",
+      "weekday",
+      "clarification",
+      "decision-27"
+    ],
+    "expect": "O atendimento é em +5 e o dia da semana dito é o de +3: as leituras +3 e +10 diferem, a Secretária pergunta; respondido \"dia <+3>\", vai para +3 às 15h.",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        {
+          "key": "gel",
+          "name": "Unhas em gel",
+          "durationMin": 90,
+          "priceCents": 13000
+        },
+        {
+          "key": "manutencao",
+          "name": "Manutenção de gel",
+          "durationMin": 60,
+          "priceCents": 9000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "felicia",
+        "name": "Felícia Ornelas"
+      }
+    ],
+    "customers": [
+      {
+        "key": "nazare",
+        "name": "Nazaré Valadão",
+        "phone": "11973400112"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "naz_manut",
+        "customer": "nazare",
+        "professional": "felicia",
+        "service": "manutencao",
+        "day": 5,
+        "time": "15:00"
+      }
+    ],
+    "answers": {
+      "date": "no dia {{d:+3|d}}"
+    },
+    "steps": [
+      {
+        "say": "A Nazaré vai estar de plantão no hospital, então a manutenção do gel dela passa pra {{d:+3|weekday}} às 15h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "mustAsk": [
+        "date"
+      ],
+      "appointments": [
+        {
+          "customer": "Nazaré Valadão",
+          "service": "Manutenção de gel",
+          "day": 3,
+          "time": "15:00",
+          "professional": "Felícia Ornelas",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PD13",
+    "title": "Remarcação mais o cancelamento de outra cliente (pedido separado)",
+    "capability": [
+      "out-of-scope",
+      "pilot-e2a",
+      "cancel-beside"
+    ],
+    "expect": "Há um pedido separado (cancelar a Urânia): a Secretária pergunta antes de propor só a remarcação; o roteiro não responde a essa pergunta, então nada é gravado.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        {
+          "key": "infantil",
+          "name": "Corte infantil",
+          "durationMin": 30,
+          "priceCents": 3500
+        },
+        {
+          "key": "adulto",
+          "name": "Corte adulto",
+          "durationMin": 40,
+          "priceCents": 4500
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "19:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "rosalvo_p",
+        "name": "Rosalvo Ibiapina"
+      }
+    ],
+    "customers": [
+      {
+        "key": "elpidio_c",
+        "name": "Elpídio Godinho",
+        "phone": "11973400113"
+      },
+      {
+        "key": "urania_c",
+        "name": "Urânia Peixoto",
+        "phone": "11973400114"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "elp_adulto",
+        "customer": "elpidio_c",
+        "professional": "rosalvo_p",
+        "service": "adulto",
+        "day": 1,
+        "time": "10:00"
+      },
+      {
+        "key": "ura_infantil",
+        "customer": "urania_c",
+        "professional": "rosalvo_p",
+        "service": "infantil",
+        "day": 2,
+        "time": "11:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Passa o corte do Elpídio pra {{d:+4|weekday}} às 15h e cancela o da Urânia, que ela avisou que não vem mais"
+      }
+    ],
+    "final": {
+      "unchanged": true
+    }
+  },
+  {
+    "id": "PD14",
+    "title": "Remarcação mais um bloqueio de agenda com motivo (pedido separado)",
+    "capability": [
+      "out-of-scope",
+      "pilot-e2a",
+      "block-beside"
+    ],
+    "expect": "Há um pedido separado (bloquear a tarde da Joaquina): a Secretária pergunta antes; nada é gravado.",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        {
+          "key": "maos_pes",
+          "name": "Mãos e pés completo",
+          "durationMin": 70,
+          "priceCents": 7000
+        },
+        {
+          "key": "esmalt",
+          "name": "Esmaltação simples",
+          "durationMin": 30,
+          "priceCents": 2500
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "joaquina_p",
+        "name": "Joaquina Dorneles"
+      }
+    ],
+    "customers": [
+      {
+        "key": "teotonio_c",
+        "name": "Teotônio Ourique",
+        "phone": "11973400115"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "teo_maos_pes",
+        "customer": "teotonio_c",
+        "professional": "joaquina_p",
+        "service": "maos_pes",
+        "day": 2,
+        "time": "13:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Joga o atendimento de mãos e pés do Teotônio pra {{d:+5|weekday}} às 9h e bloqueia a tarde de {{d:+6|weekday}} da Joaquina, que ela vai ao médico"
+      }
+    ],
+    "final": {
+      "unchanged": true
+    }
+  },
+  {
+    "id": "PD15",
+    "title": "Remarcação mais um recado ao cliente com conteúdo próprio (pedido separado)",
+    "capability": [
+      "out-of-scope",
+      "pilot-e2a",
+      "message-beside"
+    ],
+    "expect": "Há um pedido separado (mandar o endereço novo): a Secretária pergunta antes; nada é gravado.",
+    "salon": {
+      "type": "estética",
+      "services": [
+        {
+          "key": "cera",
+          "name": "Depilação com cera",
+          "durationMin": 40,
+          "priceCents": 6000
+        },
+        {
+          "key": "linha",
+          "name": "Design de sobrancelha com linha",
+          "durationMin": 30,
+          "priceCents": 4000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "19:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "19:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "iracilda_p",
+        "name": "Iracilda Ornelas"
+      }
+    ],
+    "customers": [
+      {
+        "key": "abigail_c",
+        "name": "Abigail Junqueira",
+        "phone": "11973400116"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "abi_cera",
+        "customer": "abigail_c",
+        "professional": "iracilda_p",
+        "service": "cera",
+        "day": 1,
+        "time": "16:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Muda a depilação da Abigail pra {{d:+3|weekday}} às 10h e manda pra ela pelo WhatsApp o endereço novo da clínica"
+      }
+    ],
+    "final": {
+      "unchanged": true
+    }
+  },
+  {
+    "id": "PD16",
+    "title": "Só troca de serviço num atendimento existente, sem remarcar (no lugar da remarcação)",
+    "capability": [
+      "out-of-scope",
+      "pilot-e2a",
+      "change-service-instead"
+    ],
+    "expect": "Trocar o serviço está fora do escopo e não há remarcação: resposta clara, nenhum plano aberto, nada gravado.",
+    "salon": {
+      "type": "salão de beleza",
+      "services": [
+        {
+          "key": "franja",
+          "name": "Corte com franja",
+          "durationMin": 45,
+          "priceCents": 6500
+        },
+        {
+          "key": "babyliss",
+          "name": "Escova com babyliss",
+          "durationMin": 50,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "florisbela_p",
+        "name": "Florisbela Dorneles"
+      }
+    ],
+    "customers": [
+      {
+        "key": "sinesio_c",
+        "name": "Sinésio Peixoto",
+        "phone": "11973400117"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "sin_franja",
+        "customer": "sinesio_c",
+        "professional": "florisbela_p",
+        "service": "franja",
+        "day": 2,
+        "time": "15:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "No horário do Sinésio de {{d:+2|weekday}}, em vez do corte com franja faz uma escova com babyliss"
+      }
+    ],
+    "final": {
+      "unchanged": true,
+      "noPendingPlan": true
+    }
+  },
+  {
+    "id": "PD17",
+    "title": "Agendamento novo que cita um atendimento existente (no lugar da remarcação)",
+    "capability": [
+      "out-of-scope",
+      "pilot-e2a",
+      "book-instead"
+    ],
+    "expect": "Marcar um atendimento novo está fora do escopo e nada é remarcado: resposta clara, nenhum plano aberto, nada gravado.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        {
+          "key": "navalhado",
+          "name": "Corte navalhado",
+          "durationMin": 40,
+          "priceCents": 5500
+        },
+        {
+          "key": "hid_barba",
+          "name": "Hidratação de barba",
+          "durationMin": 20,
+          "priceCents": 3000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "10:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "10:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "anacleto_p",
+        "name": "Anacleto Valadão"
+      }
+    ],
+    "customers": [
+      {
+        "key": "petronio_c",
+        "name": "Petrônio Ornelas",
+        "phone": "11973400118"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "pet_navalhado",
+        "customer": "petronio_c",
+        "professional": "anacleto_p",
+        "service": "navalhado",
+        "day": 3,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Aproveita a vinda do Petrônio {{d:+3|weekday}} e põe uma hidratação de barba pra ele também, com o mesmo barbeiro"
+      }
+    ],
+    "final": {
+      "unchanged": true,
+      "noPendingPlan": true
+    }
+  },
+  {
+    "id": "PD18",
+    "title": "Consulta pedida por si, antes de decidir qualquer mudança (no lugar da remarcação)",
+    "capability": [
+      "out-of-scope",
+      "pilot-e2a",
+      "consult-instead"
+    ],
+    "expect": "Uma consulta pedida por si está fora do escopo: resposta clara, nenhum plano aberto, nada gravado.",
+    "salon": {
+      "type": "estética",
+      "services": [
+        {
+          "key": "bambu",
+          "name": "Massagem com bambu",
+          "durationMin": 50,
+          "priceCents": 12000
+        },
+        {
+          "key": "cafe",
+          "name": "Esfoliação com café",
+          "durationMin": 40,
+          "priceCents": 9000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 1,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 2,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 3,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 4,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 5,
+          "from": "09:00",
+          "to": "21:00"
+        },
+        {
+          "weekday": 6,
+          "from": "09:00",
+          "to": "21:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "gumersinda_p",
+        "name": "Gumersinda Ibiapina"
+      },
+      {
+        "key": "tiburcio_p",
+        "name": "Tibúrcio Ourique"
+      }
+    ],
+    "customers": [
+      {
+        "key": "laudelina_c",
+        "name": "Laudelina Godinho",
+        "phone": "11973400119"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "lau_bambu",
+        "customer": "laudelina_c",
+        "professional": "gumersinda_p",
+        "service": "bambu",
+        "day": 1,
+        "time": "18:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Me mostra como está a tarde da Gumersinda {{d:+4|weekday}} antes de eu decidir se mexo em alguém"
+      }
+    ],
+    "final": {
+      "unchanged": true,
+      "noPendingPlan": true
+    }
+  }
+]

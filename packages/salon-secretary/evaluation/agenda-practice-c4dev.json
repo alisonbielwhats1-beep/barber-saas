@@ -1,0 +1,1222 @@
+[
+  {
+    "id": "D01",
+    "title": "Trocar a profissional mantendo o horário (\"pra joyce, mesmo horario\")",
+    "capability": ["alter-professional", "alter", "change-professional", "weekday", "keyboard", "accents"],
+    "expect": "O Design de sobrancelha da Maria Helena na quinta passa da Priya para a Joyce no mesmo dia e hora (a Joyce está livre). O Lash lifting da Hortência com a Joyce não muda. Nenhum horário novo é perguntado.",
+    "salon": {
+      "type": "cílios e sobrancelha",
+      "services": [
+        { "key": "design", "name": "Design de sobrancelha", "durationMin": 40, "priceCents": 8000 },
+        { "key": "cilios", "name": "Extensão de cílios", "durationMin": 120, "priceCents": 18000 },
+        { "key": "lifting", "name": "Lash lifting", "durationMin": 60, "priceCents": 12000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "09:00", "to": "18:00" },
+        { "weekday": 2, "from": "09:00", "to": "18:00" },
+        { "weekday": 3, "from": "09:00", "to": "18:00" },
+        { "weekday": 4, "from": "09:00", "to": "18:00" },
+        { "weekday": 5, "from": "09:00", "to": "18:00" },
+        { "weekday": 6, "from": "09:00", "to": "18:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "joyce", "name": "Joyce Bragança" },
+      { "key": "priya", "name": "Priya Menon" }
+    ],
+    "customers": [
+      { "key": "mhelena", "name": "Maria Helena Fontes", "phone": "11976500100" },
+      { "key": "hortencia", "name": "Hortência Lage", "phone": "11976500101" }
+    ],
+    "appointments": [
+      { "key": "mhelena_qui", "customer": "mhelena", "professional": "priya", "service": "design", "day": "qui", "time": "10:00" },
+      { "key": "hortencia_qui", "customer": "hortencia", "professional": "joyce", "service": "lifting", "day": "qui", "time": "14:00" }
+    ],
+    "steps": [
+      { "say": "passa a maria helena de quinta pra joyce, mesmo horario" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Maria Helena Fontes", "service": "Design de sobrancelha", "day": "qui", "time": "10:00", "professional": "Joyce Bragança", "status": "CONFIRMED" },
+        { "customer": "Hortência Lage", "service": "Lash lifting", "day": "qui", "time": "14:00", "professional": "Joyce Bragança", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D02",
+    "title": "Trocar o barbeiro citando o atual e o novo (\"c/ o caique em vez do heitor\")",
+    "capability": ["alter-professional", "alter", "change-professional", "weekday", "abbreviation", "keyboard", "accents"],
+    "expect": "Quem atende a Bebel na sexta às 11h passa do Heitor para o Caíque; o Heitor é só o localizador. Mesmo serviço, dia e hora.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "heitor", "name": "Heitor Valadares" },
+      { "key": "caique", "name": "Caíque Pacheco" }
+    ],
+    "customers": [
+      { "key": "bebel", "name": "Bebel Quirino", "phone": "11976500102" }
+    ],
+    "appointments": [
+      { "key": "bebel_sex", "customer": "bebel", "professional": "heitor", "service": "corte", "day": "sex", "time": "11:00" }
+    ],
+    "steps": [
+      { "say": "a bebel de sexta vai ser c/ o caique em vez do heitor, msm horario blz" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Bebel Quirino", "service": "Corte", "day": "sex", "time": "11:00", "professional": "Caíque Pacheco", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D03",
+    "title": "Trocar um serviço por outro (\"troca a escova ... por hidratacao\")",
+    "capability": ["alter-replace-service", "alter", "change-service", "weekday", "name-word", "keyboard", "accents"],
+    "expect": "O agendamento da Esperança na terça 15h troca Escova por Hidratação (mesmo dia, hora e profissional; a Marlene faz os dois e está livre até 16h).",
+    "salon": {
+      "type": "salão de beleza",
+      "services": [
+        { "key": "escova", "name": "Escova", "durationMin": 45, "priceCents": 6000 },
+        { "key": "hidratacao", "name": "Hidratação", "durationMin": 60, "priceCents": 9000 },
+        { "key": "mechas", "name": "Mechas", "durationMin": 150, "priceCents": 30000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "08:00", "to": "20:00" },
+        { "weekday": 2, "from": "08:00", "to": "20:00" },
+        { "weekday": 3, "from": "08:00", "to": "20:00" },
+        { "weekday": 4, "from": "08:00", "to": "20:00" },
+        { "weekday": 5, "from": "08:00", "to": "20:00" },
+        { "weekday": 6, "from": "08:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "marlene", "name": "Marlene Guedes", "services": ["Escova", "Hidratação"] },
+      { "key": "amara", "name": "Amara Diallo", "services": ["Mechas", "Escova"] }
+    ],
+    "customers": [
+      { "key": "esperanca", "name": "Esperança Figueiredo", "phone": "11976500103" }
+    ],
+    "appointments": [
+      { "key": "esperanca_ter", "customer": "esperanca", "professional": "marlene", "service": "escova", "day": "ter", "time": "15:00" }
+    ],
+    "steps": [
+      { "say": "troca a escova da esperanca de terca por hidratacao" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Esperança Figueiredo", "service": "Hidratação", "day": "ter", "time": "15:00", "professional": "Marlene Guedes", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D04",
+    "title": "Trocar o serviço por dois (\"pra barba e pezinho\")",
+    "capability": ["alter-replace-service", "alter", "change-service", "several-services", "compound-name", "weekday", "keyboard", "accents"],
+    "expect": "O Corte do Paulo Henrique na quinta 17h vira um agendamento com Barba e Pezinho (nessa ordem), mesmo horário e barbeiro; nenhum segundo agendamento.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 },
+        { "key": "pezinho", "name": "Pezinho", "durationMin": 15, "priceCents": 1500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "dmitri", "name": "Dmitri Sokolov" },
+      { "key": "anselmo", "name": "Anselmo Amaral", "services": ["Corte"] }
+    ],
+    "customers": [
+      { "key": "paulohenrique", "name": "Paulo Henrique Lobo", "phone": "11976500104" }
+    ],
+    "appointments": [
+      { "key": "ph_qui", "customer": "paulohenrique", "professional": "dmitri", "service": "corte", "day": "qui", "time": "17:00" }
+    ],
+    "steps": [
+      { "say": "muda o servico do paulo henrique de quinta pra barba e pezinho" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Paulo Henrique Lobo", "service": "Barba+Pezinho", "day": "qui", "time": "17:00", "professional": "Dmitri Sokolov", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D05",
+    "title": "Acrescentar pezinho ao corte (\"coloca um pezinho ... tbm\")",
+    "capability": ["alter-add-service", "alter", "change-service", "several-services", "compound-name", "weekday", "abbreviation", "keyboard", "accents"],
+    "expect": "O Corte do Luiz Felipe na quarta 10h passa a ser Corte + Pezinho no mesmo agendamento (duração somada, o Tito está livre); nunca um segundo agendamento.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 },
+        { "key": "pezinho", "name": "Pezinho", "durationMin": 15, "priceCents": 1500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "tito", "name": "Tito Cordeiro" },
+      { "key": "wendel", "name": "Wendel Brum", "services": ["Corte", "Barba"] }
+    ],
+    "customers": [
+      { "key": "luizfelipe", "name": "Luiz Felipe Sampaio", "phone": "11976500105" }
+    ],
+    "appointments": [
+      { "key": "lf_qua", "customer": "luizfelipe", "professional": "tito", "service": "corte", "day": "qua", "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "coloca um pezinho no corte do luiz felipe de quarta tbm" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Luiz Felipe Sampaio", "service": "Corte+Pezinho", "day": "qua", "time": "10:00", "professional": "Tito Cordeiro", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D06",
+    "title": "\"vai fazer a barba também\" ditado: acrescenta ao mesmo agendamento, que cabe antes do próximo cliente",
+    "capability": ["alter-add-service", "alter", "change-service", "several-services", "no-second-appointment", "weekday", "voice", "filler", "run-on"],
+    "expect": "O Arnaldo (sábado 14h, Corte com o Kenji) passa a ter Corte + Barba no mesmo agendamento, 14h-15h, encostando no Chico das 15h, que não muda. Criar um segundo agendamento só de Barba é erro.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "kenji", "name": "Kenji Mourão" }
+    ],
+    "customers": [
+      { "key": "arnaldo", "name": "Arnaldo Prates", "phone": "11976500106" },
+      { "key": "chico", "name": "Chico Borba", "phone": "11976500107" }
+    ],
+    "appointments": [
+      { "key": "arnaldo_sab", "customer": "arnaldo", "professional": "kenji", "service": "corte", "day": "sab", "time": "14:00" },
+      { "key": "chico_sab", "customer": "chico", "professional": "kenji", "service": "corte", "day": "sab", "time": "15:00" }
+    ],
+    "steps": [
+      { "say": "é o arnaldo de sabado vai querer fazer a barba tambem ai ja deixa junto no horario dele" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Arnaldo Prates", "service": "Corte+Barba", "day": "sab", "time": "14:00", "professional": "Kenji Mourão", "status": "CONFIRMED" },
+        { "customer": "Chico Borba", "service": "Corte", "day": "sab", "time": "15:00", "professional": "Kenji Mourão", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D07",
+    "title": "Tirar um serviço de um agendamento com dois (criado na mesma conversa)",
+    "capability": ["alter-remove-service", "alter", "change-service", "create", "several-services", "weekday", "keyboard", "accents"],
+    "expect": "Primeiro um agendamento com Corte + Barba no sábado 10h com o Eliel; depois \"tira o corte\" deixa só a Barba no mesmo agendamento e horário (a remoção é do primeiro serviço: um Corte criado sozinho não passa aqui).",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 },
+        { "key": "pezinho", "name": "Pezinho", "durationMin": 15, "priceCents": 1500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "eliel", "name": "Eliel Teixeira" }
+    ],
+    "customers": [
+      { "key": "sven", "name": "Sven Holm", "phone": "11976500108" }
+    ],
+    "steps": [
+      { "say": "marca o sven sabado as 10 corte e barba com o eliel" },
+      { "confirm": "all" },
+      { "say": "opa tira o corte do sven, ele so vai fazer a barba" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Sven Holm", "service": "Barba", "day": "sab", "time": "10:00", "professional": "Eliel Teixeira", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D08",
+    "title": "Recusa: tirar o único serviço; depois o dono pede o cancelamento com motivo",
+    "capability": ["alter-refused", "alter", "remove-only-service", "cancel", "reason-inline", "safety", "weekday", "keyboard", "accents"],
+    "expect": "Tirar a Barba (único serviço) é recusado sem gravar nada (o clique de confirmar seguinte não encontra nada); com \"entao cancela..., ele desistiu\" o agendamento é cancelado com o motivo literal.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "farid", "name": "Farid Haddad" }
+    ],
+    "customers": [
+      { "key": "celio", "name": "Célio Rangel", "phone": "11976500109" }
+    ],
+    "appointments": [
+      { "key": "celio_sex", "customer": "celio", "professional": "farid", "service": "barba", "day": "sex", "time": "15:00" }
+    ],
+    "steps": [
+      { "say": "tira a barba do celio de sexta" },
+      { "confirm": "all" },
+      { "say": "entao cancela o horario do celio, ele desistiu" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Célio Rangel", "service": "Barba", "day": "sex", "time": "15:00", "professional": "Farid Haddad", "status": "CANCELLED", "reason": "desistiu" }
+      ]
+    }
+  },
+  {
+    "id": "D09",
+    "title": "Recusa: o barbeiro não faz o serviço acrescentado; pergunta quem atende",
+    "capability": ["alter-refused", "alter", "change-service", "change-professional", "pro-service-mismatch", "safety", "clarification", "weekday", "abbreviation", "keyboard", "accents"],
+    "expect": "O Mateo não faz Sobrancelha: nada é gravado com ele e ninguém é escolhido sozinho; a Secretária mostra quem faz (Zeca). Com o clique no Zeca, o Ian fica com Corte + Sobrancelha com o Zeca, mesmo horário.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 },
+        { "key": "sobrancelha", "name": "Sobrancelha", "durationMin": 15, "priceCents": 2000 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "mateo", "name": "Mateo Figueroa", "services": ["Corte", "Barba"] },
+      { "key": "zeca", "name": "Zeca Salgado", "services": ["Corte", "Barba", "Sobrancelha"] }
+    ],
+    "customers": [
+      { "key": "ian", "name": "Ian Cavalcanti", "phone": "11976500110" }
+    ],
+    "appointments": [
+      { "key": "ian_qui", "customer": "ian", "professional": "mateo", "service": "corte", "day": "qui", "time": "11:00" }
+    ],
+    "steps": [
+      { "say": "poe sobrancelha no horario do ian de quinta tb" },
+      { "select": "Zeca", "optional": true },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Ian Cavalcanti", "service": "Corte+Sobrancelha", "day": "qui", "time": "11:00", "professional": "Zeca Salgado", "status": "CONFIRMED" }
+      ],
+      "mustAsk": ["selection"]
+    }
+  },
+  {
+    "id": "D10",
+    "title": "Serviço homônimo na troca (\"por corte\" com Corte e Corte infantil)",
+    "capability": ["service-homonym", "alter", "alter-replace-service", "change-service", "homonym", "safety", "clarification", "weekday", "keyboard", "accents"],
+    "expect": "\"corte\" encontra Corte e Corte infantil: perguntar qual (nunca escolher sozinha). Com a escolha de Corte infantil, o Pezinho do Enrico no sábado 9h vira Corte infantil, mesmo horário.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "infantil", "name": "Corte infantil", "durationMin": 30, "priceCents": 3500 },
+        { "key": "pezinho", "name": "Pezinho", "durationMin": 15, "priceCents": 1500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "tiao", "name": "Tião Falcão" }
+    ],
+    "customers": [
+      { "key": "enrico", "name": "Enrico Paiva", "phone": "11976500111" }
+    ],
+    "appointments": [
+      { "key": "enrico_sab", "customer": "enrico", "professional": "tiao", "service": "pezinho", "day": "sab", "time": "09:00" }
+    ],
+    "steps": [
+      { "say": "troca o pezinho do enrico de sabado por corte" },
+      { "select": "infantil", "optional": true },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Enrico Paiva", "service": "Corte infantil", "day": "sab", "time": "09:00", "professional": "Tião Falcão", "status": "CONFIRMED" }
+      ],
+      "mustAsk": ["selection"]
+    }
+  },
+  {
+    "id": "D11",
+    "title": "Criar com dois serviços (\"corte e barba\") numa barbearia sem combo",
+    "capability": ["multi-service-create", "multiservice", "create", "several-services", "weekday", "keyboard", "accents"],
+    "expect": "Um único agendamento do Kauê na quinta 16h com Corte + Barba com o Nuno (duração somada); nunca dois agendamentos.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 },
+        { "key": "pezinho", "name": "Pezinho", "durationMin": 15, "priceCents": 1500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "nuno", "name": "Nuno Carvalhal" },
+      { "key": "edgar", "name": "Edgar Vidal", "services": ["Corte"] }
+    ],
+    "customers": [
+      { "key": "kaue", "name": "Kauê Bastos", "phone": "11976500112" }
+    ],
+    "steps": [
+      { "say": "marca o kaue quinta as 16h corte e barba com o nuno" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Kauê Bastos", "service": "Corte+Barba", "day": "qui", "time": "16:00", "professional": "Nuno Carvalhal", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D12",
+    "title": "Criar \"pé e mão\" numa esmalteria sem combo",
+    "capability": ["multi-service-create", "multiservice", "create", "several-services", "weekday", "keyboard"],
+    "expect": "Um único agendamento da Nadia na sexta 14h com Pé + Mão com a Pérola (90 min).",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        { "key": "mao", "name": "Mão", "durationMin": 40, "priceCents": 3000 },
+        { "key": "pe", "name": "Pé", "durationMin": 50, "priceCents": 3500 },
+        { "key": "gel", "name": "Esmaltação em gel", "durationMin": 60, "priceCents": 7000 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "perola", "name": "Pérola Dantas" }
+    ],
+    "customers": [
+      { "key": "nadia", "name": "Nadia Karim", "phone": "11976500113" }
+    ],
+    "steps": [
+      { "say": "agenda a nadia sexta 14h pé e mão com a pérola" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Nadia Karim", "service": "Pé+Mão", "day": "sex", "time": "14:00", "professional": "Pérola Dantas", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D13",
+    "title": "\"mao e pe\" quando o catálogo também tem o combo Pé e Mão: pergunta",
+    "capability": ["multi-service-create", "multiservice", "create", "service-combo", "safety", "clarification", "weekday", "keyboard", "accents"],
+    "expect": "Existem Mão, Pé e o combo Pé e Mão: perguntar se é o combo ou os serviços separados (nunca escolher sozinha). Com a escolha do combo, um agendamento Pé e Mão da Paloma no sábado 10h com a Talita.",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        { "key": "mao", "name": "Mão", "durationMin": 40, "priceCents": 3000 },
+        { "key": "pe", "name": "Pé", "durationMin": 50, "priceCents": 3500 },
+        { "key": "pemao", "name": "Pé e Mão", "durationMin": 80, "priceCents": 6000 },
+        { "key": "blindagem", "name": "Blindagem", "durationMin": 30, "priceCents": 4000 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "talita", "name": "Talita Rezek" }
+    ],
+    "customers": [
+      { "key": "paloma", "name": "Paloma Jardim", "phone": "11976500114" }
+    ],
+    "steps": [
+      { "say": "coloca a paloma sabado 10h mao e pe com a talita" },
+      { "select": "Pé e Mão", "optional": true },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Paloma Jardim", "service": "Pé e Mão", "day": "sab", "time": "10:00", "professional": "Talita Rezek", "status": "CONFIRMED" }
+      ],
+      "mustAsk": ["selection"]
+    }
+  },
+  {
+    "id": "D14",
+    "title": "Horários livres para dois serviços (\"pra pe e mao\") usam a duração somada",
+    "capability": ["multi-service-availability", "multiservice", "read", "availability", "several-services", "name-word", "weekday", "keyboard", "accents"],
+    "expect": "Livres da Jasmim no sábado para Pé + Mão (90 min, somados): de 10h até 10h30 e depois só a partir de 12h30. Um horário entre 10h30 e 12h30 (onde cabe só um dos serviços) ou antes das 10h (ocupado) é erro. Nenhuma escrita.",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        { "key": "mao", "name": "Mão", "durationMin": 40, "priceCents": 3000 },
+        { "key": "pe", "name": "Pé", "durationMin": 50, "priceCents": 3500 },
+        { "key": "gel", "name": "Esmaltação em gel", "durationMin": 60, "priceCents": 7000 },
+        { "key": "blindagem", "name": "Blindagem", "durationMin": 30, "priceCents": 4000 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "jasmim", "name": "Jasmim Ribas" }
+    ],
+    "customers": [
+      { "key": "marta", "name": "Marta Quevedo", "phone": "11976500115" },
+      { "key": "odete", "name": "Odete Couto", "phone": "11976500116" }
+    ],
+    "appointments": [
+      { "key": "marta_sab", "customer": "marta", "professional": "jasmim", "service": "gel", "day": "sab", "time": "09:00" },
+      { "key": "odete_sab", "customer": "odete", "professional": "jasmim", "service": "blindagem", "day": "sab", "time": "12:00" }
+    ],
+    "steps": [
+      { "say": "que horas a jasmim tem livre no sabado pra pe e mao?", "expect": "READ_DONE" }
+    ],
+    "final": {
+      "unchanged": true,
+      "read": { "operation": "availability.get", "professional": "Jasmim Ribas", "day": "sab", "replyMustMention": ["10:00", "10:30"], "replyMustNotOffer": [{ "from": "00:00", "to": "10:00" }, { "from": "10:30", "to": "12:30" }] }
+    }
+  },
+  {
+    "id": "D15",
+    "title": "Dia dito uma vez para duas ações (\"na sexta marca ... e fecha a agenda ...\")",
+    "capability": ["ref-shared-day", "references", "multi-action", "create", "block", "weekday", "run-on", "keyboard", "accents"],
+    "expect": "\"na sexta\" vale para as duas ações: Dália na sexta 9h (Escova, Violeta) e bloqueio da Safira na sexta 12h-13h. Perguntar o dia do bloqueio é falha.",
+    "salon": {
+      "type": "salão de beleza",
+      "services": [
+        { "key": "escova", "name": "Escova", "durationMin": 45, "priceCents": 6000 },
+        { "key": "hidratacao", "name": "Hidratação", "durationMin": 60, "priceCents": 9000 },
+        { "key": "corte", "name": "Corte", "durationMin": 45, "priceCents": 7000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "08:00", "to": "20:00" },
+        { "weekday": 2, "from": "08:00", "to": "20:00" },
+        { "weekday": 3, "from": "08:00", "to": "20:00" },
+        { "weekday": 4, "from": "08:00", "to": "20:00" },
+        { "weekday": 5, "from": "08:00", "to": "20:00" },
+        { "weekday": 6, "from": "08:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "violeta", "name": "Violeta Abrantes", "services": ["Escova", "Hidratação"] },
+      { "key": "safira", "name": "Safira Tolentino", "services": ["Corte", "Escova"] }
+    ],
+    "customers": [
+      { "key": "dalia", "name": "Dália Frota", "phone": "11976500117" }
+    ],
+    "steps": [
+      { "say": "na sexta marca a dalia as 9 pra escova com a violeta e ai fecha a agenda da safira das 12 as 13 que ela vai no medico" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Dália Frota", "service": "Escova", "day": "sex", "time": "09:00", "professional": "Violeta Abrantes", "status": "CONFIRMED" }
+      ],
+      "blocks": [
+        { "professional": "Safira Tolentino", "day": "sex", "from": "12:00", "to": "13:00" }
+      ]
+    }
+  },
+  {
+    "id": "D16",
+    "title": "\"no mesmo horário\" numa remarcação para outro dia",
+    "capability": ["ref-same-time", "references", "reschedule", "weekday"],
+    "expect": "A massagem da Hana sai de terça 16h30 para sexta 16h30 (a hora do próprio agendamento); perguntar a hora é falha.",
+    "salon": {
+      "type": "spa",
+      "services": [
+        { "key": "massagem", "name": "Massagem relaxante", "durationMin": 60, "priceCents": 15000 },
+        { "key": "drenagem", "name": "Drenagem linfática", "durationMin": 50, "priceCents": 12000 },
+        { "key": "ofuro", "name": "Ofurô", "durationMin": 30, "priceCents": 8000 }
+      ],
+      "hours": [
+        { "weekday": 0, "from": "09:00", "to": "20:00" },
+        { "weekday": 1, "from": "09:00", "to": "20:00" },
+        { "weekday": 2, "from": "09:00", "to": "20:00" },
+        { "weekday": 3, "from": "09:00", "to": "20:00" },
+        { "weekday": 4, "from": "09:00", "to": "20:00" },
+        { "weekday": 5, "from": "09:00", "to": "20:00" },
+        { "weekday": 6, "from": "09:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "ione", "name": "Ione Lustosa" }
+    ],
+    "customers": [
+      { "key": "hana", "name": "Hana Oyama", "phone": "11976500118" }
+    ],
+    "appointments": [
+      { "key": "hana_ter", "customer": "hana", "professional": "ione", "service": "massagem", "day": "ter", "time": "16:30" }
+    ],
+    "steps": [
+      { "say": "a hana era terça, coloca ela na sexta no mesmo horário que ela já tinha" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Hana Oyama", "service": "Massagem relaxante", "day": "sex", "time": "16:30", "professional": "Ione Lustosa", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D17",
+    "title": "\"pro mesmo serviço\" no horário liberado por um cancelamento",
+    "capability": ["ref-same-service", "references", "multi-action", "cancel", "create", "released-slot", "reason-inline", "weekday", "keyboard", "accents"],
+    "expect": "A Tainá é cancelada com o motivo dito (\"desmarcou\") e a Kaká entra no mesmo dia, hora, profissional e serviço (Limpeza de pele); perguntar o serviço é falha.",
+    "salon": {
+      "type": "estética",
+      "services": [
+        { "key": "limpeza", "name": "Limpeza de pele", "durationMin": 60, "priceCents": 14000 },
+        { "key": "peeling", "name": "Peeling de diamante", "durationMin": 45, "priceCents": 16000 },
+        { "key": "radio", "name": "Radiofrequência", "durationMin": 50, "priceCents": 18000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "08:00", "to": "20:00" },
+        { "weekday": 2, "from": "08:00", "to": "20:00" },
+        { "weekday": 3, "from": "08:00", "to": "20:00" },
+        { "weekday": 4, "from": "08:00", "to": "20:00" },
+        { "weekday": 5, "from": "08:00", "to": "20:00" },
+        { "weekday": 6, "from": "08:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "rebeca", "name": "Rebeca Fagundes" }
+    ],
+    "customers": [
+      { "key": "taina", "name": "Tainá Arantes", "phone": "11976500119" },
+      { "key": "kaka", "name": "Kaká Tolentino", "phone": "11976500120" }
+    ],
+    "appointments": [
+      { "key": "taina_qui", "customer": "taina", "professional": "rebeca", "service": "limpeza", "day": "qui", "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "cancela a taina de quinta que ela desmarcou e poe a kaka no lugar dela pro mesmo servico" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Tainá Arantes", "service": "Limpeza de pele", "day": "qui", "time": "10:00", "professional": "Rebeca Fagundes", "status": "CANCELLED", "reason": "desmarcou" },
+        { "customer": "Kaká Tolentino", "service": "Limpeza de pele", "day": "qui", "time": "10:00", "professional": "Rebeca Fagundes", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D18",
+    "title": "Horário liberado por uma remarcação (\"no horario que ele deixou\")",
+    "capability": ["ref-released-by-reschedule", "references", "multi-action", "reschedule", "create", "released-slot", "weekday", "run-on", "keyboard", "accents"],
+    "expect": "O Gael vai de quinta 16h para sexta 10h e o Hélio entra na quinta 16h com o mesmo barbeiro (Chen) para Barba. Nenhum erro interno nem resposta genérica.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "chen", "name": "Chen Liang" }
+    ],
+    "customers": [
+      { "key": "gael", "name": "Gael Montenegro", "phone": "11976500121" },
+      { "key": "helio", "name": "Hélio Cardoso", "phone": "11976500122" }
+    ],
+    "appointments": [
+      { "key": "gael_qui", "customer": "gael", "professional": "chen", "service": "corte", "day": "qui", "time": "16:00" }
+    ],
+    "steps": [
+      { "say": "passa o gael pra sexta as 10 e ai coloca o helio no horario que ele deixou pra fazer barba" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Gael Montenegro", "service": "Corte", "day": "sex", "time": "10:00", "professional": "Chen Liang", "status": "CONFIRMED" },
+        { "customer": "Hélio Cardoso", "service": "Barba", "day": "qui", "time": "16:00", "professional": "Chen Liang", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D19",
+    "title": "Próximo horário de uma cliente sem data (\"ta marcada pra quando?\")",
+    "capability": ["read-next-appointment", "reads", "read", "look-alike-names", "compound-name", "keyboard", "accents"],
+    "expect": "Lista os próximos agendamentos da Ana Lívia (quinta 14h e sábado 10h) sem pedir a data; o da Ana Júlia (sexta 16h) não aparece. Nenhuma escrita. (A Ana Júlia não fica às 11h: o Lash lifting da Ana Lívia termina às 11h e um \"10h–11h\" correto não pode reprovar.)",
+    "salon": {
+      "type": "cílios e sobrancelha",
+      "services": [
+        { "key": "design", "name": "Design de sobrancelha", "durationMin": 40, "priceCents": 8000 },
+        { "key": "cilios", "name": "Extensão de cílios", "durationMin": 120, "priceCents": 18000 },
+        { "key": "lifting", "name": "Lash lifting", "durationMin": 60, "priceCents": 12000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "09:00", "to": "18:00" },
+        { "weekday": 2, "from": "09:00", "to": "18:00" },
+        { "weekday": 3, "from": "09:00", "to": "18:00" },
+        { "weekday": 4, "from": "09:00", "to": "18:00" },
+        { "weekday": 5, "from": "09:00", "to": "18:00" },
+        { "weekday": 6, "from": "09:00", "to": "18:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "dani", "name": "Dani Cortês" }
+    ],
+    "customers": [
+      { "key": "analivia", "name": "Ana Lívia Brandão", "phone": "11976500123" },
+      { "key": "anajulia", "name": "Ana Júlia Coimbra", "phone": "11976500124" }
+    ],
+    "appointments": [
+      { "key": "analivia_qui", "customer": "analivia", "professional": "dani", "service": "design", "day": "qui", "time": "14:00" },
+      { "key": "analivia_sab", "customer": "analivia", "professional": "dani", "service": "lifting", "day": "sab", "time": "10:00" },
+      { "key": "anajulia_sex", "customer": "anajulia", "professional": "dani", "service": "design", "day": "sex", "time": "16:00" }
+    ],
+    "steps": [
+      { "say": "a ana livia ta marcada pra quando?", "expect": "READ_DONE" }
+    ],
+    "final": {
+      "unchanged": true,
+      "read": { "operation": ["appointment.list", "appointment.read"], "replyMustMention": ["14:00", "10:00"], "replyMustNotOffer": { "from": "15:59", "to": "16:01" } }
+    }
+  },
+  {
+    "id": "D20",
+    "title": "Agenda do salão inteiro num dia, sem profissional",
+    "capability": ["read-salon-day", "reads", "read", "day-agenda", "weekday", "keyboard", "accents"],
+    "expect": "Lista os quatro atendimentos de sábado, de três profissionais, cada um com cliente e hora; o da sexta não aparece. Nenhuma escrita.",
+    "salon": {
+      "type": "salão de beleza",
+      "services": [
+        { "key": "escova", "name": "Escova", "durationMin": 45, "priceCents": 6000 },
+        { "key": "hidratacao", "name": "Hidratação", "durationMin": 60, "priceCents": 9000 },
+        { "key": "mechas", "name": "Mechas", "durationMin": 150, "priceCents": 30000 },
+        { "key": "corte", "name": "Corte", "durationMin": 45, "priceCents": 7000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "08:00", "to": "20:00" },
+        { "weekday": 2, "from": "08:00", "to": "20:00" },
+        { "weekday": 3, "from": "08:00", "to": "20:00" },
+        { "weekday": 4, "from": "08:00", "to": "20:00" },
+        { "weekday": 5, "from": "08:00", "to": "20:00" },
+        { "weekday": 6, "from": "08:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "sueli", "name": "Sueli Nóbrega", "services": ["Escova", "Hidratação"] },
+      { "key": "leonel", "name": "Leonel Lacet", "services": ["Corte", "Escova"] },
+      { "key": "amelie", "name": "Amélie Dubois", "services": ["Mechas", "Hidratação"] }
+    ],
+    "customers": [
+      { "key": "chiara", "name": "Chiara Bellini", "phone": "11976500125" },
+      { "key": "otto", "name": "Otto Brenner", "phone": "11976500126" },
+      { "key": "lurdinha", "name": "Lurdinha Quaresma", "phone": "11976500127" },
+      { "key": "dalva", "name": "Dalva Pires", "phone": "11976500128" },
+      { "key": "tobias", "name": "Tobias Aguiar", "phone": "11976500129" }
+    ],
+    "appointments": [
+      { "key": "chiara_sab", "customer": "chiara", "professional": "sueli", "service": "escova", "day": "sab", "time": "09:00" },
+      { "key": "otto_sab", "customer": "otto", "professional": "leonel", "service": "corte", "day": "sab", "time": "10:00" },
+      { "key": "lurdinha_sab", "customer": "lurdinha", "professional": "amelie", "service": "mechas", "day": "sab", "time": "11:00" },
+      { "key": "dalva_sab", "customer": "dalva", "professional": "sueli", "service": "hidratacao", "day": "sab", "time": "15:00" },
+      { "key": "tobias_sex", "customer": "tobias", "professional": "leonel", "service": "corte", "day": "sex", "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "o que tem marcado pro sabado no salao todo?", "expect": "READ_DONE" }
+    ],
+    "final": {
+      "unchanged": true,
+      "read": { "operation": "appointment.list", "day": "sab", "replyMustMention": ["Chiara", "09:00", "Otto", "10:00", "Lurdinha", "11:00", "Dalva", "15:00"] }
+    }
+  },
+  {
+    "id": "D21",
+    "title": "Horários livres sem profissional (\"quais horarios livres pra corte na sexta?\")",
+    "capability": ["read-availability-any-pro", "reads", "read", "availability", "weekday", "keyboard", "accents"],
+    "expect": "Mostra os horários livres para Corte de cada barbeiro que faz Corte (Caetano e Wagner, os dois a partir das 10h) sem perguntar o profissional; o Abel (só Barba, livre às 9h) não entra. Nenhuma escrita.",
+    "salon": {
+      "type": "barbearia",
+      "services": [
+        { "key": "corte", "name": "Corte", "durationMin": 30, "priceCents": 4500 },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "caetano", "name": "Caetano Leme", "services": ["Corte", "Barba"] },
+      { "key": "wagner", "name": "Wagner Tavares", "services": ["Corte", "Barba"] },
+      { "key": "abel", "name": "Abel Rios", "services": ["Barba"] }
+    ],
+    "customers": [
+      { "key": "moises", "name": "Moisés Leal", "phone": "11976500130" },
+      { "key": "ciro", "name": "Ciro Maia", "phone": "11976500131" },
+      { "key": "bento", "name": "Bento Sarmento", "phone": "11976500132" },
+      { "key": "joel", "name": "Joel Macário", "phone": "11976500133" }
+    ],
+    "appointments": [
+      { "key": "moises_sex", "customer": "moises", "professional": "caetano", "service": "corte", "day": "sex", "time": "09:00" },
+      { "key": "ciro_sex", "customer": "ciro", "professional": "caetano", "service": "barba", "day": "sex", "time": "09:30" },
+      { "key": "bento_sex", "customer": "bento", "professional": "wagner", "service": "corte", "day": "sex", "time": "09:00" },
+      { "key": "joel_sex", "customer": "joel", "professional": "wagner", "service": "corte", "day": "sex", "time": "09:30" }
+    ],
+    "steps": [
+      { "say": "quais horarios livres pra corte na sexta?", "expect": "READ_DONE" }
+    ],
+    "final": {
+      "unchanged": true,
+      "read": { "operation": "availability.get", "service": "Corte", "day": "sex", "replyMustMention": ["Caetano", "Wagner", "10:00"], "replyMustNotOffer": { "from": "00:00", "to": "10:00" } }
+    }
+  },
+  {
+    "id": "D22",
+    "title": "Recorrência ao marcar (\"toda sexta\"): pergunta se marca só a primeira",
+    "capability": ["recurrence-guard", "recurrence", "create", "safety", "clarification", "weekday", "keyboard", "accents"],
+    "expect": "\"toda sexta\" nunca vira uma única ocorrência silenciosa: a Secretária pergunta (cartão) se marca só a primeira. Com o sim do dono, só a primeira sexta 18h é marcada.",
+    "salon": {
+      "type": "spa",
+      "services": [
+        { "key": "massagem", "name": "Massagem relaxante", "durationMin": 60, "priceCents": 15000 },
+        { "key": "drenagem", "name": "Drenagem linfática", "durationMin": 50, "priceCents": 12000 },
+        { "key": "ofuro", "name": "Ofurô", "durationMin": 30, "priceCents": 8000 }
+      ],
+      "hours": [
+        { "weekday": 0, "from": "09:00", "to": "20:00" },
+        { "weekday": 1, "from": "09:00", "to": "20:00" },
+        { "weekday": 2, "from": "09:00", "to": "20:00" },
+        { "weekday": 3, "from": "09:00", "to": "20:00" },
+        { "weekday": 4, "from": "09:00", "to": "20:00" },
+        { "weekday": 5, "from": "09:00", "to": "20:00" },
+        { "weekday": 6, "from": "09:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "olivia", "name": "Olívia Sá" }
+    ],
+    "customers": [
+      { "key": "sonia", "name": "Sônia Freire", "phone": "11976500134" }
+    ],
+    "steps": [
+      { "say": "marca a sonia toda sexta as 18h pra massagem com a olivia" },
+      { "choose": 1, "optional": true },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Sônia Freire", "service": "Massagem relaxante", "day": "sex", "time": "18:00", "professional": "Olívia Sá", "status": "CONFIRMED" }
+      ],
+      "mustAsk": ["selection"]
+    }
+  },
+  {
+    "id": "D23",
+    "title": "Recorrência ao bloquear (\"toda segunda das 12 as 13\")",
+    "capability": ["recurrence-guard", "recurrence", "block", "safety", "clarification", "weekday", "interval", "keyboard", "accents"],
+    "expect": "O almoço \"toda segunda\" nunca vira um único bloqueio silencioso: pergunta se bloqueia só a primeira. Com o sim, só a próxima segunda 12h-13h da Madalena fica bloqueada.",
+    "salon": {
+      "type": "cílios e sobrancelha",
+      "services": [
+        { "key": "design", "name": "Design de sobrancelha", "durationMin": 40, "priceCents": 8000 },
+        { "key": "cilios", "name": "Extensão de cílios", "durationMin": 120, "priceCents": 18000 },
+        { "key": "lifting", "name": "Lash lifting", "durationMin": 60, "priceCents": 12000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "09:00", "to": "18:00" },
+        { "weekday": 2, "from": "09:00", "to": "18:00" },
+        { "weekday": 3, "from": "09:00", "to": "18:00" },
+        { "weekday": 4, "from": "09:00", "to": "18:00" },
+        { "weekday": 5, "from": "09:00", "to": "18:00" },
+        { "weekday": 6, "from": "09:00", "to": "18:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "madalena", "name": "Madalena Galvão" },
+      { "key": "ruth", "name": "Ruth Almeida" }
+    ],
+    "steps": [
+      { "say": "bloqueia a agenda da madalena toda segunda das 12 as 13 pro almoco" },
+      { "choose": 1, "optional": true },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "blocks": [
+        { "professional": "Madalena Galvão", "day": "seg", "from": "12:00", "to": "13:00" }
+      ],
+      "mustAsk": ["selection"]
+    }
+  },
+  {
+    "id": "D24",
+    "title": "Cancelar pelo \"dia N\" perto da virada do mês",
+    "capability": ["date-day-of-month", "dates", "cancel", "day-of-month", "month-end", "reason-inline", "keyboard", "accents"],
+    "expect": "\"dia N\" de um cancelamento é o dia futuro (o mês passado não é opção): só a Drenagem da Estrela daqui a 2 dias é cancelada, com o motivo dito; a de daqui a 9 dias fica.",
+    "salon": {
+      "type": "spa",
+      "services": [
+        { "key": "massagem", "name": "Massagem relaxante", "durationMin": 60, "priceCents": 15000 },
+        { "key": "drenagem", "name": "Drenagem linfática", "durationMin": 50, "priceCents": 12000 },
+        { "key": "ofuro", "name": "Ofurô", "durationMin": 30, "priceCents": 8000 }
+      ],
+      "hours": [
+        { "weekday": 0, "from": "09:00", "to": "20:00" },
+        { "weekday": 1, "from": "09:00", "to": "20:00" },
+        { "weekday": 2, "from": "09:00", "to": "20:00" },
+        { "weekday": 3, "from": "09:00", "to": "20:00" },
+        { "weekday": 4, "from": "09:00", "to": "20:00" },
+        { "weekday": 5, "from": "09:00", "to": "20:00" },
+        { "weekday": 6, "from": "09:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "janaina", "name": "Janaína Pinheiro" }
+    ],
+    "customers": [
+      { "key": "estrela", "name": "Estrela Monteiro", "phone": "11976500135" }
+    ],
+    "appointments": [
+      { "key": "estrela_d2", "customer": "estrela", "professional": "janaina", "service": "drenagem", "day": 2, "time": "10:00" },
+      { "key": "estrela_d9", "customer": "estrela", "professional": "janaina", "service": "drenagem", "day": 9, "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "cancela a drenagem da estrela do dia {{d:+2|d}}, ela vai viajar" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Estrela Monteiro", "service": "Drenagem linfática", "day": 2, "time": "10:00", "professional": "Janaína Pinheiro", "status": "CANCELLED", "reason": "viajar" },
+        { "customer": "Estrela Monteiro", "service": "Drenagem linfática", "day": 9, "time": "10:00", "professional": "Janaína Pinheiro", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D25",
+    "title": "Remarcar com dia da semana + dia do mês nas duas pontas (\"da quarta dia N pra sexta dia M\")",
+    "capability": ["date-weekday-day", "dates", "reschedule", "day-of-month", "weekday", "keyboard", "accents"],
+    "expect": "O dia da semana resolve o mês: origem é a próxima quarta, destino a próxima sexta 17h. Perguntar qual mês é falha.",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        { "key": "gel", "name": "Esmaltação em gel", "durationMin": 60, "priceCents": 7000 },
+        { "key": "mao", "name": "Mão", "durationMin": 40, "priceCents": 3000 },
+        { "key": "pe", "name": "Pé", "durationMin": 50, "priceCents": 3500 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "margarida", "name": "Margarida Nascimento" }
+    ],
+    "customers": [
+      { "key": "aisha", "name": "Aisha Bakr", "phone": "11976500136" }
+    ],
+    "appointments": [
+      { "key": "aisha_qua", "customer": "aisha", "professional": "margarida", "service": "gel", "day": "qua", "time": "11:00" }
+    ],
+    "steps": [
+      { "say": "remarca a aisha da quarta dia {{d:qua|d}} pra sexta dia {{d:sex|d}} as 17h" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Aisha Bakr", "service": "Esmaltação em gel", "day": "sex", "time": "17:00", "professional": "Margarida Nascimento", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D26",
+    "title": "\"não pode no dia X\" localiza o agendamento atual; destino \"dia Y\"",
+    "capability": ["date-negated-current", "dates", "reschedule", "day-of-month", "month-end", "keyboard", "accents"],
+    "expect": "A negação fala da data atual: a Massagem da Dagmar do dia X (daqui a 2 dias, 14h) vai para o dia Y (daqui a 4 dias) às 10h; a de daqui a 6 dias fica. Perguntar a data original é falha.",
+    "salon": {
+      "type": "spa",
+      "services": [
+        { "key": "massagem", "name": "Massagem relaxante", "durationMin": 60, "priceCents": 15000 },
+        { "key": "drenagem", "name": "Drenagem linfática", "durationMin": 50, "priceCents": 12000 },
+        { "key": "ofuro", "name": "Ofurô", "durationMin": 30, "priceCents": 8000 }
+      ],
+      "hours": [
+        { "weekday": 0, "from": "09:00", "to": "20:00" },
+        { "weekday": 1, "from": "09:00", "to": "20:00" },
+        { "weekday": 2, "from": "09:00", "to": "20:00" },
+        { "weekday": 3, "from": "09:00", "to": "20:00" },
+        { "weekday": 4, "from": "09:00", "to": "20:00" },
+        { "weekday": 5, "from": "09:00", "to": "20:00" },
+        { "weekday": 6, "from": "09:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "svetlana", "name": "Svetlana Orlova" }
+    ],
+    "customers": [
+      { "key": "dagmar", "name": "Dagmar Veloso", "phone": "11976500137" }
+    ],
+    "appointments": [
+      { "key": "dagmar_d2", "customer": "dagmar", "professional": "svetlana", "service": "massagem", "day": 2, "time": "14:00" },
+      { "key": "dagmar_d6", "customer": "dagmar", "professional": "svetlana", "service": "massagem", "day": 6, "time": "14:00" }
+    ],
+    "steps": [
+      { "say": "a dagmar nao pode no dia {{d:+2|d}}, passa ela pro dia {{d:+4|d}} as 10" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Dagmar Veloso", "service": "Massagem relaxante", "day": 4, "time": "10:00", "professional": "Svetlana Orlova", "status": "CONFIRMED" },
+        { "customer": "Dagmar Veloso", "service": "Massagem relaxante", "day": 6, "time": "14:00", "professional": "Svetlana Orlova", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D27",
+    "title": "\"pras 2\" e \"pras 3\" num salão diurno (08h-20h): 14h e 15h sem perguntar",
+    "capability": ["hours-by-tenant", "hours", "multi-action", "reschedule", "bare-hour", "day-salon", "weekday", "keyboard", "accents"],
+    "expect": "Só a leitura da tarde está aberta (salão e jornada 08h-20h): Mirela vai para quinta 14h e Caleb para quinta 15h, sem perguntar 02h ou 14h.",
+    "salon": {
+      "type": "salão de beleza",
+      "services": [
+        { "key": "escova", "name": "Escova", "durationMin": 45, "priceCents": 6000 },
+        { "key": "corte", "name": "Corte", "durationMin": 45, "priceCents": 7000 },
+        { "key": "hidratacao", "name": "Hidratação", "durationMin": 60, "priceCents": 9000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "08:00", "to": "20:00" },
+        { "weekday": 2, "from": "08:00", "to": "20:00" },
+        { "weekday": 3, "from": "08:00", "to": "20:00" },
+        { "weekday": 4, "from": "08:00", "to": "20:00" },
+        { "weekday": 5, "from": "08:00", "to": "20:00" },
+        { "weekday": 6, "from": "08:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "solange", "name": "Solange Bittencourt" }
+    ],
+    "customers": [
+      { "key": "mirela", "name": "Mirela Assis", "phone": "11976500138" },
+      { "key": "caleb", "name": "Caleb Esteves", "phone": "11976500139" }
+    ],
+    "appointments": [
+      { "key": "mirela_qui", "customer": "mirela", "professional": "solange", "service": "escova", "day": "qui", "time": "09:00" },
+      { "key": "caleb_qui", "customer": "caleb", "professional": "solange", "service": "corte", "day": "qui", "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "passa a mirela pras 2 e o caleb pras 3, os dois na quinta mesmo" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Mirela Assis", "service": "Escova", "day": "qui", "time": "14:00", "professional": "Solange Bittencourt", "status": "CONFIRMED" },
+        { "customer": "Caleb Esteves", "service": "Corte", "day": "qui", "time": "15:00", "professional": "Solange Bittencourt", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D28",
+    "title": "\"às 2\" num estúdio noturno (18h-03h): 02h sem perguntar",
+    "capability": ["hours-by-tenant", "hours", "create", "bare-hour", "night-studio", "name-word", "weekday", "keyboard", "accents"],
+    "expect": "No estúdio que abre das 18h às 03h só 02h está aberto: Zoe no sábado às 02h com a Cristal. A regra nunca favorece a tarde (14h está fechado). A noite de sábado termina às 23h59 (o domingo não abre de madrugada), então \"sábado às 2\" não pode ser a madrugada de domingo.",
+    "salon": {
+      "type": "estúdio noturno",
+      "services": [
+        { "key": "maquiagem", "name": "Maquiagem social", "durationMin": 60, "priceCents": 16000 },
+        { "key": "penteado", "name": "Penteado", "durationMin": 45, "priceCents": 12000 }
+      ],
+      "hours": [
+        { "weekday": 0, "from": "18:00", "to": "23:59" },
+        { "weekday": 3, "from": "00:00", "to": "03:00" },
+        { "weekday": 3, "from": "18:00", "to": "23:59" },
+        { "weekday": 4, "from": "00:00", "to": "03:00" },
+        { "weekday": 4, "from": "18:00", "to": "23:59" },
+        { "weekday": 5, "from": "00:00", "to": "03:00" },
+        { "weekday": 5, "from": "18:00", "to": "23:59" },
+        { "weekday": 6, "from": "00:00", "to": "03:00" },
+        { "weekday": 6, "from": "18:00", "to": "23:59" }
+      ]
+    },
+    "professionals": [
+      { "key": "cristal", "name": "Cristal Valente" }
+    ],
+    "customers": [
+      { "key": "zoe", "name": "Zoe Abrantes", "phone": "11976500140" }
+    ],
+    "steps": [
+      { "say": "marca a zoe no sabado as 2 pra maquiagem com a cristal" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Zoe Abrantes", "service": "Maquiagem social", "day": "sab", "time": "02:00", "professional": "Cristal Valente", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D29",
+    "title": "Profissional só de manhã pedida \"as 2\": informa indisponível, nunca 14h com outra nem 02h",
+    "capability": ["hours-by-tenant", "hours", "create", "bare-hour", "morning-only", "safety", "clarification", "weekday", "keyboard", "accents"],
+    "expect": "A Celeste só atende 08h-12h: nenhuma leitura de \"as 2\" cabe na jornada dela. A Secretária informa e pergunta outro horário (nunca 14h com o Kenzo, nunca 02h). Com \"9h da manhã\", Valentina na quinta 9h com a Celeste.",
+    "salon": {
+      "type": "estética",
+      "services": [
+        { "key": "limpeza", "name": "Limpeza de pele", "durationMin": 60, "priceCents": 14000 },
+        { "key": "peeling", "name": "Peeling de diamante", "durationMin": 45, "priceCents": 16000 },
+        { "key": "radio", "name": "Radiofrequência", "durationMin": 50, "priceCents": 18000 }
+      ],
+      "hours": [
+        { "weekday": 1, "from": "08:00", "to": "20:00" },
+        { "weekday": 2, "from": "08:00", "to": "20:00" },
+        { "weekday": 3, "from": "08:00", "to": "20:00" },
+        { "weekday": 4, "from": "08:00", "to": "20:00" },
+        { "weekday": 5, "from": "08:00", "to": "20:00" },
+        { "weekday": 6, "from": "08:00", "to": "20:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "celeste", "name": "Celeste Aragão", "hours": [{ "weekday": 1, "from": "08:00", "to": "12:00" }, { "weekday": 2, "from": "08:00", "to": "12:00" }, { "weekday": 3, "from": "08:00", "to": "12:00" }, { "weekday": 4, "from": "08:00", "to": "12:00" }, { "weekday": 5, "from": "08:00", "to": "12:00" }, { "weekday": 6, "from": "08:00", "to": "12:00" }] },
+      { "key": "kenzo", "name": "Kenzo Arima" }
+    ],
+    "customers": [
+      { "key": "valentina", "name": "Valentina Brandt", "phone": "11976500141" }
+    ],
+    "steps": [
+      { "say": "marca a valentina quinta as 2 com a celeste pra limpeza de pele" },
+      { "confirm": "all" }
+    ],
+    "answers": { "time": ["as 9 da manha entao", "9h entao, de manha"] },
+    "final": {
+      "appointments": [
+        { "customer": "Valentina Brandt", "service": "Limpeza de pele", "day": "qui", "time": "09:00", "professional": "Celeste Aragão", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "D30",
+    "title": "Dia fechado com insistência (\"pode encaixar mesmo assim\"): HARD_BLOCK mantido",
+    "capability": ["hard-block-insistence", "hours", "create", "closed-day", "insistence", "safety", "weekday", "keyboard", "accents"],
+    "expect": "A esmalteria não abre na segunda: a insistência não vira encaixe e nada fica confirmável (o clique de confirmar no meio não grava nada). Depois de \"entao poe na terca as 15\", Ayla na terça 15h com a Malu.",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        { "key": "blindagem", "name": "Blindagem", "durationMin": 30, "priceCents": 4000 },
+        { "key": "gel", "name": "Esmaltação em gel", "durationMin": 60, "priceCents": 7000 },
+        { "key": "mao", "name": "Mão", "durationMin": 40, "priceCents": 3000 }
+      ],
+      "hours": [
+        { "weekday": 2, "from": "09:00", "to": "19:00" },
+        { "weekday": 3, "from": "09:00", "to": "19:00" },
+        { "weekday": 4, "from": "09:00", "to": "19:00" },
+        { "weekday": 5, "from": "09:00", "to": "19:00" },
+        { "weekday": 6, "from": "09:00", "to": "19:00" }
+      ]
+    },
+    "professionals": [
+      { "key": "malu", "name": "Malu Fagundes" }
+    ],
+    "customers": [
+      { "key": "ayla", "name": "Ayla Barreto", "phone": "11976500142" }
+    ],
+    "days": ["seg"],
+    "expectsClosure": true,
+    "steps": [
+      { "say": "marca a ayla segunda as 15 pra blindagem" },
+      { "say": "pode encaixar mesmo assim" },
+      { "confirm": "all" },
+      { "say": "entao poe na terca as 15" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Ayla Barreto", "service": "Blindagem", "day": "ter", "time": "15:00", "professional": "Malu Fagundes", "status": "CONFIRMED" }
+      ]
+    }
+  }
+]

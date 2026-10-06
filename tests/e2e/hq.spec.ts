@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
 
-test.describe("@database Everflare HQ",()=>{
+test.describe("@database Everflair HQ",()=>{
  test.skip(!process.env.RUN_DATABASE_E2E,"Somente CI descartável.");
  let email:string,supportCustomerId:string,chiefQuestion:string;const password="hq-synthetic-2026-password";
  test.beforeAll(async()=>{
@@ -65,14 +65,14 @@ test.describe("@database Everflare HQ",()=>{
  });
  test("revisa suporte por cliente sem enviar mensagem ou consumir IA",async({page})=>{
   await page.goto("/login");await page.getByLabel("Email").fill(email);await page.getByLabel("Senha",{exact:true}).fill(password);await page.getByRole("button",{name:"Entrar",exact:true}).click();await expect(page).toHaveURL(/\/plataforma/,{timeout:30000});
-  await page.goto("/hq/agents/support");await page.getByLabel("Cliente do Everflare").selectOption(supportCustomerId);
+  await page.goto("/hq/agents/support");await page.getByLabel("Cliente do Everflair").selectOption(supportCustomerId);
   await expect(page.getByText("Dúvida sintética de expediente",{exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"Gerar rascunho de suporte"})).toBeDisabled();
   await page.getByText("Revisar e decidir",{exact:true}).click();await page.getByLabel("Texto revisado").fill("Orientação revisada do teste sintético.");await page.getByLabel("Decisão").selectOption("ticket");
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
   const audit=await new AxeBuilder({page}).include(".hq").withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze();expect(audit.violations).toEqual([]);
   await page.screenshot({path:test.info().outputPath("support-review-mobile.png"),fullPage:true,animations:"disabled"});
   await page.getByRole("button",{name:"Confirmar decisão revisada"}).click();await expect(page.getByText(/Revisão registrada/)).toBeVisible();
-  await page.reload();await page.getByLabel("Cliente do Everflare").selectOption(supportCustomerId);await expect(page.getByText(/Revisão registrada/)).toBeVisible();await expect(page.getByText("Revisar e decidir",{exact:true})).toHaveCount(0);
+  await page.reload();await page.getByLabel("Cliente do Everflair").selectOption(supportCustomerId);await expect(page.getByText(/Revisão registrada/)).toBeVisible();await expect(page.getByText("Revisar e decidir",{exact:true})).toHaveCount(0);
   await page.goto("/hq/customers/"+supportCustomerId);await expect(page.getByText(/Suporte revisado pelo administrador/)).toBeVisible();
  });
  test("valida laboratório SDK sem dados ou serviços externos",async({page})=>{

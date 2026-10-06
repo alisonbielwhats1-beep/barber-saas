@@ -1,0 +1,1530 @@
+{
+  "planVersion": "conditional-v2",
+  "executed": false,
+  "oracleOnlyOfflinePlan": true,
+  "cases": [
+    {
+      "caseId": "services-create",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=services, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "name": "Massagem",
+        "priceCents": 5000,
+        "missing": [
+          "durationMin"
+        ]
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3593,
+      "plannedJsonBytes": 1542,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000016191
+    },
+    {
+      "caseId": "services-price",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=services, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "target_name": "massagem",
+        "priceCents": 8000
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3600,
+      "plannedJsonBytes": 1556,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000016338000000000002
+    },
+    {
+      "caseId": "services-duration",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "unconditional": [],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "skill",
+        "operation",
+        "shape",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "durationMin": 45
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 3628,
+      "plannedJsonBytes": 0,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0
+    },
+    {
+      "caseId": "services-rename",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=services, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "target_name": "Massagem",
+        "name": "Massagem Relaxante"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3602,
+      "plannedJsonBytes": 1560,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000016380000000000002
+    },
+    {
+      "caseId": "customers-create",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=customers, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "name": "Amanda Souza",
+        "missing": []
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3584,
+      "plannedJsonBytes": 1571,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000016495499999999998
+    },
+    {
+      "caseId": "customers-phone",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=customers, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "target_name": "Amanda",
+        "requested_fields": [
+          "phone"
+        ]
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3590,
+      "plannedJsonBytes": 1583,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.0000166215
+    },
+    {
+      "caseId": "customers-email",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=customers, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "target_name": "Amanda Souza",
+        "requested_fields": [
+          "email"
+        ]
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3592,
+      "plannedJsonBytes": 1587,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000016663500000000004
+    },
+    {
+      "caseId": "customers-full-name",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=customers, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "name": "Maria Clara de Souza"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3592,
+      "plannedJsonBytes": 1587,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000016663500000000004
+    },
+    {
+      "caseId": "customers-ambiguous",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=customers, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "target_name": "Amanda",
+        "resolution": "backend_must_disambiguate_if_multiple"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3579,
+      "plannedJsonBytes": 1561,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.0000163905
+    },
+    {
+      "caseId": "scheduling-create",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=scheduling, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "customer_name": "Amanda",
+        "professional_name": "Tatiana",
+        "service_name": "Progressiva",
+        "day_offset": 1,
+        "time": "10:00"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3621,
+      "plannedJsonBytes": 1728,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000018144
+    },
+    {
+      "caseId": "scheduling-cancel",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=scheduling, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "customer_name": "Beatriz",
+        "day_offset": 1,
+        "time": "14:00",
+        "reason": "teste controlado"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3622,
+      "plannedJsonBytes": 1730,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000018165000000000003
+    },
+    {
+      "caseId": "scheduling-change",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=scheduling, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "customer_name": "Amanda",
+        "source_day_offset": 1,
+        "source_time": "10:00",
+        "time": "11:00"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3605,
+      "plannedJsonBytes": 1696,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000017808
+    },
+    {
+      "caseId": "scheduling-block",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=scheduling, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "professional_name": "Tatiana",
+        "day_offset": 1,
+        "time": "13:00",
+        "end_time": "15:00"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3615,
+      "plannedJsonBytes": 1716,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000018018
+    },
+    {
+      "caseId": "scheduling-occupied",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation"
+      ],
+      "condition": "validated discovery: skill=scheduling, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "customer_name": "Amanda",
+        "service_name": "Progressiva",
+        "day_offset": 1,
+        "time": "10:00",
+        "availability": "backend_only_conflict_fixture"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 3,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3609,
+      "plannedJsonBytes": 1704,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000017892
+    },
+    {
+      "caseId": "scheduling-missing-service",
+      "category": "C",
+      "path": "EXISTING_DRAFT_MODEL_FALLBACK",
+      "unconditional": [],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "skill",
+        "operation",
+        "shape",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "service_name": "Progressiva",
+        "preserve": [
+          "customer",
+          "date",
+          "time"
+        ]
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 3630,
+      "plannedJsonBytes": 0,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0
+    },
+    {
+      "caseId": "scheduling-ambiguous-period",
+      "category": "C",
+      "path": "EXISTING_DRAFT_MODEL_FALLBACK",
+      "unconditional": [],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "skill",
+        "operation",
+        "shape",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "period": "afternoon",
+        "time": "must_not_invent",
+        "status": "NEEDS_INPUT"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 3632,
+      "plannedJsonBytes": 0,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0
+    },
+    {
+      "caseId": "scheduling-batch",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": true,
+      "openRequirements": {
+        "customer_names": [
+          "Amanda",
+          "Fábio"
+        ],
+        "service_name": "corte masculino",
+        "released_slot_of": 0
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3689,
+      "plannedJsonBytes": 1066,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000011193000000000001
+    },
+    {
+      "caseId": "scheduling-time",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "unconditional": [],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "skill",
+        "operation",
+        "shape",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "time": "11:00"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 3618,
+      "plannedJsonBytes": 0,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0
+    },
+    {
+      "caseId": "scheduling-date",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "unconditional": [],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "skill",
+        "operation",
+        "shape",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "day_offset": 1
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 3622,
+      "plannedJsonBytes": 0,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0
+    },
+    {
+      "caseId": "financial-revenue",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "metric",
+        "period"
+      ],
+      "condition": "validated discovery: skill=financial, shape=single",
+      "omitted": [
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "metrics": [
+          "service_revenue"
+        ],
+        "period": "yesterday"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 5,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3583,
+      "plannedJsonBytes": 2580,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000027090000000000003
+    },
+    {
+      "caseId": "financial-received",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "metric",
+        "period"
+      ],
+      "condition": "validated discovery: skill=financial, shape=single",
+      "omitted": [
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "metrics": [
+          "received_revenue"
+        ],
+        "period": "yesterday"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 5,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3585,
+      "plannedJsonBytes": 2584,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000027132
+    },
+    {
+      "caseId": "financial-outstanding",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "metric",
+        "period"
+      ],
+      "condition": "validated discovery: skill=financial, shape=single",
+      "omitted": [
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "metrics": [
+          "outstanding_receivables"
+        ],
+        "period": null
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 5,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3585,
+      "plannedJsonBytes": 2584,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000027132
+    },
+    {
+      "caseId": "financial-comparison",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "metric",
+        "period"
+      ],
+      "condition": "validated discovery: skill=financial, shape=single",
+      "omitted": [
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [
+        "inventory",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "metrics": [
+          "service_revenue"
+        ],
+        "period": "this_week",
+        "compare_period": "last_week"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 5,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3603,
+      "plannedJsonBytes": 2620,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000027510000000000003
+    },
+    {
+      "caseId": "financial-multiple",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": true,
+      "openRequirements": {
+        "metrics": [
+          "service_revenue",
+          "average_ticket"
+        ],
+        "group_by": [
+          "professional",
+          "service"
+        ],
+        "period": "this_month"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3660,
+      "plannedJsonBytes": 1037,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000010888500000000001
+    },
+    {
+      "caseId": "inventory-balance",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "inventory"
+      ],
+      "condition": "validated discovery: skill=inventory, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "product_name": "Shampoo X"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3601,
+      "plannedJsonBytes": 1952,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000020496
+    },
+    {
+      "caseId": "inventory-low",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "inventory"
+      ],
+      "condition": "validated discovery: skill=inventory, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "low_stock": true
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3602,
+      "plannedJsonBytes": 1954,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000020517000000000004
+    },
+    {
+      "caseId": "inventory-in",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "inventory"
+      ],
+      "condition": "validated discovery: skill=inventory, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "product_name": "Shampoo X",
+        "mode": "IN",
+        "quantity": 10
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3596,
+      "plannedJsonBytes": 1942,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000020391000000000002
+    },
+    {
+      "caseId": "inventory-out-missing",
+      "category": "B",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "inventory"
+      ],
+      "condition": "validated discovery: skill=inventory, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "communication"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "product_name": "Shampoo Y",
+        "mode": "OUT",
+        "missing": [
+          "quantity"
+        ]
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3585,
+      "plannedJsonBytes": 1920,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.00002016
+    },
+    {
+      "caseId": "inventory-quantity",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "unconditional": [],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "skill",
+        "operation",
+        "shape",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "quantity": 3
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 3639,
+      "plannedJsonBytes": 0,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0
+    },
+    {
+      "caseId": "communication-exact",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "communication"
+      ],
+      "condition": "validated discovery: skill=communication, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "recipient_name": "Fábio",
+        "channel": "WHATSAPP",
+        "message_mode": "EXACT",
+        "content": "Serviço cancelado, Fábio."
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3639,
+      "plannedJsonBytes": 2018,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000021189
+    },
+    {
+      "caseId": "communication-generated",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "communication"
+      ],
+      "condition": "validated discovery: skill=communication, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "recipient_name": "Fábio",
+        "channel": "WHATSAPP",
+        "message_mode": "GENERATED",
+        "content": "requires_review_not_fixed_text"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3638,
+      "plannedJsonBytes": 2016,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000021168
+    },
+    {
+      "caseId": "communication-missing-channel",
+      "category": "C",
+      "path": "DISCOVERY_THEN_CONDITIONAL_DETAIL",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [
+        "operation",
+        "communication"
+      ],
+      "condition": "validated discovery: skill=communication, shape=single",
+      "omitted": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "notApplicable": [
+        "period",
+        "metric",
+        "inventory"
+      ],
+      "unresolved": [],
+      "requiresLuna": true,
+      "openRequirements": {
+        "recipient_name": "Fábio",
+        "channel": null,
+        "content": "do_not_generate_without_explicit_request"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 4,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 2,
+      "previousJsonBytes": 3603,
+      "plannedJsonBytes": 1946,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000020433
+    },
+    {
+      "caseId": "communication-channel",
+      "category": "A",
+      "path": "EXISTING_FAST_PATH",
+      "unconditional": [],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "skill",
+        "operation",
+        "shape",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [],
+      "requiresLuna": false,
+      "openRequirements": {
+        "channel": "WHATSAPP"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 0,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 0,
+      "previousJsonBytes": 3624,
+      "plannedJsonBytes": 0,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0
+    },
+    {
+      "caseId": "communication-dependent-name",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": true,
+      "openRequirements": {
+        "customer_name": "Amanda Communication Sintética",
+        "recipient_name": "Amanda Communication Sintética",
+        "service_name": null,
+        "message_mode": "EXACT",
+        "content": "Amanda, seu horário foi cancelado."
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3722,
+      "plannedJsonBytes": 1099,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.0000115395
+    },
+    {
+      "caseId": "compound-financial-services",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": true,
+      "openRequirements": {
+        "period": "yesterday",
+        "target_name": "massagem",
+        "priceCents": 8000
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3613,
+      "plannedJsonBytes": 990,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000010395000000000001
+    },
+    {
+      "caseId": "compound-financial-inventory",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": true,
+      "openRequirements": {
+        "period": "yesterday",
+        "product_name": "Shampoo X",
+        "quantity": 10,
+        "mode": "IN"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3613,
+      "plannedJsonBytes": 990,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.000010395000000000001
+    },
+    {
+      "caseId": "compound-customers-services",
+      "category": "C",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": true,
+      "openRequirements": {
+        "name": "Amanda Souza",
+        "target_name": "massagem",
+        "priceCents": 8000
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3614,
+      "plannedJsonBytes": 991,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.0000104055
+    },
+    {
+      "caseId": "outside-financial-write",
+      "category": "D",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": false,
+      "openRequirements": {
+        "rejection": "financial_write_unpublished"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3592,
+      "plannedJsonBytes": 969,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.0000101745
+    },
+    {
+      "caseId": "outside-roles",
+      "category": "D",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": false,
+      "openRequirements": {
+        "rejection": "credentials_roles_unpublished"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3588,
+      "plannedJsonBytes": 965,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.0000101325
+    },
+    {
+      "caseId": "outside-campaign",
+      "category": "D",
+      "path": "DISCOVERY_THEN_FALLBACK_OR_UNAVAILABLE",
+      "unconditional": [
+        "skill",
+        "shape"
+      ],
+      "conditional": [],
+      "condition": null,
+      "omitted": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "notApplicable": [],
+      "unresolved": [
+        "operation",
+        "period",
+        "metric",
+        "inventory",
+        "communication"
+      ],
+      "requiresLuna": false,
+      "openRequirements": {
+        "rejection": "external_campaign_unpublished"
+      },
+      "previousQuestions": 7,
+      "plannedQuestions": 2,
+      "previousHttpCalls": 1,
+      "plannedHttpCalls": 1,
+      "previousJsonBytes": 3612,
+      "plannedJsonBytes": 989,
+      "hypotheticalInputCostAt4BytesPerTokenUsd": 0.0000103845
+    }
+  ],
+  "sameEligibleCasesComparison": {
+    "cases": 33,
+    "previousQuestions": 231,
+    "plannedQuestions": 105,
+    "previousHttpCalls": 33,
+    "plannedHttpCalls": 57,
+    "previousJsonBytes": 119127,
+    "plannedJsonBytes": 54333
+  },
+  "totals": {
+    "cases": 40,
+    "previousQuestions": 280,
+    "plannedQuestions": 105,
+    "previousHttpCalls": 40,
+    "plannedHttpCalls": 57,
+    "previousJsonBytes": 144520,
+    "plannedJsonBytes": 54333
+  }
+}

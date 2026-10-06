@@ -31,14 +31,29 @@ export async function POST(req: NextRequest) {
     tx.membership.findFirst({
       where: {
         userId: session.user.id,
-        ...(activeSalonId ? { salonId: activeSalonId } : {}),
+        // Com salão ativo no cookie, vale esse salão. Sem cookie, o painel usa
+        // o primeiro salão aprovado (getTenantContext); o upload segue a mesma
+        // escolha para não gravar no salão errado.
+        ...(activeSalonId
+          ? { salonId: activeSalonId }
+          : { salon: { accessStatus: "APPROVED" as const } }),
       },
-      select: { salonId: true, role: true },
+      select: { salonId: true, role: true, salon: { select: { accessStatus: true } } },
       orderBy: { id: "asc" },
     }),
   );
   if (!membership) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  // Mesmo critério do painel (getTenantContext): salão que não está APPROVED
+  // (PENDING, REJECTED ou SUSPENDED) não tem acesso e, portanto, não grava
+  // arquivos no Storage. Restrição de cobrança não entra aqui: ela só limita
+  // novas reservas e agendas, e o painel continua operando.
+  if (membership.salon.accessStatus !== "APPROVED") {
+    return NextResponse.json(
+      { error: "Este estabelecimento está com o acesso bloqueado e não pode enviar imagens." },
+      { status: 403 },
+    );
   }
 
   const limited = await checkRateLimit({

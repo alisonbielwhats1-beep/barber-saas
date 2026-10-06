@@ -19,7 +19,7 @@ import { AppointmentSteps, AppointmentSummaryRow, ClientChoice } from "./appoint
 import { normalizeSearch } from "@/components/ui/search-picker";
 import { isDateKey } from "@/lib/time";
 import "./appointment-flow.css";
-import { createAppointmentManually, createRecurringAppointments, getLastAppointmentServices } from "./actions";
+import { createAppointmentManually, createRecurringAppointments, getLastAppointmentServices, getStaffFreeSlots, type StaffFreeSlotsResult } from "./actions";
 import { formatMoney, formatDuration } from "@/lib/utils";
 
 export type ProOption = {
@@ -35,6 +35,16 @@ export type ServiceOption = {
   priceType?: string;
 };
 export type ClientOption = { id: string; name: string; phone: string | null };
+/** Pessoa da fila de espera sendo agendada em outro horário. */
+export type WaitlistPrefill = {
+  entryId: string;
+  name: string;
+  /** Horário (HH:mm) da reserva pela qual a pessoa espera. */
+  sourceTime: string;
+  serviceIds: string[];
+  client?: ClientOption;
+  guest?: { name: string; phone: string };
+};
 
 export function AppointmentDialog({
   open,
@@ -49,8 +59,13 @@ export function AppointmentDialog({
   canRepeat,
   timezone,
   initialClient,
+  initialServiceIds,
+  waitlist,
 }: {
   initialClient?: ClientOption;
+  /** Preselected services (a deep link); the owner still reviews and confirms, and incompatible ones are flagged. */
+  initialServiceIds?: readonly string[];
+  waitlist?: WaitlistPrefill;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   slotStartLocal: string;
@@ -65,11 +80,13 @@ export function AppointmentDialog({
 }) {
   const [visitMode, setVisitMode] = useState(false);
   const [visitDraft, setVisitDraft] = useState<StaffVisitDraft | null>(null);
-  const [step, setStep] = useState(0);
-  const [contextOpen, setContextOpen] = useState(false);
+  // Da fila, cliente e serviços já vêm escolhidos: falta só o novo horário,
+  // depois a revisão.
+  const [step, setStep] = useState(waitlist ? 2 : 0);
+  const [contextOpen, setContextOpen] = useState(Boolean(waitlist));
   const [discarding, setDiscarding] = useState(false);
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
+  const [clientName, setClientName] = useState(waitlist?.guest?.name ?? "");
+  const [clientPhone, setClientPhone] = useState(waitlist?.guest?.phone ?? "");
   const [notes, setNotes] = useState("");
   const [serviceQuery, setServiceQuery] = useState("");
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -85,7 +102,7 @@ export function AppointmentDialog({
   useEffect(() => { if (error) errorRef.current?.scrollIntoView?.({ block: "nearest" }); }, [error]);
   const [selectedProId, setSelectedProId] = useState(professionalId);
   const [date, setDate] = useState(slotStartLocal.slice(0, 10));
-  const [time, setTime] = useState(slotStartLocal.slice(11, 16));
+  const [time, setTime] = useState(waitlist ? "" : slotStartLocal.slice(11, 16));
   const [clientId, setClientId] = useState(initialClient?.id ?? "");
   const [clientQuery, setClientQuery] = useState("");
   const [clientResults, setClientResults] = useState<ClientOption[]>([]);
@@ -111,11 +128,11 @@ export function AppointmentDialog({
   const matchingClients = clientQuery.trim().length >= 2 ? clientResults : clients;
   const clientOptions = chosenClient
     ? [chosenClient, ...matchingClients.filter(client => client.id !== chosenClient.id)] : matchingClients;
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>(() => waitlist?.serviceIds ?? [...(initialServiceIds ?? [])]);
   const [loadingLast, setLoadingLast] = useState(false);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const lastRequest = useRef(0);
-  const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [mode, setMode] = useState<"existing" | "new">(waitlist?.guest ? "new" : "existing");
   const [repeat, setRepeat] = useState(false);
   const [frequency, setFrequency] = useState<"WEEKLY" | "BIWEEKLY">("WEEKLY");
   const [occurrences, setOccurrences] = useState(4);
@@ -207,6 +224,7 @@ export function AppointmentDialog({
           };
     return {
       ...base,
+      ...(waitlist ? { waitlistEntryId: waitlist.entryId } : {}),
       ...(confirmedExceptions.current.scheduleReason ? { scheduleOverrideReason: confirmedExceptions.current.scheduleReason } : {}),
       ...(confirmedExceptions.current.afterHoursReason ? { afterHoursReason: confirmedExceptions.current.afterHoursReason } : {}),
       ...(confirmedExceptions.current.overbookReason ? { overbookReason: confirmedExceptions.current.overbookReason } : {}),
@@ -340,7 +358,7 @@ export function AppointmentDialog({
   return <Dialog open={open} onOpenChange={requestClose}>
     <DialogContent mobileSheet className={`appointment-flow-dialog ${discarding ? "appointment-discard-dialog" : ""}`} onEscapeKeyDown={e => { if (submitting.current) e.preventDefault(); }} onPointerDownOutside={e => { if (submitting.current) e.preventDefault(); }}>
       <DialogHeader className="appointment-flow-header">
-        <DialogTitle ref={titleRef} tabIndex={-1} className="pr-10 text-lg outline-none">{discarding ? "Descartar agendamento?" : contextOpen ? "Data, horário e profissional" : "Novo agendamento"}</DialogTitle>
+        <DialogTitle ref={titleRef} tabIndex={-1} className="pr-10 text-lg outline-none">{discarding ? "Descartar agendamento?" : contextOpen ? (waitlist ? `Novo horário para ${waitlist.name}` : "Data, horário e profissional") : "Novo agendamento"}</DialogTitle>
         <DialogDescription className="sr-only">Escolha cliente e serviços, revise e confirme. Horários no fuso {timezone}.</DialogDescription>
         {!discarding && <AppointmentSteps step={step} />}
       </DialogHeader>
@@ -352,6 +370,10 @@ export function AppointmentDialog({
               <label className="grid min-w-0 gap-1 text-sm">Data<Input name="date" type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
               <label className="grid min-w-0 gap-1 text-sm">Hora de início<Input name="time" type="time" step={60} required value={time} onChange={e => setTime(e.target.value)} /></label>
             </div>
+            {waitlist && <WaitlistNotice waitlist={waitlist} />}
+            {selectedServices.length > 0
+              ? <FreeSlotSuggestions professionalId={selectedProId} professionalName={proNow?.name} serviceIds={selectedServices} date={date} selected={time} onPick={slot => { setTime(slot); resetAttempt(); }} />
+              : <p className="text-xs text-muted-foreground">Escolha os serviços para ver os horários livres.</p>}
             <p className="text-xs text-muted-foreground">Qualquer minuto, como 09:15 ou 11:50. Horário do estabelecimento ({timezone}).</p>
             <label className="grid gap-1 text-sm">Profissional
               <input aria-label="Buscar profissional" type="search" placeholder="Buscar profissional" className="min-h-11 rounded-lg border border-border bg-background px-3 text-base" onChange={e => { e.stopPropagation(); setServiceQuery(e.target.value); }} value={serviceQuery} />
@@ -377,7 +399,7 @@ export function AppointmentDialog({
             {step === 1 && <>
               <div className="flex items-center justify-between gap-3 text-sm"><p className="min-w-0 break-words"><span className="text-muted-foreground">Cliente · </span>{clientLabel}</p><button type="button" onClick={() => setStep(0)} aria-label="Alterar cliente" className="min-h-11 shrink-0 px-2 text-primary">Alterar</button></div>
               <h2 className="text-xl font-semibold">Escolha os serviços</h2>
-              {professionals.length > 1 && <div className="space-y-2">
+              {professionals.length > 1 && !waitlist && <div className="space-y-2">
                 <Button type="button" variant="outline" className="h-auto min-h-11 w-full whitespace-normal" disabled={repeat || Boolean(notes.trim())} onClick={() => setVisitMode(true)}>{visitDraft ? "Retomar serviços com profissionais diferentes" : "Adicionar outro profissional"}</Button>
                 {(repeat || notes.trim()) && <p className="text-xs text-muted-foreground">A visita com profissionais diferentes não recebe recorrência ou observações neste fluxo. Mantenha este agendamento ou remova essas opções para continuar.</p>}
               </div>}
@@ -393,13 +415,14 @@ export function AppointmentDialog({
               </div>
               {selectedServices.length > 0 && <details className="rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Quantidade e ordem dos serviços</summary><ServiceRepeater ids={selectedServices} services={services} onChange={ids => { lastRequest.current++; setLoadingLast(false); setSelectedServices(ids); resetAttempt(); }} /></details>}
               <details className="rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Observações{notes ? " · preenchidas" : ""}</summary><Input name="notes" aria-label="Observações" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Preferências para este atendimento" /></details>
-              {canRepeat && <details className="rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Recorrência{repeat ? " · ativa" : ""}</summary>
+              {canRepeat && !waitlist && <details className="rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Recorrência{repeat ? " · ativa" : ""}</summary>
                 <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)} /><Repeat size={16} aria-hidden />Repetir agendamento</label>
                 {repeat && <div className="grid grid-cols-2 gap-3"><label className="grid min-w-0 gap-1 text-sm">Frequência<select value={frequency} onChange={e => setFrequency(e.target.value as "WEEKLY" | "BIWEEKLY")} className="min-h-11 rounded-lg border border-border bg-background px-2"><option value="WEEKLY">Toda semana</option><option value="BIWEEKLY">A cada 2 semanas</option></select></label><label className="grid min-w-0 gap-1 text-sm">Nº de ocorrências<Input type="number" min={2} max={24} value={occurrences} onChange={e => setOccurrences(Math.min(24, Math.max(2, Number(e.target.value) || 2)))} /></label><p className="col-span-2 text-xs text-muted-foreground">Datas com conflito ou bloqueio são puladas; o restante da série é criado.</p></div>}
               </details>}
             </>}
             {step === 2 && <>
               <h2 className="text-xl font-semibold">Revise o agendamento</h2>
+              {waitlist && <WaitlistNotice waitlist={waitlist} />}
               <div><AppointmentSummaryRow label="Cliente" onEdit={() => setStep(0)}>{clientLabel}<span className="block text-muted-foreground">{mode === "new" ? clientPhone : chosenClient?.phone}</span></AppointmentSummaryRow>
               <AppointmentSummaryRow label="Data e horário" onEdit={() => { setServiceQuery(""); editContext(); }}>{startLabel}–{endLabel} · {formatDuration(duration)}</AppointmentSummaryRow>
               <AppointmentSummaryRow label="Profissional" onEdit={() => { setServiceQuery(""); editContext(); }}>{proNow?.name}</AppointmentSummaryRow>
@@ -473,4 +496,50 @@ export function AppointmentDialog({
       </form>
     </DialogContent>
   </Dialog>;
+}
+
+function WaitlistNotice({ waitlist }: { waitlist: WaitlistPrefill }) {
+  return <p className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+    Da fila de espera das {waitlist.sourceTime}. Ao confirmar, {waitlist.name} sai da fila.
+  </p>;
+}
+
+/** Sugestões de início livres; digitar outro horário continua permitido. */
+function FreeSlotSuggestions({ professionalId, professionalName, serviceIds, date, selected, onPick }: {
+  professionalId: string;
+  professionalName?: string;
+  serviceIds: string[];
+  date: string;
+  selected: string;
+  onPick: (slot: string) => void;
+}) {
+  const serviceKey = serviceIds.join(",");
+  const requestKey = `${professionalId}|${date}|${serviceKey}`;
+  const [result, setResult] = useState<{ key: string; value: StaffFreeSlotsResult } | null>(null);
+  useEffect(() => {
+    if (!professionalId || !isDateKey(date) || !serviceKey) return;
+    let active = true;
+    const key = `${professionalId}|${date}|${serviceKey}`;
+    void getStaffFreeSlots({ professionalId, serviceIds: serviceKey.split(","), date })
+      .then(value => { if (active) setResult({ key, value }); })
+      .catch(() => { if (active) setResult({ key, value: { error: "Não foi possível consultar os horários livres." } }); });
+    return () => { active = false; };
+  }, [professionalId, date, serviceKey]);
+
+  if (!isDateKey(date)) return null;
+  const dayLabel = date.split("-").reverse().slice(0, 2).join("/");
+  const current = result?.key === requestKey ? result.value : null;
+  return <section aria-live="polite" className="space-y-2">
+    <h3 className="text-sm font-semibold">Horários livres{professionalName ? ` de ${professionalName}` : ""} em {dayLabel}</h3>
+    {!current ? <p className="text-xs text-muted-foreground">Consultando horários livres…</p>
+      : "error" in current ? <p role="alert" className="text-xs text-danger">{current.error}</p>
+      : current.slots.length === 0 ? <p className="text-xs text-muted-foreground">Sem horários livres neste dia. Escolha outra data ou digite um horário para encaixe.</p>
+      : <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto">
+        {current.slots.map(slot => <button key={slot} type="button" aria-pressed={selected === slot} onClick={() => onPick(slot)}
+          className="min-h-11 min-w-[4.5rem] rounded-lg border border-border px-3 text-sm tabular-nums aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground">
+          {current.bestFit.includes(slot) ? <span aria-hidden className="mr-1">★</span> : null}{slot}{current.bestFit.includes(slot) ? <span className="sr-only"> (melhor encaixe)</span> : null}
+        </button>)}
+      </div>}
+    {current && "slots" in current && current.bestFit.length > 0 && <p className="text-xs text-muted-foreground">★ Melhores encaixes: evitam deixar buracos curtos na agenda.</p>}
+  </section>;
 }

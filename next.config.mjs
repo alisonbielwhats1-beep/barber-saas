@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { secretaryMicrophoneAllowed } from "./src/lib/secretary-staging-target.mjs";
 
 const storageRemotePattern = (() => {
   try {
@@ -33,9 +34,12 @@ const contentSecurityPolicy = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: fileURLToPath(new URL(".", import.meta.url)),
-  transpilePackages: ["@everflare/agents"],
+  transpilePackages: ["@everflare/agents", "@everflair/salon-secretary"],
   devIndicators: process.env.CI ? false : undefined,
   reactStrictMode: true,
+  // Fixed at build time (a Vercel env change already needs a redeploy): with the Secretária off, the admin layout's
+  // branch that loads her dock is dead code, so neither the chat nor her runtime is compiled into every admin page.
+  env: { SALON_SECRETARY_FRONT_ENABLED: process.env.SALON_SECRETARY_FRONT_ENABLED === "true" ? "true" : "false" },
   async headers() {
     return [
       {
@@ -50,7 +54,7 @@ const nextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: `camera=(), microphone=${secretaryMicrophoneAllowed(process.env) ? '(self)' : '()'}, geolocation=()`,
           },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
         ],

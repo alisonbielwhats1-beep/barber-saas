@@ -41,7 +41,7 @@ export default async function HqPage({params,searchParams}:{params:Promise<{path
  entity=aliases[entity]??entity;
  if(entity==="dashboard"&&!id)return <Executive/>;
  if(entity==="finance"&&!id)return <Executive finance/>;
- if(entity==="settings"&&!id)return <><Heading title="Configurações" description="Identidade e regras da central interna."/><section className="hq-panel"><h2>Everflare HQ</h2><p>Moeda: real brasileiro · Fuso: America/Sao_Paulo</p><p>Acesso: administradores globais autorizados.</p><p>Pagamentos manuais e contratos vinculados ao Mercado Pago são identificados pela origem. A sincronização depende da ativação da integração no ambiente.</p><Link className="hq-button secondary" href="/plataforma">Gerenciar estabelecimentos</Link></section></>;
+ if(entity==="settings"&&!id)return <><Heading title="Configurações" description="Identidade e regras da central interna."/><section className="hq-panel"><h2>Everflair HQ</h2><p>Moeda: real brasileiro · Fuso: America/Sao_Paulo</p><p>Acesso: administradores globais autorizados.</p><p>Pagamentos manuais e contratos vinculados ao Mercado Pago são identificados pela origem. A sincronização depende da ativação da integração no ambiente.</p><Link className="hq-button secondary" href="/plataforma">Gerenciar estabelecimentos</Link></section></>;
  if(entity==="pipeline"&&!id){const rows=await withHq(tx=>queries.pipeline(tx));return <><Heading title="Pipeline comercial" description="Da primeira conversa ao fechamento."><Link className="hq-button" href="/hq/opportunities/new">Nova oportunidade</Link></Heading><Pipeline rows={rows}/></>;}
  const page=Math.max(1,Number.parseInt(search.page??"1",10)||1);
  if(["cmm","crm","leads","customers"].includes(entity)&&!id){

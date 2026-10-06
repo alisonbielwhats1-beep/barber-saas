@@ -4,8 +4,10 @@ import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart";
 
-export function CartBadge({ salonSlug }: { salonSlug: string }) {
+export function CartBadge({ salonSlug, hideWhenEmpty = false }: { salonSlug: string; hideWhenEmpty?: boolean }) {
   const { count } = useCart(salonSlug);
+  // Com conta, o topo já tem sino e perfil; a sacola só aparece com itens.
+  if (hideWhenEmpty && count === 0) return null;
   return (
     <Link
       href={`/book/${salonSlug}/carrinho`}

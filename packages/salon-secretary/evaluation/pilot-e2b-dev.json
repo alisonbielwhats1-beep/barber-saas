@@ -1,0 +1,3207 @@
+[
+  {
+    "id": "PX01",
+    "title": "Semana contada a partir do próprio atendimento; o serviço indica qual",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-origin",
+      "weeks",
+      "service-hint",
+      "ref-same-time"
+    ],
+    "expect": "As pindas da Jovelina (+2 às 15h) vão uma semana depois do próprio atendimento: +9 às 15h. A liberação fica. Nenhuma pergunta.",
+    "salon": {
+      "type": "estúdio de massoterapia",
+      "services": [
+        {
+          "key": "pindas",
+          "name": "Massagem com pindas",
+          "durationMin": 60,
+          "priceCents": 14000
+        },
+        {
+          "key": "miofascial",
+          "name": "Liberação miofascial",
+          "durationMin": 50,
+          "priceCents": 12000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "florencio",
+        "name": "Florêncio Abaeté"
+      }
+    ],
+    "customers": [
+      {
+        "key": "jovelina",
+        "name": "Jovelina Turmalina",
+        "phone": "11975500101"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "jov_pindas",
+        "customer": "jovelina",
+        "professional": "florencio",
+        "service": "pindas",
+        "day": 2,
+        "time": "15:00"
+      },
+      {
+        "key": "jov_mio",
+        "customer": "jovelina",
+        "professional": "florencio",
+        "service": "miofascial",
+        "day": 5,
+        "time": "10:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Empurra a massagem com pindas da Jovelina uma semana, mantendo o horário"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Jovelina Turmalina",
+          "service": "Massagem com pindas",
+          "day": 9,
+          "time": "15:00",
+          "professional": "Florêncio Abaeté",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Jovelina Turmalina",
+          "service": "Liberação miofascial",
+          "day": 5,
+          "time": "10:00",
+          "professional": "Florêncio Abaeté",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX02",
+    "title": "Gêmeo do PX01: a semana é contada a partir de hoje",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-today",
+      "weeks",
+      "service-hint",
+      "ref-same-time"
+    ],
+    "expect": "As pindas da Jovelina (+2 às 15h) vão para daqui a uma semana: +7 às 15h. A liberação fica. Nenhuma pergunta.",
+    "salon": {
+      "type": "estúdio de massoterapia",
+      "services": [
+        {
+          "key": "pindas",
+          "name": "Massagem com pindas",
+          "durationMin": 60,
+          "priceCents": 14000
+        },
+        {
+          "key": "miofascial",
+          "name": "Liberação miofascial",
+          "durationMin": 50,
+          "priceCents": 12000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "florencio",
+        "name": "Florêncio Abaeté"
+      }
+    ],
+    "customers": [
+      {
+        "key": "jovelina",
+        "name": "Jovelina Turmalina",
+        "phone": "11975500101"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "jov_pindas",
+        "customer": "jovelina",
+        "professional": "florencio",
+        "service": "pindas",
+        "day": 2,
+        "time": "15:00"
+      },
+      {
+        "key": "jov_mio",
+        "customer": "jovelina",
+        "professional": "florencio",
+        "service": "miofascial",
+        "day": 5,
+        "time": "10:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Coloca a massagem com pindas da Jovelina pra daqui a uma semana, mantendo o horário"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Jovelina Turmalina",
+          "service": "Massagem com pindas",
+          "day": 7,
+          "time": "15:00",
+          "professional": "Florêncio Abaeté",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Jovelina Turmalina",
+          "service": "Liberação miofascial",
+          "day": 5,
+          "time": "10:00",
+          "professional": "Florêncio Abaeté",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX03",
+    "title": "Quatro dias depois sem dizer de quê: duas âncoras plausíveis, pergunta o dia",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-two",
+      "clarification"
+    ],
+    "expect": "O corte do Severiano está em +3. \"Quatro dias depois\" pode ser +4 (de hoje) ou +7 (do atendimento): a Secretária pergunta o dia com as duas datas; respondido o dia de +7, vai para +7 às 16h.",
+    "salon": {
+      "type": "barbearia clássica",
+      "services": [
+        {
+          "key": "navalhado",
+          "name": "Corte navalhado",
+          "durationMin": 40,
+          "priceCents": 6000
+        },
+        {
+          "key": "selagem",
+          "name": "Selagem de fios",
+          "durationMin": 60,
+          "priceCents": 9000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "laurindo",
+        "name": "Laurindo Cajuru"
+      }
+    ],
+    "customers": [
+      {
+        "key": "severiano",
+        "name": "Severiano Tambaú",
+        "phone": "11975500102"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "sev_corte",
+        "customer": "severiano",
+        "professional": "laurindo",
+        "service": "navalhado",
+        "day": 3,
+        "time": "11:00"
+      }
+    ],
+    "answers": {
+      "date": "no dia {{d:+7|d}}"
+    },
+    "steps": [
+      {
+        "say": "Passa o corte do Severiano pra quatro dias depois, às 16h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "mustAsk": [
+        "date"
+      ],
+      "appointments": [
+        {
+          "customer": "Severiano Tambaú",
+          "service": "Corte navalhado",
+          "day": 7,
+          "time": "16:00",
+          "professional": "Laurindo Cajuru",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX04",
+    "title": "Gêmeo do PX03: quatro dias depois do dia marcado (âncora no atendimento)",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-origin"
+    ],
+    "expect": "O corte do Severiano (+3) vai quatro dias depois do dia em que está marcado: +7 às 16h. Nenhuma pergunta.",
+    "salon": {
+      "type": "barbearia clássica",
+      "services": [
+        {
+          "key": "navalhado",
+          "name": "Corte navalhado",
+          "durationMin": 40,
+          "priceCents": 6000
+        },
+        {
+          "key": "selagem",
+          "name": "Selagem de fios",
+          "durationMin": 60,
+          "priceCents": 9000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "laurindo",
+        "name": "Laurindo Cajuru"
+      }
+    ],
+    "customers": [
+      {
+        "key": "severiano",
+        "name": "Severiano Tambaú",
+        "phone": "11975500102"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "sev_corte",
+        "customer": "severiano",
+        "professional": "laurindo",
+        "service": "navalhado",
+        "day": 3,
+        "time": "11:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Passa o corte do Severiano pra quatro dias depois do dia em que ele está marcado, às 16h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Severiano Tambaú",
+          "service": "Corte navalhado",
+          "day": 7,
+          "time": "16:00",
+          "professional": "Laurindo Cajuru",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX05",
+    "title": "Gêmeo do PX03: quatro dias a contar de hoje (âncora hoje)",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-today"
+    ],
+    "expect": "O corte do Severiano (+3) vai para quatro dias contados de hoje: +4 às 16h. Nenhuma pergunta.",
+    "salon": {
+      "type": "barbearia clássica",
+      "services": [
+        {
+          "key": "navalhado",
+          "name": "Corte navalhado",
+          "durationMin": 40,
+          "priceCents": 6000
+        },
+        {
+          "key": "selagem",
+          "name": "Selagem de fios",
+          "durationMin": 60,
+          "priceCents": 9000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "laurindo",
+        "name": "Laurindo Cajuru"
+      }
+    ],
+    "customers": [
+      {
+        "key": "severiano",
+        "name": "Severiano Tambaú",
+        "phone": "11975500102"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "sev_corte",
+        "customer": "severiano",
+        "professional": "laurindo",
+        "service": "navalhado",
+        "day": 3,
+        "time": "11:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Passa o corte do Severiano pra quatro dias a contar de hoje, às 16h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Severiano Tambaú",
+          "service": "Corte navalhado",
+          "day": 4,
+          "time": "16:00",
+          "professional": "Laurindo Cajuru",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX06",
+    "title": "Dois dias depois de uma data citada (dia do mês)",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-cited-date",
+      "day-of-month"
+    ],
+    "expect": "O peeling do Bonifácio (+2 às 16h) vai dois dias depois do dia citado (+3): +5 às 17h. Nenhuma pergunta.",
+    "salon": {
+      "type": "estética facial",
+      "services": [
+        {
+          "key": "peeling",
+          "name": "Peeling de cristal",
+          "durationMin": 45,
+          "priceCents": 13000
+        },
+        {
+          "key": "argila",
+          "name": "Máscara de argila verde",
+          "durationMin": 30,
+          "priceCents": 7000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "ricardina",
+        "name": "Ricardina Bocaiúva"
+      }
+    ],
+    "customers": [
+      {
+        "key": "bonifacio",
+        "name": "Bonifácio Itaúna",
+        "phone": "11975500103"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "bon_peeling",
+        "customer": "bonifacio",
+        "professional": "ricardina",
+        "service": "peeling",
+        "day": 2,
+        "time": "16:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "O peeling do Bonifácio fica pra dois dias depois do dia {{d:+3|d}}, às 17h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Bonifácio Itaúna",
+          "service": "Peeling de cristal",
+          "day": 5,
+          "time": "17:00",
+          "professional": "Ricardina Bocaiúva",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX07",
+    "title": "Gêmeo do PX06: dois dias antes de outra data citada",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-cited-date",
+      "day-of-month",
+      "negative-offset"
+    ],
+    "expect": "O peeling do Bonifácio (+2 às 16h) vai dois dias antes do dia citado (+6): +4 às 17h. Nenhuma pergunta.",
+    "salon": {
+      "type": "estética facial",
+      "services": [
+        {
+          "key": "peeling",
+          "name": "Peeling de cristal",
+          "durationMin": 45,
+          "priceCents": 13000
+        },
+        {
+          "key": "argila",
+          "name": "Máscara de argila verde",
+          "durationMin": 30,
+          "priceCents": 7000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "ricardina",
+        "name": "Ricardina Bocaiúva"
+      }
+    ],
+    "customers": [
+      {
+        "key": "bonifacio",
+        "name": "Bonifácio Itaúna",
+        "phone": "11975500103"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "bon_peeling",
+        "customer": "bonifacio",
+        "professional": "ricardina",
+        "service": "peeling",
+        "day": 2,
+        "time": "16:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "O peeling do Bonifácio fica pra dois dias antes do dia {{d:+6|d}}, às 17h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Bonifácio Itaúna",
+          "service": "Peeling de cristal",
+          "day": 4,
+          "time": "17:00",
+          "professional": "Ricardina Bocaiúva",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX08",
+    "title": "Antecipar dias a partir do próprio atendimento, mesma hora",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-origin",
+      "negative-offset",
+      "ref-same-time"
+    ],
+    "expect": "O alongamento da Petronilha (+6 às 14h) vem dois dias antes: +4 às 14h. Nenhuma pergunta.",
+    "salon": {
+      "type": "esmalteria",
+      "services": [
+        {
+          "key": "fibra",
+          "name": "Alongamento em fibra de vidro",
+          "durationMin": 90,
+          "priceCents": 18000
+        },
+        {
+          "key": "francesinha",
+          "name": "Esmaltação francesinha",
+          "durationMin": 40,
+          "priceCents": 5000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "marcolina",
+        "name": "Marcolina Itaberaba"
+      }
+    ],
+    "customers": [
+      {
+        "key": "petronilha",
+        "name": "Petronilha Quaraí",
+        "phone": "11975500104"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "pet_fibra",
+        "customer": "petronilha",
+        "professional": "marcolina",
+        "service": "fibra",
+        "day": 6,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Antecipa em dois dias o alongamento da Petronilha, mantendo a hora"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Petronilha Quaraí",
+          "service": "Alongamento em fibra de vidro",
+          "day": 4,
+          "time": "14:00",
+          "professional": "Marcolina Itaberaba",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX09",
+    "title": "Noventa minutos mais tarde no próprio atendimento",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-origin",
+      "relative-time"
+    ],
+    "expect": "A cauterização da Ambrosina (+2 às 10h) passa para 11h30 do mesmo dia. Nenhuma pergunta.",
+    "salon": {
+      "type": "salão de cabelo",
+      "services": [
+        {
+          "key": "cauterizacao",
+          "name": "Cauterização capilar",
+          "durationMin": 60,
+          "priceCents": 11000
+        },
+        {
+          "key": "tonalizante",
+          "name": "Tonalizante sem amônia",
+          "durationMin": 50,
+          "priceCents": 9000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "venceslau",
+        "name": "Venceslau Itamaraju"
+      }
+    ],
+    "customers": [
+      {
+        "key": "ambrosina",
+        "name": "Ambrosina Cachoeira",
+        "phone": "11975500105"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "amb_caut",
+        "customer": "ambrosina",
+        "professional": "venceslau",
+        "service": "cauterizacao",
+        "day": 2,
+        "time": "10:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Joga a cauterização da Ambrosina noventa minutos mais pra tarde"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Ambrosina Cachoeira",
+          "service": "Cauterização capilar",
+          "day": 2,
+          "time": "11:30",
+          "professional": "Venceslau Itamaraju",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX10",
+    "title": "Gêmeo do PX09: adiantar quarenta e cinco minutos",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-origin",
+      "relative-time",
+      "negative-offset"
+    ],
+    "expect": "A cauterização da Ambrosina (+2 às 10h) passa para 9h15 do mesmo dia. Nenhuma pergunta.",
+    "salon": {
+      "type": "salão de cabelo",
+      "services": [
+        {
+          "key": "cauterizacao",
+          "name": "Cauterização capilar",
+          "durationMin": 60,
+          "priceCents": 11000
+        },
+        {
+          "key": "tonalizante",
+          "name": "Tonalizante sem amônia",
+          "durationMin": 50,
+          "priceCents": 9000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "venceslau",
+        "name": "Venceslau Itamaraju"
+      }
+    ],
+    "customers": [
+      {
+        "key": "ambrosina",
+        "name": "Ambrosina Cachoeira",
+        "phone": "11975500105"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "amb_caut",
+        "customer": "ambrosina",
+        "professional": "venceslau",
+        "service": "cauterizacao",
+        "day": 2,
+        "time": "10:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Adianta em quarenta e cinco minutos a cauterização da Ambrosina"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Ambrosina Cachoeira",
+          "service": "Cauterização capilar",
+          "day": 2,
+          "time": "09:15",
+          "professional": "Venceslau Itamaraju",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX11",
+    "title": "Delegado: com quem estiver livre em outro dia; escolhe quem tem menos atendimentos",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "delegated-any",
+      "change-professional",
+      "weekday"
+    ],
+    "expect": "A Honorina (+3 às 10h com a Delmira) vai para +4 às 15h. Livres e que fazem o serviço: Delmira (2 no dia), Clarindo (1), Eustáquio (0); a Fabrícia não faz o serviço. Escolhido: Eustáquio. Nenhuma pergunta.",
+    "salon": {
+      "type": "clínica de podologia",
+      "services": [
+        {
+          "key": "encravada",
+          "name": "Tratamento de unha encravada",
+          "durationMin": 50,
+          "priceCents": 12000
+        },
+        {
+          "key": "ureia",
+          "name": "Hidratação dos pés com ureia",
+          "durationMin": 30,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "clarindo",
+        "name": "Clarindo Pacatuba"
+      },
+      {
+        "key": "delmira",
+        "name": "Delmira Camocim"
+      },
+      {
+        "key": "eustaquio",
+        "name": "Eustáquio Penedo"
+      },
+      {
+        "key": "fabricia",
+        "name": "Fabrícia Muriaé",
+        "services": [
+          "ureia"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "honorina",
+        "name": "Honorina Mucugê",
+        "phone": "11975500106"
+      },
+      {
+        "key": "isidoro",
+        "name": "Isidoro Quixeré",
+        "phone": "11975500107"
+      },
+      {
+        "key": "orestes",
+        "name": "Orestes Picuí",
+        "phone": "11975500108"
+      },
+      {
+        "key": "prudencia",
+        "name": "Prudência Barbacena",
+        "phone": "11975500109"
+      },
+      {
+        "key": "rosalina",
+        "name": "Rosalina Gravatá",
+        "phone": "11975500110"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "hon",
+        "customer": "honorina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 3,
+        "time": "10:00"
+      },
+      {
+        "key": "d3_cla",
+        "customer": "isidoro",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 3,
+        "time": "14:00"
+      },
+      {
+        "key": "d3_eus_a",
+        "customer": "orestes",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "13:00"
+      },
+      {
+        "key": "d3_eus_b",
+        "customer": "prudencia",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "16:00"
+      },
+      {
+        "key": "d4_del_a",
+        "customer": "isidoro",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "11:00"
+      },
+      {
+        "key": "d4_del_b",
+        "customer": "rosalina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "13:00"
+      },
+      {
+        "key": "d4_cla",
+        "customer": "orestes",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 4,
+        "time": "09:00"
+      },
+      {
+        "key": "d5_cla",
+        "customer": "prudencia",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 5,
+        "time": "12:00"
+      },
+      {
+        "key": "d5_eus",
+        "customer": "rosalina",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 5,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "A Honorina pode ir pra {{d:+4|weekday}} às 15h, tanto faz o profissional"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Honorina Mucugê",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "15:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "14:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "13:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "16:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "11:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "13:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "09:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "12:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "14:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX12",
+    "title": "Gêmeo do PX11: profissional nomeado",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "named-professional",
+      "change-professional",
+      "weekday"
+    ],
+    "expect": "A Honorina vai para +4 às 15h com o Clarindo, como o dono disse (não o de menor carga). Nenhuma pergunta.",
+    "salon": {
+      "type": "clínica de podologia",
+      "services": [
+        {
+          "key": "encravada",
+          "name": "Tratamento de unha encravada",
+          "durationMin": 50,
+          "priceCents": 12000
+        },
+        {
+          "key": "ureia",
+          "name": "Hidratação dos pés com ureia",
+          "durationMin": 30,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "clarindo",
+        "name": "Clarindo Pacatuba"
+      },
+      {
+        "key": "delmira",
+        "name": "Delmira Camocim"
+      },
+      {
+        "key": "eustaquio",
+        "name": "Eustáquio Penedo"
+      },
+      {
+        "key": "fabricia",
+        "name": "Fabrícia Muriaé",
+        "services": [
+          "ureia"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "honorina",
+        "name": "Honorina Mucugê",
+        "phone": "11975500106"
+      },
+      {
+        "key": "isidoro",
+        "name": "Isidoro Quixeré",
+        "phone": "11975500107"
+      },
+      {
+        "key": "orestes",
+        "name": "Orestes Picuí",
+        "phone": "11975500108"
+      },
+      {
+        "key": "prudencia",
+        "name": "Prudência Barbacena",
+        "phone": "11975500109"
+      },
+      {
+        "key": "rosalina",
+        "name": "Rosalina Gravatá",
+        "phone": "11975500110"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "hon",
+        "customer": "honorina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 3,
+        "time": "10:00"
+      },
+      {
+        "key": "d3_cla",
+        "customer": "isidoro",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 3,
+        "time": "14:00"
+      },
+      {
+        "key": "d3_eus_a",
+        "customer": "orestes",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "13:00"
+      },
+      {
+        "key": "d3_eus_b",
+        "customer": "prudencia",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "16:00"
+      },
+      {
+        "key": "d4_del_a",
+        "customer": "isidoro",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "11:00"
+      },
+      {
+        "key": "d4_del_b",
+        "customer": "rosalina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "13:00"
+      },
+      {
+        "key": "d4_cla",
+        "customer": "orestes",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 4,
+        "time": "09:00"
+      },
+      {
+        "key": "d5_cla",
+        "customer": "prudencia",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 5,
+        "time": "12:00"
+      },
+      {
+        "key": "d5_eus",
+        "customer": "rosalina",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 5,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "A Honorina pode ir pra {{d:+4|weekday}} às 15h, com o Clarindo"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Honorina Mucugê",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "15:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "14:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "13:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "16:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "11:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "13:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "09:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "12:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "14:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX13",
+    "title": "Outro profissional no mesmo dia e hora: a atual sai; entre os livres, menos atendimentos",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "delegated-other",
+      "same-slot",
+      "change-professional"
+    ],
+    "expect": "A Honorina fica em +3 às 10h com outro profissional: a Delmira sai; Clarindo (1 no dia) e Eustáquio (2) estão livres: Clarindo. Nenhuma pergunta.",
+    "salon": {
+      "type": "clínica de podologia",
+      "services": [
+        {
+          "key": "encravada",
+          "name": "Tratamento de unha encravada",
+          "durationMin": 50,
+          "priceCents": 12000
+        },
+        {
+          "key": "ureia",
+          "name": "Hidratação dos pés com ureia",
+          "durationMin": 30,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "clarindo",
+        "name": "Clarindo Pacatuba"
+      },
+      {
+        "key": "delmira",
+        "name": "Delmira Camocim"
+      },
+      {
+        "key": "eustaquio",
+        "name": "Eustáquio Penedo"
+      },
+      {
+        "key": "fabricia",
+        "name": "Fabrícia Muriaé",
+        "services": [
+          "ureia"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "honorina",
+        "name": "Honorina Mucugê",
+        "phone": "11975500106"
+      },
+      {
+        "key": "isidoro",
+        "name": "Isidoro Quixeré",
+        "phone": "11975500107"
+      },
+      {
+        "key": "orestes",
+        "name": "Orestes Picuí",
+        "phone": "11975500108"
+      },
+      {
+        "key": "prudencia",
+        "name": "Prudência Barbacena",
+        "phone": "11975500109"
+      },
+      {
+        "key": "rosalina",
+        "name": "Rosalina Gravatá",
+        "phone": "11975500110"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "hon",
+        "customer": "honorina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 3,
+        "time": "10:00"
+      },
+      {
+        "key": "d3_cla",
+        "customer": "isidoro",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 3,
+        "time": "14:00"
+      },
+      {
+        "key": "d3_eus_a",
+        "customer": "orestes",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "13:00"
+      },
+      {
+        "key": "d3_eus_b",
+        "customer": "prudencia",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "16:00"
+      },
+      {
+        "key": "d4_del_a",
+        "customer": "isidoro",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "11:00"
+      },
+      {
+        "key": "d4_del_b",
+        "customer": "rosalina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "13:00"
+      },
+      {
+        "key": "d4_cla",
+        "customer": "orestes",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 4,
+        "time": "09:00"
+      },
+      {
+        "key": "d5_cla",
+        "customer": "prudencia",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 5,
+        "time": "12:00"
+      },
+      {
+        "key": "d5_eus",
+        "customer": "rosalina",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 5,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Mantém o dia e a hora da Honorina, mas troca pra outro profissional"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Honorina Mucugê",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "10:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "14:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "13:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "16:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "11:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "13:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "09:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "12:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "14:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX14",
+    "title": "Mesmo horário com quem estiver disponível: o destino é o próprio horário, então a atual sai",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "delegated-any",
+      "same-slot",
+      "change-professional"
+    ],
+    "expect": "A Honorina fica em +3 às 10h; como o destino é o próprio horário, a Delmira sai; Clarindo (1) e Eustáquio (2) livres: Clarindo. Nenhuma pergunta, nunca \"já é o horário\".",
+    "salon": {
+      "type": "clínica de podologia",
+      "services": [
+        {
+          "key": "encravada",
+          "name": "Tratamento de unha encravada",
+          "durationMin": 50,
+          "priceCents": 12000
+        },
+        {
+          "key": "ureia",
+          "name": "Hidratação dos pés com ureia",
+          "durationMin": 30,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "clarindo",
+        "name": "Clarindo Pacatuba"
+      },
+      {
+        "key": "delmira",
+        "name": "Delmira Camocim"
+      },
+      {
+        "key": "eustaquio",
+        "name": "Eustáquio Penedo"
+      },
+      {
+        "key": "fabricia",
+        "name": "Fabrícia Muriaé",
+        "services": [
+          "ureia"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "honorina",
+        "name": "Honorina Mucugê",
+        "phone": "11975500106"
+      },
+      {
+        "key": "isidoro",
+        "name": "Isidoro Quixeré",
+        "phone": "11975500107"
+      },
+      {
+        "key": "orestes",
+        "name": "Orestes Picuí",
+        "phone": "11975500108"
+      },
+      {
+        "key": "prudencia",
+        "name": "Prudência Barbacena",
+        "phone": "11975500109"
+      },
+      {
+        "key": "rosalina",
+        "name": "Rosalina Gravatá",
+        "phone": "11975500110"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "hon",
+        "customer": "honorina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 3,
+        "time": "10:00"
+      },
+      {
+        "key": "d3_cla",
+        "customer": "isidoro",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 3,
+        "time": "14:00"
+      },
+      {
+        "key": "d3_eus_a",
+        "customer": "orestes",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "13:00"
+      },
+      {
+        "key": "d3_eus_b",
+        "customer": "prudencia",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "16:00"
+      },
+      {
+        "key": "d4_del_a",
+        "customer": "isidoro",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "11:00"
+      },
+      {
+        "key": "d4_del_b",
+        "customer": "rosalina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "13:00"
+      },
+      {
+        "key": "d4_cla",
+        "customer": "orestes",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 4,
+        "time": "09:00"
+      },
+      {
+        "key": "d5_cla",
+        "customer": "prudencia",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 5,
+        "time": "12:00"
+      },
+      {
+        "key": "d5_eus",
+        "customer": "rosalina",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 5,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Deixa a Honorina no mesmo horário, só que com quem estiver disponível"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Honorina Mucugê",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "10:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "14:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "13:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "16:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "11:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "13:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "09:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "12:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "14:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX15",
+    "title": "Gêmeo do PX13: os outros estão ocupados no horário; ninguém livre, pergunta",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "delegated-other",
+      "same-slot",
+      "nobody-free",
+      "clarification"
+    ],
+    "expect": "A Honorina fica em +3 às 10h com outro profissional, mas Clarindo e Eustáquio estão ocupados nesse horário e a Fabrícia não faz o serviço: a Secretária pergunta (outro horário ou outro profissional) e nada é gravado.",
+    "salon": {
+      "type": "clínica de podologia",
+      "services": [
+        {
+          "key": "encravada",
+          "name": "Tratamento de unha encravada",
+          "durationMin": 50,
+          "priceCents": 12000
+        },
+        {
+          "key": "ureia",
+          "name": "Hidratação dos pés com ureia",
+          "durationMin": 30,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "clarindo",
+        "name": "Clarindo Pacatuba"
+      },
+      {
+        "key": "delmira",
+        "name": "Delmira Camocim"
+      },
+      {
+        "key": "eustaquio",
+        "name": "Eustáquio Penedo"
+      },
+      {
+        "key": "fabricia",
+        "name": "Fabrícia Muriaé",
+        "services": [
+          "ureia"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "honorina",
+        "name": "Honorina Mucugê",
+        "phone": "11975500106"
+      },
+      {
+        "key": "isidoro",
+        "name": "Isidoro Quixeré",
+        "phone": "11975500107"
+      },
+      {
+        "key": "orestes",
+        "name": "Orestes Picuí",
+        "phone": "11975500108"
+      },
+      {
+        "key": "prudencia",
+        "name": "Prudência Barbacena",
+        "phone": "11975500109"
+      },
+      {
+        "key": "rosalina",
+        "name": "Rosalina Gravatá",
+        "phone": "11975500110"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "hon",
+        "customer": "honorina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 3,
+        "time": "10:00"
+      },
+      {
+        "key": "d3_cla",
+        "customer": "isidoro",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 3,
+        "time": "14:00"
+      },
+      {
+        "key": "d3_eus_a",
+        "customer": "orestes",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "13:00"
+      },
+      {
+        "key": "d3_eus_b",
+        "customer": "prudencia",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "16:00"
+      },
+      {
+        "key": "d4_del_a",
+        "customer": "isidoro",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "11:00"
+      },
+      {
+        "key": "d4_del_b",
+        "customer": "rosalina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "13:00"
+      },
+      {
+        "key": "d4_cla",
+        "customer": "orestes",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 4,
+        "time": "09:00"
+      },
+      {
+        "key": "d5_cla",
+        "customer": "prudencia",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 5,
+        "time": "12:00"
+      },
+      {
+        "key": "d5_eus",
+        "customer": "rosalina",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 5,
+        "time": "14:00"
+      },
+      {
+        "key": "d3_cla_slot",
+        "customer": "rosalina",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 3,
+        "time": "10:00"
+      },
+      {
+        "key": "d3_eus_slot",
+        "customer": "isidoro",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "10:20"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Mantém o dia e a hora da Honorina, mas troca pra outro profissional"
+      }
+    ],
+    "final": {
+      "unchanged": true,
+      "mustAsk": [
+        "time",
+        "professional_ref"
+      ]
+    }
+  },
+  {
+    "id": "PX16",
+    "title": "Delegado em outro dia em que a atual tem menos atendimentos: a atual pode ficar",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "delegated-any",
+      "weekday",
+      "bare-hour"
+    ],
+    "expect": "A Honorina vai para +5 às 9h (21h fica fora do expediente). Delmira (0 no dia), Clarindo (1) e Eustáquio (1) livres: fica com a Delmira. Nenhuma pergunta.",
+    "salon": {
+      "type": "clínica de podologia",
+      "services": [
+        {
+          "key": "encravada",
+          "name": "Tratamento de unha encravada",
+          "durationMin": 50,
+          "priceCents": 12000
+        },
+        {
+          "key": "ureia",
+          "name": "Hidratação dos pés com ureia",
+          "durationMin": 30,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "clarindo",
+        "name": "Clarindo Pacatuba"
+      },
+      {
+        "key": "delmira",
+        "name": "Delmira Camocim"
+      },
+      {
+        "key": "eustaquio",
+        "name": "Eustáquio Penedo"
+      },
+      {
+        "key": "fabricia",
+        "name": "Fabrícia Muriaé",
+        "services": [
+          "ureia"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "honorina",
+        "name": "Honorina Mucugê",
+        "phone": "11975500106"
+      },
+      {
+        "key": "isidoro",
+        "name": "Isidoro Quixeré",
+        "phone": "11975500107"
+      },
+      {
+        "key": "orestes",
+        "name": "Orestes Picuí",
+        "phone": "11975500108"
+      },
+      {
+        "key": "prudencia",
+        "name": "Prudência Barbacena",
+        "phone": "11975500109"
+      },
+      {
+        "key": "rosalina",
+        "name": "Rosalina Gravatá",
+        "phone": "11975500110"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "hon",
+        "customer": "honorina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 3,
+        "time": "10:00"
+      },
+      {
+        "key": "d3_cla",
+        "customer": "isidoro",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 3,
+        "time": "14:00"
+      },
+      {
+        "key": "d3_eus_a",
+        "customer": "orestes",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "13:00"
+      },
+      {
+        "key": "d3_eus_b",
+        "customer": "prudencia",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 3,
+        "time": "16:00"
+      },
+      {
+        "key": "d4_del_a",
+        "customer": "isidoro",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "11:00"
+      },
+      {
+        "key": "d4_del_b",
+        "customer": "rosalina",
+        "professional": "delmira",
+        "service": "encravada",
+        "day": 4,
+        "time": "13:00"
+      },
+      {
+        "key": "d4_cla",
+        "customer": "orestes",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 4,
+        "time": "09:00"
+      },
+      {
+        "key": "d5_cla",
+        "customer": "prudencia",
+        "professional": "clarindo",
+        "service": "encravada",
+        "day": 5,
+        "time": "12:00"
+      },
+      {
+        "key": "d5_eus",
+        "customer": "rosalina",
+        "professional": "eustaquio",
+        "service": "encravada",
+        "day": 5,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "A Honorina pode ir pra {{d:+5|weekday}} às 9h, com quem tiver vaga"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Honorina Mucugê",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "09:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "14:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "13:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 3,
+          "time": "16:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Isidoro Quixeré",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "11:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "13:00",
+          "professional": "Delmira Camocim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Orestes Picuí",
+          "service": "Tratamento de unha encravada",
+          "day": 4,
+          "time": "09:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Prudência Barbacena",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "12:00",
+          "professional": "Clarindo Pacatuba",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Rosalina Gravatá",
+          "service": "Tratamento de unha encravada",
+          "day": 5,
+          "time": "14:00",
+          "professional": "Eustáquio Penedo",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX17",
+    "title": "Depois de amanhã sem horário: pergunta a hora (decisão 2)",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-today",
+      "clarification",
+      "decision-2"
+    ],
+    "expect": "A esfoliação do Tibério (+4 às 18h) vai para +2; a hora não foi dita: a Secretária pergunta; respondido 17h, vai para +2 às 17h.",
+    "salon": {
+      "type": "spa urbano",
+      "services": [
+        {
+          "key": "cafe",
+          "name": "Esfoliação com borra de café",
+          "durationMin": 40,
+          "priceCents": 8000
+        },
+        {
+          "key": "vela",
+          "name": "Massagem com vela aromática",
+          "durationMin": 60,
+          "priceCents": 15000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "brigida",
+        "name": "Brígida Teixeirinha"
+      }
+    ],
+    "customers": [
+      {
+        "key": "tiberio",
+        "name": "Tibério Jucurutu",
+        "phone": "11975500111"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "tib_cafe",
+        "customer": "tiberio",
+        "professional": "brigida",
+        "service": "cafe",
+        "day": 4,
+        "time": "18:00"
+      }
+    ],
+    "answers": {
+      "time": "às 17h"
+    },
+    "steps": [
+      {
+        "say": "Traz pra depois de amanhã a esfoliação do Tibério"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "mustAsk": [
+        "time"
+      ],
+      "appointments": [
+        {
+          "customer": "Tibério Jucurutu",
+          "service": "Esfoliação com borra de café",
+          "day": 2,
+          "time": "17:00",
+          "professional": "Brígida Teixeirinha",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX18",
+    "title": "Dois dias depois de um dia da semana citado: uma só leitura, nenhuma pergunta",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-cited-date",
+      "anchor-cited-weekday",
+      "weekday"
+    ],
+    "expect": "A ventosaterapia da Taciana (+3 às 14h) vai dois dias depois do dia da semana de +5 (a primeira ocorrência depois de hoje e depois do atendimento é a mesma): +7 às 15h. Nenhuma pergunta.",
+    "salon": {
+      "type": "espaço de ventosaterapia",
+      "services": [
+        {
+          "key": "vento",
+          "name": "Ventosaterapia",
+          "durationMin": 40,
+          "priceCents": 8000
+        },
+        {
+          "key": "reflexo",
+          "name": "Reflexologia facial",
+          "durationMin": 30,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "gildasio",
+        "name": "Gildásio Paraúna"
+      }
+    ],
+    "customers": [
+      {
+        "key": "taciana",
+        "name": "Taciana Itabaiana",
+        "phone": "11975500121"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "tac",
+        "customer": "taciana",
+        "professional": "gildasio",
+        "service": "vento",
+        "day": 3,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "A ventosaterapia da Taciana vai pra dois dias depois da {{d:+5|weekday}}, às 15h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Taciana Itabaiana",
+          "service": "Ventosaterapia",
+          "day": 7,
+          "time": "15:00",
+          "professional": "Gildásio Paraúna",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX19",
+    "title": "Gêmeo do PX18 com o atendimento depois desse dia da semana: duas leituras (decisão 27), pergunta o dia",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "anchor-cited-date",
+      "anchor-cited-weekday",
+      "weekday",
+      "clarification"
+    ],
+    "expect": "A ventosaterapia da Eulina está em +6. O dia da semana de +5 pode ser +5 (o primeiro depois de hoje) ou +12 (o primeiro depois do atendimento): dois dias depois dá +7 ou +14; a Secretária pergunta o dia com as duas datas; respondido +14, vai para +14 às 15h.",
+    "salon": {
+      "type": "espaço de ventosaterapia",
+      "services": [
+        {
+          "key": "vento",
+          "name": "Ventosaterapia",
+          "durationMin": 40,
+          "priceCents": 8000
+        },
+        {
+          "key": "reflexo",
+          "name": "Reflexologia facial",
+          "durationMin": 30,
+          "priceCents": 6000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "gildasio",
+        "name": "Gildásio Paraúna"
+      }
+    ],
+    "customers": [
+      {
+        "key": "eulina",
+        "name": "Eulina Cabaceiras",
+        "phone": "11975500122"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "eul",
+        "customer": "eulina",
+        "professional": "gildasio",
+        "service": "vento",
+        "day": 6,
+        "time": "10:00"
+      }
+    ],
+    "answers": {
+      "date": "no dia {{d:+14|d}}"
+    },
+    "steps": [
+      {
+        "say": "A ventosaterapia da Eulina vai pra dois dias depois da {{d:+5|weekday}}, às 15h"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "mustAsk": [
+        "date"
+      ],
+      "appointments": [
+        {
+          "customer": "Eulina Cabaceiras",
+          "service": "Ventosaterapia",
+          "day": 14,
+          "time": "15:00",
+          "professional": "Gildásio Paraúna",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PX20",
+    "title": "Outro profissional, sem ser um nomeado: o atual e o nomeado saem; entre os livres, menos atendimentos",
+    "capability": [
+      "reschedule",
+      "pilot-e2b",
+      "delegated-other",
+      "same-slot",
+      "change-professional",
+      "named-exclusion"
+    ],
+    "expect": "A Valdelice fica em +3 às 10h com outra pessoa que não seja a Marivalda: o Teobaldo (atual) e a Marivalda saem; o Olegário (1 no dia, livre às 10h) faz o serviço; a Deoclécia não faz. Escolhido: Olegário. Sem a exclusão, a Marivalda (0) seria a escolhida. Nenhuma pergunta.",
+    "salon": {
+      "type": "estúdio de recuperação esportiva",
+      "services": [
+        {
+          "key": "dren",
+          "name": "Drenagem pós-treino",
+          "durationMin": 50,
+          "priceCents": 11000
+        },
+        {
+          "key": "escalda",
+          "name": "Escalda-pés",
+          "durationMin": 30,
+          "priceCents": 5000
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 1,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 2,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 3,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 4,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 5,
+          "from": "08:00",
+          "to": "20:00"
+        },
+        {
+          "weekday": 6,
+          "from": "08:00",
+          "to": "20:00"
+        }
+      ]
+    },
+    "professionals": [
+      {
+        "key": "teobaldo",
+        "name": "Teobaldo Itapetinga"
+      },
+      {
+        "key": "marivalda",
+        "name": "Marivalda Pindoretama"
+      },
+      {
+        "key": "olegario",
+        "name": "Olegário Quixeramobim"
+      },
+      {
+        "key": "deoclecia",
+        "name": "Deoclécia Taperoá",
+        "services": [
+          "escalda"
+        ]
+      }
+    ],
+    "customers": [
+      {
+        "key": "valdelice",
+        "name": "Valdelice Jequié",
+        "phone": "11975500123"
+      },
+      {
+        "key": "ezequias",
+        "name": "Ezequias Murici",
+        "phone": "11975500124"
+      }
+    ],
+    "appointments": [
+      {
+        "key": "val",
+        "customer": "valdelice",
+        "professional": "teobaldo",
+        "service": "dren",
+        "day": 3,
+        "time": "10:00"
+      },
+      {
+        "key": "d3_ole",
+        "customer": "ezequias",
+        "professional": "olegario",
+        "service": "dren",
+        "day": 3,
+        "time": "14:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Mantém o horário da Valdelice, mas com outra pessoa que não seja a Marivalda"
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "final": {
+      "exact": true,
+      "appointments": [
+        {
+          "customer": "Valdelice Jequié",
+          "service": "Drenagem pós-treino",
+          "day": 3,
+          "time": "10:00",
+          "professional": "Olegário Quixeramobim",
+          "status": "CONFIRMED"
+        },
+        {
+          "customer": "Ezequias Murici",
+          "service": "Drenagem pós-treino",
+          "day": 3,
+          "time": "14:00",
+          "professional": "Olegário Quixeramobim",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  }
+]

@@ -450,6 +450,7 @@ enum NotificationChannel {
   INTERNAL
   EMAIL
   MANUAL_WHATSAPP
+  WHATSAPP
   PUSH
 }
 
@@ -1368,8 +1369,8 @@ model RescheduleProposal {
 model NotificationOutbox {
   id            String                     @id @default(cuid())
   salonId       String
-  eventId       String
-  appointmentId String
+  eventId       String?
+  appointmentId String?
   recipientType String
   recipientId   String?
   recipientKey  String
@@ -1386,8 +1387,8 @@ model NotificationOutbox {
   updatedAt     DateTime                   @updatedAt @db.Timestamptz(3)
 
   salon       Salon            @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  event       AppointmentEvent @relation(fields: [eventId, salonId], references: [id, salonId], onDelete: Restrict, map: "NotificationOutbox_event_tenant_fkey")
-  appointment Appointment      @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict, map: "NotificationOutbox_appointment_tenant_fkey")
+  event       AppointmentEvent? @relation(fields: [eventId, salonId], references: [id, salonId], onDelete: Restrict, map: "NotificationOutbox_event_tenant_fkey")
+  appointment Appointment?     @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict, map: "NotificationOutbox_appointment_tenant_fkey")
 
   @@unique([eventId, recipientKey, channel, template], map: "NotificationOutbox_delivery_key")
   @@index([salonId, recipientKey, readAt, createdAt])
