@@ -198,21 +198,21 @@ export function HojeView({
                     <div className="flex items-start gap-3 sm:w-48">
                       <span className="w-16 shrink-0 whitespace-nowrap text-xl font-semibold tabular-nums">{formatInTimeZone(start, timezone, "HH:mm")}</span>
                       <div className="min-w-0">
-                        <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${status?.badgeClass ?? "bg-muted text-muted-foreground"}`}>
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${status?.badgeClass ?? "bg-muted text-muted-foreground"}`}>
                           {status?.label ?? appointment.status}
                         </span>
-                        <p className="mt-1 text-xs text-muted-foreground">{formatInTimeZone(new Date(appointment.endAt), timezone, "HH:mm")}</p>
+                        <p className="mt-1 text-[13px] text-muted-foreground">{formatInTimeZone(new Date(appointment.endAt), timezone, "HH:mm")}</p>
                       </div>
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-semibold">{appointment.clientName}</p>
                       <p className="mt-1 truncate text-sm text-muted-foreground">{appointment.serviceName} · {appointment.professionalName}</p>
-                      {appointment.checkedInAt && <p className="mt-1 text-xs font-medium text-success">Chegou às {formatInTimeZone(new Date(appointment.checkedInAt), timezone, "HH:mm")}{["PENDING", "CONFIRMED"].includes(appointment.status) ? ` · aguardando ${Math.max(0, Math.floor((now - Date.parse(appointment.checkedInAt)) / 60000))} min` : ""}</p>}
-                      <p className="mt-1 text-xs text-muted-foreground">{formatMoney(appointment.priceCents, currency)}{appointment.hasPayment ? " · recebido" : ""}</p>
+                      {appointment.checkedInAt && <p className="mt-1 text-[13px] font-medium text-success">Chegou às {formatInTimeZone(new Date(appointment.checkedInAt), timezone, "HH:mm")}{["PENDING", "CONFIRMED"].includes(appointment.status) ? ` · aguardando ${Math.max(0, Math.floor((now - Date.parse(appointment.checkedInAt)) / 60000))} min` : ""}</p>}
+                      <p className="mt-1 text-[13px] text-muted-foreground">{formatMoney(appointment.priceCents, currency)}{appointment.hasPayment ? " · recebido" : ""}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:col-span-2 2xl:col-span-1 2xl:max-w-[660px] 2xl:justify-end">
-                      {!appointment.checkedInAt && ["PENDING", "CONFIRMED"].includes(appointment.status) && date === formatInTimeZone(now, timezone, "yyyy-MM-dd") && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className="min-h-11 rounded-lg border border-success/40 bg-success/10 px-3 text-xs font-semibold text-success">Registrar chegada</button>}
-                      {openedReminderIds.has(appointment.id) && !sentReminderIds.has(appointment.id) && <button type="button" disabled={pending} onClick={() => confirmReminder(appointment)} className="min-h-11 rounded-lg border border-border px-3 text-xs">Confirmar envio manual</button>}
+                      {!appointment.checkedInAt && ["PENDING", "CONFIRMED"].includes(appointment.status) && date === formatInTimeZone(now, timezone, "yyyy-MM-dd") && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className="min-h-11 rounded-lg border border-success/40 bg-success/10 px-3 text-[13px] font-semibold text-success">Registrar chegada</button>}
+                      {openedReminderIds.has(appointment.id) && !sentReminderIds.has(appointment.id) && <button type="button" disabled={pending} onClick={() => confirmReminder(appointment)} className="min-h-11 rounded-lg border border-border px-3 text-[13px]">Confirmar envio manual</button>}
                       <button
                         type="button"
                         disabled={!appointment.clientPhone || pending || reminderId === appointment.id}
@@ -248,14 +248,14 @@ export function HojeView({
                             type="button"
                             disabled={pending || pendingId === appointment.id}
                             onClick={() => runStatus(appointment, action)}
-                            className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition disabled:opacity-50 ${statusActionClasses(action)}`}
+                            className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3.5 text-[13px] font-semibold transition disabled:opacity-50 ${statusActionClasses(action)}`}
                           >
                             {pendingId === appointment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" aria-hidden="true" />}
                             {actionLabel}
                           </button>
                         );
                       })}
-                      <Link href={`/agenda?date=${date}&appointment=${encodeURIComponent(appointment.id)}&from=hoje`} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-3.5 text-xs font-medium text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+                      <Link href={`/agenda?date=${date}&appointment=${encodeURIComponent(appointment.id)}&from=hoje`} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-3.5 text-[13px] font-medium text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
                         Ver detalhes
                       </Link>
                     </div>
@@ -290,7 +290,7 @@ function SummaryCard({
     <div className="rounded-2xl border border-border bg-card p-4">
       <Icon className={`h-4 w-4 ${tone === "neutral" ? "text-muted-foreground" : toneClass}`} aria-hidden="true" />
       <p className={`mt-3 text-2xl font-semibold tracking-tight ${toneClass}`}>{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-[13px] text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -301,7 +301,7 @@ function FilterButton({ active, onClick, children }: { active: boolean; onClick:
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`min-h-11 rounded-full border px-3 text-xs font-medium transition ${active ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-card-hover hover:text-foreground"}`}
+      className={`min-h-11 rounded-full border px-3 text-[13px] font-medium transition ${active ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-card-hover hover:text-foreground"}`}
     >
       {children}
     </button>

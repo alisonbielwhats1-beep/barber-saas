@@ -122,7 +122,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Crescimento
         </p>
         <h1 className="mt-1 text-xl font-semibold tracking-tight">Compartilhar</h1>
@@ -143,7 +143,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             </span>
             <div>
               <p className="text-[13px] font-semibold">Link de agendamento</p>
-              <p className="text-[11px] text-muted-foreground">Funciona no celular e no computador</p>
+              <p className="text-xs text-muted-foreground">Funciona no celular e no computador</p>
             </div>
           </div>
 
@@ -156,7 +156,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               onClick={copyLink}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90"
+              className="flex items-center gap-2 rounded-xl bg-primary min-h-11 px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90"
             >
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? "Copiado!" : "Copiar link"}
@@ -165,7 +165,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
               href={bookingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
+              className="flex items-center gap-2 rounded-xl border border-border bg-card min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Ver página
@@ -174,7 +174,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
 
           {/* Prévia da URL do cliente */}
           <div className="mt-auto pt-5">
-            <p className="mb-2 text-[11px] font-medium text-muted-foreground">Prévia do link</p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Prévia do link</p>
             <div className="overflow-hidden rounded-xl border border-border bg-surface-1">
               <div className="flex items-center gap-1.5 border-b border-border bg-muted/30 px-3 py-1.5">
                 <span className="h-2 w-2 rounded-full bg-red-400/60" />
@@ -200,7 +200,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             </span>
             <div>
               <p className="text-[13px] font-semibold">QR Code</p>
-              <p className="text-[11px] text-muted-foreground">Imprima e deixe na recepção</p>
+              <p className="text-xs text-muted-foreground">Imprima e deixe na recepção</p>
             </div>
           </div>
 
@@ -245,7 +245,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
 
           <button
             onClick={downloadQr}
-            className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
+            className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-card min-h-11 px-5 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
           >
             <Download className="h-3.5 w-3.5" />
             Baixar QR Code (600 × 600 px)
@@ -261,7 +261,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
           </span>
           <div>
             <p className="text-[13px] font-semibold">Mensagem para WhatsApp</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Pronta para enviar — adapte se quiser
             </p>
           </div>
@@ -278,14 +278,14 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl bg-[var(--action-positive)] px-4 py-2.5 text-[13px] font-medium text-white transition hover:opacity-90"
+            className="flex items-center gap-2 rounded-xl bg-[var(--action-positive)] min-h-11 px-4 py-2.5 text-[13px] font-medium text-white transition hover:opacity-90"
           >
             <Share2 className="h-3.5 w-3.5" />
             Abrir WhatsApp
           </a>
           <button
             onClick={copyMsg}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
+            className="flex items-center gap-2 rounded-xl border border-border bg-card min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
           >
             {msgCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {msgCopied ? "Copiado!" : "Copiar mensagem"}
@@ -299,15 +299,15 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#3B9EFF]/15 text-[#3B9EFF]"><UserPlus className="h-4 w-4" /></span>
             <div>
               <p className="text-[13px] font-semibold">Mensagem de indicação</p>
-              <p className="text-[11px] text-muted-foreground">Para clientes fiéis encaminharem a amigos</p>
+              <p className="text-xs text-muted-foreground">Para clientes fiéis encaminharem a amigos</p>
             </div>
           </div>
           <p className="mt-4 whitespace-pre-line rounded-xl border border-border bg-surface-1 p-3 text-[13px] text-muted-foreground [overflow-wrap:anywhere]">{referralMessage}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <a href={`https://wa.me/?text=${encodeURIComponent(referralMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[var(--action-positive)] px-4 py-2.5 text-[13px] font-medium text-white">
+            <a href={`https://wa.me/?text=${encodeURIComponent(referralMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[var(--action-positive)] min-h-11 px-4 py-2.5 text-[13px] font-medium text-white">
               <Share2 className="h-3.5 w-3.5" /> Abrir WhatsApp
             </a>
-            <button onClick={copyReferral} className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[13px] text-muted-foreground">
+            <button onClick={copyReferral} className="inline-flex items-center gap-2 rounded-xl border border-border min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground">
               {referralCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {referralCopied ? "Copiado!" : "Copiar"}
             </button>
           </div>
@@ -318,23 +318,23 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary"><HandCoins className="h-4 w-4" /></span>
             <div>
               <p className="text-[13px] font-semibold">Sinal Pix manual</p>
-              <p className="text-[11px] text-muted-foreground">Sem gateway e sem tarifa do Everflair</p>
+              <p className="text-xs text-muted-foreground">Sem gateway e sem tarifa do Everflair</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
-            <label className="text-[11px] text-muted-foreground">Chave Pix
-              <input value={pixKey} onChange={(event) => setPixKey(event.target.value)} placeholder="CPF, telefone, e-mail ou chave" className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground" />
+            <label className="text-xs text-muted-foreground">Chave Pix
+              <input value={pixKey} onChange={(event) => setPixKey(event.target.value)} placeholder="CPF, telefone, e-mail ou chave" className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground" />
             </label>
-            <label className="text-[11px] text-muted-foreground">Valor do sinal
-              <input value={signalValue} onChange={(event) => setSignalValue(event.target.value)} inputMode="decimal" className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground" />
+            <label className="text-xs text-muted-foreground">Valor do sinal
+              <input value={signalValue} onChange={(event) => setSignalValue(event.target.value)} inputMode="decimal" className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground" />
             </label>
           </div>
-          <p className="mt-2 text-[10px] text-muted-foreground">A chave fica salva somente neste navegador. A conferência do comprovante continua manual.</p>
+          <p className="mt-2 text-xs text-muted-foreground">A chave fica salva somente neste navegador. A conferência do comprovante continua manual.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={!pixMessage} onClick={copyPix} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground disabled:opacity-40">
+            <button disabled={!pixMessage} onClick={copyPix} className="inline-flex items-center gap-2 rounded-xl bg-primary min-h-11 px-4 py-2.5 text-[13px] font-medium text-primary-foreground disabled:opacity-40">
               {pixCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {pixCopied ? "Salvo e copiado!" : "Salvar e copiar"}
             </button>
-            {pixMessage && <a href={`https://wa.me/?text=${encodeURIComponent(pixMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[13px] text-muted-foreground"><Share2 className="h-3.5 w-3.5" /> Enviar</a>}
+            {pixMessage && <a href={`https://wa.me/?text=${encodeURIComponent(pixMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground"><Share2 className="h-3.5 w-3.5" /> Enviar</a>}
           </div>
         </div>
       </div>
@@ -344,7 +344,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#3B9EFF]/15 text-[#3B9EFF]"><Building2 className="h-4 w-4" /></span>
           <div>
             <p className="text-[13px] font-semibold">Agendamento gratuito no Google</p>
-            <p className="text-[11px] text-muted-foreground">Use o mesmo link público no Perfil da Empresa</p>
+            <p className="text-xs text-muted-foreground">Use o mesmo link público no Perfil da Empresa</p>
           </div>
         </div>
         <ol className="mt-4 grid gap-2 text-[12px] text-muted-foreground sm:grid-cols-3">
@@ -352,7 +352,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
           <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">2. Edite agendamentos</strong>Escolha a opção de link para reservar.</li>
           <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">3. Cole o link</strong>Use o endereço do Everflair exibido acima.</li>
         </ol>
-        <a href="https://business.google.com/" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[13px] text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5" /> Abrir Perfil da Empresa</a>
+        <a href="https://business.google.com/" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5" /> Abrir Perfil da Empresa</a>
       </div>
 
       {/* ── Dicas ────────────────────────────────────────────────────── */}
@@ -362,7 +362,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             <Lightbulb aria-hidden="true" className="h-4 w-4 text-primary" />
           </span>
           <span className="text-[13px] font-semibold">Dicas de divulgação</span>
-          <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
             Ver dicas
             <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" />
           </span>

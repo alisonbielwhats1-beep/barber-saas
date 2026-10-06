@@ -82,11 +82,11 @@ export default async function FinanceiroPage({
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary">
               <Wallet className="h-3 w-3" />
               {calendar ? {day:"Dia",week:"Semana",month:"Mês"}[calendar.mode] : RANGE_LABELS[range]}
             </span>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {formatPeriodLabel(m.period.from, m.period.to, timezone)}
             </span>
           </div>
@@ -124,7 +124,7 @@ export default async function FinanceiroPage({
             <Activity className="h-4 w-4 text-muted-foreground" />
             <div>
               <h2 id="finance-pending-title" className="text-[13px] font-semibold">Pendências que pedem ação</h2>
-              <p className="text-[11px] text-muted-foreground">Acompanhe o que ainda pode virar caixa ou sair do caixa.</p>
+              <p className="text-xs text-muted-foreground">Acompanhe o que ainda pode virar caixa ou sair do caixa.</p>
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -133,7 +133,7 @@ export default async function FinanceiroPage({
                 <ArrowDownCircle className="h-4 w-4 shrink-0 text-info" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[12px] font-medium">Atendimentos a receber</span>
-                  <span className="block text-[11px] text-muted-foreground">{formatMoney(m.receivable)} em atendimentos concluídos</span>
+                  <span className="block text-xs text-muted-foreground">{formatMoney(m.receivable)} em atendimentos concluídos</span>
                 </span>
                 <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -143,7 +143,7 @@ export default async function FinanceiroPage({
                 <ArrowUpCircle className="h-4 w-4 shrink-0 text-warning" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[12px] font-medium">Despesas pendentes</span>
-                  <span className="block text-[11px] text-muted-foreground">{formatMoney(m.payable)} ainda não marcadas como pagas</span>
+                  <span className="block text-xs text-muted-foreground">{formatMoney(m.payable)} ainda não marcadas como pagas</span>
                 </span>
                 <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -169,7 +169,7 @@ export default async function FinanceiroPage({
             <DreRow label="= Lucro líquido" value={formatMoney(m.netProfit)} divider strong accent={m.netProfit >= 0 ? "hsl(var(--success))" : "hsl(var(--danger))"} />
           </div>
           <div className="mt-4 rounded-xl bg-surface-1 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Margem líquida</p>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">Margem líquida</p>
             <p className={`mt-0.5 text-lg font-semibold ${m.margin >= 0 ? "text-success" : "text-danger"}`}>
               {(m.margin * 100).toFixed(1)}%
             </p>
@@ -256,13 +256,13 @@ function Hero({ accent, icon: Icon, label, value, hint, featured = false }: { ac
   return (
     <div className={`min-w-0 rounded-lg border bg-card p-3 ${featured ? "border-primary/30" : "border-border"}`}>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
         <span className={`hidden sm:grid h-8 w-8 place-items-center rounded-lg ${iconTone}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
       <p className="mt-2 text-[clamp(15px,4.4vw,24px)] font-semibold leading-tight tracking-tight tabular-nums break-words">{value}</p>
-      {hint && <p className="mt-2 text-[11px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="mt-2 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -274,7 +274,7 @@ function Tile({ accent, icon: Icon, label, value }: { accent: string; icon: Icon
         <Icon className="h-4 w-4" />
       </span>
       <p className="mt-3 text-lg font-semibold tracking-tight">{value}</p>
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
     </div>
   );
 }

@@ -80,7 +80,7 @@ export default async function MarketingPage() {
   return (
     <div className="space-y-6">
       <header>
-        <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Crescimento</p>
+        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Crescimento</p>
         <h1 className="text-[26px] font-semibold tracking-tight">Marketing</h1>
         <p className="mt-1 max-w-2xl text-[12px] text-muted-foreground">Transforme sua base atual em retorno, avaliações e indicações — com mensagens pessoais, sem disparo automático.</p>
       </header>
@@ -90,7 +90,7 @@ export default async function MarketingPage() {
           <Crown className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <div>
             <p className="text-[12px] font-semibold">Marketing fica disponível nos planos pagos</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               Você continua vendo sua base e histórico. Ao contratar um plano pago, poderá preparar campanhas e abrir mensagens pelo WhatsApp.
             </p>
             <PlanUpgradeAction role={ctx.role} className="text-[12px]" />
@@ -123,7 +123,7 @@ export default async function MarketingPage() {
       <section className="overflow-hidden rounded-3xl border border-primary/25 bg-card">
         <div className="grid lg:grid-cols-[1.45fr_1fr]">
           <div className="border-b border-border p-5 sm:p-7 lg:border-b-0 lg:border-r">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
               <Sparkles className="h-3.5 w-3.5" /> Foco da semana
             </span>
             <h2 className="mt-4 max-w-xl text-xl font-semibold tracking-tight sm:text-2xl">
@@ -150,7 +150,7 @@ export default async function MarketingPage() {
           disabled={!marketingEnabled}
         />
       ) : (
-        <div className="rounded-2xl border border-border bg-card px-4 py-3 text-[11px] text-muted-foreground">
+        <div className="rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
           O dono definiu clientes sumidos após <strong className="text-foreground">{settings.lapsedClientDays} dias</strong>.
         </div>
       )}
@@ -167,9 +167,9 @@ export default async function MarketingPage() {
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="flex items-center gap-2 text-[14px] font-semibold"><History className="h-4 w-4 text-primary" /> Histórico de campanhas</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Registra a preparação manual; não afirma que a mensagem foi entregue pelo WhatsApp.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Registra a preparação manual; não afirma que a mensagem foi entregue pelo WhatsApp.</p>
           </div>
-          <div className="flex gap-2 text-[10px]">
+          <div className="flex gap-2 text-xs">
             <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">{summary.uniqueClients} clientes</span>
             <span className="rounded-full bg-surface-1 px-2.5 py-1 text-muted-foreground">{summary.openedWhatsApp} aberturas</span>
             <span className="rounded-full bg-surface-1 px-2.5 py-1 text-muted-foreground">{summary.copied} cópias</span>
@@ -187,9 +187,9 @@ export default async function MarketingPage() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[12px] font-medium">{String(metadata?.clientName ?? "Cliente")}</p>
-                <p className="text-[10px] text-muted-foreground">{String(metadata?.campaignKey ?? "campanha")} · por {item.actorName}</p>
+                <p className="text-xs text-muted-foreground">{String(metadata?.campaignKey ?? "campanha")} · por {item.actorName}</p>
               </div>
-              <p className="text-[10px] text-muted-foreground">{formatInTimeZone(item.createdAt, salon?.timezone ?? "America/Sao_Paulo", "dd/MM · HH:mm")}</p>
+              <p className="text-xs text-muted-foreground">{formatInTimeZone(item.createdAt, salon?.timezone ?? "America/Sao_Paulo", "dd/MM · HH:mm")}</p>
             </div>
           );
         })}
@@ -202,7 +202,7 @@ function Kpi({ icon: Icon, accent, label, value }: { icon: React.ComponentType<{
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}><Icon className="h-4 w-4" /></span>
-      <div className="min-w-0"><p className="text-lg font-semibold leading-none tracking-tight">{value}</p><p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p></div>
+      <div className="min-w-0"><p className="text-lg font-semibold leading-none tracking-tight">{value}</p><p className="mt-1 text-xs leading-snug text-muted-foreground">{label}</p></div>
     </div>
   );
 }
@@ -212,7 +212,7 @@ function GrowthIdea({ icon: Icon, title, text, divider = false }: { icon: React.
     <div className={`p-5 ${divider ? "border-t border-border sm:border-l sm:border-t-0 lg:border-l-0 lg:border-t" : ""}`}>
       <Icon className="h-5 w-5 text-primary" />
       <p className="mt-3 text-[13px] font-semibold">{title}</p>
-      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{text}</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{text}</p>
     </div>
   );
 }

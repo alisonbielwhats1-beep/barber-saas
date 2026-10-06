@@ -18,6 +18,7 @@ import {
   Bell,
   AlertTriangle,
   Ban,
+  ChevronDown,
 } from "lucide-react";
 import {
   format,
@@ -386,8 +387,8 @@ export function AgendaBoard({
   return (
     <div className="agenda-workspace" aria-busy={pending}>
       <header className="agenda-toolbar">
-        <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="hidden min-h-11 rounded-lg border border-border px-2 text-xs sm:block">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
-        <div className="hidden sm:block"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
+        <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="agenda-optional-control hidden min-h-11 rounded-lg border border-border px-2 text-xs sm:block">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
+        <div className="agenda-optional-control hidden sm:block"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
           <h1><button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
@@ -426,7 +427,7 @@ export function AgendaBoard({
             </button>
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               {format(dateObj, "EEEE", { locale: ptBR })}
             </p>
             <h1 className="text-base font-semibold tracking-tight first-letter:uppercase sm:text-xl">{rangeLabel}</h1>
@@ -436,7 +437,7 @@ export function AgendaBoard({
 
         <div className="agenda-view-controls">
           <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!prefill?.linked} />
-          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
+          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined} className="pr-6 sm:pr-16"><DialogHeader className="pr-10 sm:pr-0"><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
             {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
@@ -448,7 +449,7 @@ export function AgendaBoard({
             </Link>
           )}
 </div></DialogContent></Dialog>}
-          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-describedby={activeFilterCount > 0 ? "agenda-active-filters" : undefined} aria-haspopup="dialog" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} aria-hidden="true" />{activeFilterCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{activeFilterCount}</span>}</button>
+          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-describedby={activeFilterCount > 0 ? "agenda-active-filters" : undefined} aria-haspopup="dialog" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} aria-hidden="true" />{activeFilterCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">{activeFilterCount}</span>}</button>
           <div role="group" aria-label="Visualização da agenda" className="hidden items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1 sm:flex">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
             <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
@@ -472,7 +473,7 @@ export function AgendaBoard({
 
       {view === "day" && <AgendaWeekStrip date={date} today={today} onSelect={goToDay} />}
       <div role="group" aria-label="Visualização da agenda" className="agenda-mobile-views flex gap-2 sm:hidden">
-        {([['day','Dia'],['week','Semana'],['month','Mês'],['list','Lista']] as const).map(([kind,label]) => <button key={kind} type="button" aria-pressed={view === kind} onClick={() => setView(kind)} className="min-h-9 flex-1 rounded-full text-xs font-medium">{label}</button>)}
+        {([['day','Dia'],['week','Semana'],['month','Mês'],['list','Lista']] as const).map(([kind,label]) => <button key={kind} type="button" aria-pressed={view === kind} onClick={() => setView(kind)} className="min-h-11 flex-1 rounded-full text-[13px] font-medium">{label}</button>)}
       </div>
 
       {activeFilterCount > 0 && (
@@ -491,10 +492,10 @@ export function AgendaBoard({
 
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto">
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto pr-6 sm:pr-16">
           <DialogHeader className="pr-10"><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div className="space-y-3 sm:hidden">
+        <div className="agenda-filter-extras space-y-3 sm:hidden">
           <AgendaColorSelect value={colorMode} onChange={setColorMode} />
           <button type="button" aria-pressed={view === "month"} onClick={() => {setView("month"); setFiltersOpen(false);}} className="min-h-11 rounded-lg border border-border px-3 text-sm">Visualização mensal</button>
           <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 w-full rounded-lg border border-border px-3 text-left text-sm">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
@@ -541,8 +542,8 @@ export function AgendaBoard({
         </DialogContent>
       </Dialog>
       <Dialog open={operationsOpen} onOpenChange={setOperationsOpen}>
-        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreQuickActionFocus(); }} className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader><DialogTitle>Expediente e bloqueios</DialogTitle></DialogHeader>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreQuickActionFocus(); }} className="max-h-[85dvh] overflow-y-auto pr-6 sm:max-w-2xl sm:pr-16">
+          <DialogHeader className="pr-10 sm:pr-0"><DialogTitle>Expediente e bloqueios</DialogTitle></DialogHeader>
           {canManageAvailability && <AvailabilityPanel canCancelAppointments={canCancel} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} />}
           {operations}
         </DialogContent>
@@ -609,7 +610,7 @@ export function AgendaBoard({
           onOpenDetail={setDetail}
         />
       ) : (
-        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} onOpenBlock={canManageAvailability ? setSelectedAvailabilityBlock : undefined} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
+        <div className="space-y-3 pb-32 lg:pb-0"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} onOpenBlock={canManageAvailability ? setSelectedAvailabilityBlock : undefined} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} today={today} onOpenDetail={setDetail} /></div>
       )}
 
       </div>
@@ -760,6 +761,8 @@ function DayView({
   const visibleBlocks = blocks.filter(b => professionals.some(p => p.id === b.professionalId) && formatInTimeZone(new Date(b.startAt), timezone, 'yyyy-MM-dd') <= date && formatInTimeZone(new Date(new Date(b.endAt).getTime() - 1), timezone, 'yyyy-MM-dd') >= date);
   const { start: dayStart, end: dayEnd } = agendaRange(appointments, visibleBlocks, professionals.flatMap(p => p.workingHours ?? []), timezone, fullDay);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const scrolledToNow = useRef("");
   const apptById = useRef(new Map<string, Appointment>());
   apptById.current = new Map(appointments.map((a) => [a.id, a]));
   const [drag, setDrag] = useState<
@@ -788,6 +791,12 @@ function DayView({
     }
   }
   useEffect(() => { selection.current = null; setSelectionView(null); }, [blockMode, date]);
+  // Hoje abre uma hora antes de agora, não às 08:00: no celular a grade não mostra o dia inteiro.
+  useEffect(() => {
+    if (nowMin == null || scrolledToNow.current === date || !gridRef.current) return;
+    scrolledToNow.current = date;
+    gridRef.current.scrollTop = Math.max(0, (nowMin - 60 - dayStart) * PX_PER_MIN);
+  }, [nowMin, date, dayStart]);
 
   const slots: number[] = [];
   for (let m = dayStart; m < dayEnd; m += SLOT_MIN) slots.push(m);
@@ -845,10 +854,10 @@ function DayView({
   }, [drag, date, onMove, dayStart, dayEnd]);
 
   return (
-    <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
+    <div ref={gridRef} className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: `calc(56px + ${professionals.length} * var(--agenda-column-min, 148px))` }} ref={bodyRef}>
         <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-surface-1">
-          <div style={{ height: HEADER_H }} className="border-b border-border" />
+          <div style={{ height: HEADER_H }} className="sticky top-0 z-30 border-b border-border bg-surface-1" />
           <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
         </div>
 
@@ -887,7 +896,7 @@ function DayView({
                       key={`schedule-${interval.startMinutes}-${interval.endMinutes}`}
                       role="note"
                       aria-label={`Fora do expediente de ${pro.name}: ${minutesToHHMM(interval.startMinutes)}–${minutesToHHMM(interval.endMinutes)}`}
-                      className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-border/70 bg-muted/45 px-2 py-1 text-[10px] text-muted-foreground"
+                      className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-border/70 bg-muted/45 px-2 py-1 text-xs text-muted-foreground"
                       style={{
                         top: (interval.startMinutes - dayStart) * PX_PER_MIN,
                         height,
@@ -955,22 +964,22 @@ function DayView({
                       }}
                     >
                       <p className="flex items-center gap-1.5 font-semibold text-foreground"><span aria-hidden="true" title={cfg.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: cfg.color }} /><span className="truncate">{a.clientName}</span></p>
-                      {height >= 42 && <p className="truncate text-[11px] text-foreground/85">{a.serviceName}</p>}
-                      {height >= 90 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-[10px] font-medium ${cfg.badgeClass}`}>{cfg.label}</span>}
+                      {height >= 42 && <p className="truncate text-xs text-foreground/85">{a.serviceName}</p>}
+                      {height >= 90 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-xs font-medium ${cfg.badgeClass}`}>{cfg.label}</span>}
                       {a.pendingReschedule && (
-                        <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-warning">
+                        <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-xs font-semibold text-warning">
                           {a.pendingReschedule.status === "REJECTED" ? "Alteração recusada" : "Aguardando aceite"}
                         </span>
                       )}
                       {height >= 70 && (
-                        <p className="mt-0.5 truncate text-[10px] font-medium text-foreground">
+                        <p className="mt-0.5 truncate text-xs font-medium text-foreground">
                           {formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} · {formatMoney(a.priceCents)}
                         </p>
                       )}
                       {a.waitlistCount > 0 && (
                         <span
                           title={`${a.waitlistCount} na fila de espera${a.waitlistNext ? ` — próximo: ${a.waitlistNext}` : ""}`}
-                          className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-black"
+                          className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-black"
                         >
                           <Users className="h-2.5 w-2.5" />
                           {a.waitlistCount}
@@ -1043,7 +1052,7 @@ function WeekView({
     <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: 56 + days.length * colW }}>
         <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-surface-1">
-          <div style={{ height: HEADER_H }} className="border-b border-border" />
+          <div style={{ height: HEADER_H }} className="sticky top-0 z-30 border-b border-border bg-surface-1" />
           <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
         </div>
 
@@ -1064,7 +1073,7 @@ function WeekView({
                   isToday ? "bg-primary/10" : "bg-card"
                 }`}
               >
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
                   {format(day, "EEE", { locale: ptBR })}
                 </span>
                 <span className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}>
@@ -1110,7 +1119,7 @@ function WeekView({
                       aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${professionals.find(p => p.id === a.professionalId)?.name ?? "Profissional"}, ${cfg.label}${placement.conflict ? ", conflito de horário" : ""}`}
                       data-appointment-professional={a.professionalId} data-colorful-appointment
                       title={placement.conflict ? "Conflito de horário detectado — revise este atendimento" : undefined}
-                      className={`absolute z-[2] overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md ${
+                      className={`absolute z-[2] overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-xs shadow-sm transition hover:shadow-md ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
                       }`}
                       style={{
@@ -1124,7 +1133,7 @@ function WeekView({
                     >
                       <p className="truncate font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</p>
                       {height > 30 && <p className="truncate text-foreground/85">{a.serviceName}</p>}
-                      {height >= 70 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-[9px] ${cfg.badgeClass}`}>{cfg.label}</span>}
+                      {height >= 70 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-xs ${cfg.badgeClass}`}>{cfg.label}</span>}
                       {placement.conflict && <AlertTriangle className="absolute right-1 top-1 h-3 w-3 text-danger" aria-label="Conflito de horário" />}
                     </button>
                   );
@@ -1179,7 +1188,7 @@ function MonthView({
           ["Sáb", "sábado"],
           ["Dom", "domingo"],
         ].map(([shortLabel, fullLabel]) => (
-          <div key={shortLabel} className="py-2 text-center text-[11px] font-medium text-muted-foreground">
+          <div key={shortLabel} className="py-2 text-center text-xs font-medium text-muted-foreground">
             <span aria-hidden="true">{shortLabel}</span>
             <span className="sr-only">{fullLabel}</span>
           </div>
@@ -1206,11 +1215,11 @@ function MonthView({
               }`}
             >
               {dayAppts.length > 0 && (
-                <span className="absolute right-1 top-1 text-[9px] font-semibold leading-none text-muted-foreground" aria-hidden="true">
+                <span className="absolute right-1 top-1 text-xs font-semibold leading-none text-muted-foreground" aria-hidden="true">
                   {dayAppts.length}
                 </span>
               )}
-              <span className={`grid h-7 w-7 place-items-center rounded-full text-xs ${
+              <span className={`grid h-7 w-7 place-items-center rounded-full text-[13px] ${
                 isToday ? "bg-primary font-semibold text-primary-foreground" : ""
               }`}>
                 {format(day, "d")}
@@ -1225,7 +1234,7 @@ function MonthView({
           );
         })}
       </div>
-      <p className="border-t border-border bg-surface-1 px-3 py-2 text-center text-[11px] text-muted-foreground sm:hidden">
+      <p className="border-t border-border bg-surface-1 px-3 py-2 text-center text-xs text-muted-foreground sm:hidden">
         Toque em um dia para abrir os agendamentos.
       </p>
       <div className="hidden grid-cols-7 sm:grid">
@@ -1246,14 +1255,14 @@ function MonthView({
                 onClick={() => onOpenDay(dStr)}
                 aria-label={`Abrir ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
                 aria-current={isToday ? "date" : undefined}
-                className={`mb-1 grid h-11 w-11 place-items-center rounded-full text-[11px] transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`mb-1 grid h-11 w-11 place-items-center rounded-full text-xs transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   isToday ? "bg-primary font-semibold text-primary-foreground" : inMonth ? "text-foreground" : "text-muted-foreground/50"
                 }`}
               >
                 {format(day, "d")}
               </button>
               <div className="space-y-0.5">
-                {blocksOnDate(blocks, dStr, timezone).length > 0 && <button onClick={() => onOpenDay(dStr)} className="flex min-h-8 items-center gap-1 rounded bg-muted px-1 text-xs"><Ban size={12} />{blocksOnDate(blocks, dStr, timezone).length} bloqueio(s)</button>}
+                {blocksOnDate(blocks, dStr, timezone).length > 0 && <button onClick={() => onOpenDay(dStr)} className="flex min-h-11 items-center gap-1 rounded bg-muted px-1 text-xs"><Ban size={12} />{blocksOnDate(blocks, dStr, timezone).length} bloqueio(s)</button>}
                 {dayAppts.slice(0, 3).map((a) => {
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
                   return (
@@ -1263,7 +1272,7 @@ function MonthView({
                       onClick={() => onOpenDetail(a)}
                       aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${cfg.label}`}
                       data-appointment-professional={a.professionalId} data-colorful-appointment
-                      className="flex min-h-6 w-full items-center gap-1 truncate rounded px-1 py-1 text-left text-[11px] transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex min-h-8 w-full items-center gap-1 truncate rounded px-1 py-1 text-left text-xs transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       style={{ background: `color-mix(in srgb, ${a.professionalColor} 60%, white)`, color: "#111827" }}
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: a.professionalColor }} />
@@ -1272,7 +1281,7 @@ function MonthView({
                   );
                 })}
                 {dayAppts.length > 3 && (
-                  <button type="button" onClick={() => onOpenDay(dStr)} className="min-h-6 px-1 text-[10px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <button type="button" onClick={() => onOpenDay(dStr)} className="min-h-8 px-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     +{dayAppts.length - 3} mais
                   </button>
                 )}
@@ -1291,15 +1300,29 @@ function ListView({
   appointments,
   professionals,
   timezone,
+  today,
   onOpenDetail,
 }: {
   appointments: Appointment[];
   professionals: Professional[];
   timezone: string;
+  today: string;
   onOpenDetail: (a: Appointment) => void;
 }) {
   const proById = new Map(professionals.map((p) => [p.id, p]));
   const sorted = [...appointments].sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // A lista cobre o mês inteiro: ao abrir, ela começa no primeiro dia que ainda não passou.
+  useEffect(() => {
+    const list = listRef.current;
+    const scroller = list?.closest<HTMLElement>(".agenda-canvas");
+    const target = [...(list?.querySelectorAll<HTMLElement>("[data-day]") ?? [])].find((header) => header.dataset.day! >= today);
+    if (!scroller || !target) return;
+    scroller.scrollTop += target.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  // Só na abertura: filtros não devem tirar a pessoa do lugar em que ela está.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (sorted.length === 0) {
     return (
@@ -1311,7 +1334,7 @@ function ListView({
 
   let lastDay = "";
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div ref={listRef} className="overflow-hidden rounded-2xl border border-border bg-card">
       {sorted.map((a) => {
         const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
         const pro = proById.get(a.professionalId);
@@ -1321,7 +1344,7 @@ function ListView({
         return (
           <div key={a.id}>
             {showDay && (
-              <div className="border-b border-border bg-surface-1 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              <div data-day={dayKey} className="border-b border-border bg-surface-1 px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {formatInTimeZone(new Date(a.startAt), timezone, "EEEE, d 'de' MMMM", { locale: ptBR })}
               </div>
             )}
@@ -1331,25 +1354,26 @@ function ListView({
             >
               <div className="w-14 shrink-0 text-center">
                 <p className="text-sm font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}</p>
-                <p className="text-[10px] text-muted-foreground">{formatInTimeZone(new Date(a.endAt), timezone, "HH:mm")}</p>
+                <p className="text-xs text-muted-foreground">{formatInTimeZone(new Date(a.endAt), timezone, "HH:mm")}</p>
               </div>
-              <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: a.professionalColor }} />
+              <span className="min-h-8 w-1 shrink-0 self-stretch rounded-full" style={{ background: a.professionalColor }} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium">{a.clientName}</p>
-                <p className="truncate text-[12px] text-muted-foreground">
+                <p className="truncate text-[13px] text-muted-foreground">
                   {a.serviceName}{pro ? ` · ${pro.name.split(" ")[0]}` : ""}
                 </p>
+                <span className={`mt-0.5 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold sm:hidden ${cfg.badgeClass}`}>{cfg.label}</span>
               </div>
               {a.waitlistCount > 0 && (
                 <span
                   title={a.waitlistNext ? `Próximo da fila: ${a.waitlistNext}` : undefined}
-                  className="hidden shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-1 text-[11px] font-semibold text-amber-600 sm:inline-flex"
+                  className="hidden shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-600 sm:inline-flex"
                 >
                   <Users className="h-3 w-3" />
                   {a.waitlistCount} na fila
                 </span>
               )}
-              <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline ${cfg.badgeClass}`}>
+              <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:inline ${cfg.badgeClass}`}>
                 {cfg.label}
               </span>
               <p className="w-20 shrink-0 text-right text-[13px] font-semibold">{formatMoney(a.priceCents)}</p>
@@ -1374,15 +1398,15 @@ function BlockOverlay({ block, date, timezone, start, end, name, onOpen, placeme
   const from = Math.max(start, first < date ? 0 : minutesOf(block.startAt, timezone));
   const to = Math.min(end, last > date ? 1440 : minutesOf(block.endAt, timezone));
   if (to <= from) return null;
-  return <AvailabilityBlockTrigger block={block} professionalName={name ?? "Profissional"} timezone={timezone} onOpen={onOpen} className="absolute z-[1] p-1 text-[10px]" style={{ left: `${placement?.leftPct ?? 0}%`, width: `${placement?.widthPct ?? 100}%`, top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN }} />;
+  return <AvailabilityBlockTrigger block={block} professionalName={name ?? "Profissional"} timezone={timezone} onOpen={onOpen} className="absolute z-[1] p-1 text-xs" style={{ left: `${placement?.leftPct ?? 0}%`, width: `${placement?.widthPct ?? 100}%`, top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN }} />;
 }
 
 function BlockList({ blocks, professionals, timezone, onOpenBlock }: { blocks: AvailabilityBlock[]; professionals: Professional[]; timezone: string; onOpenBlock?: (block: AvailabilityBlock) => void }) {
   if (!blocks.length) return null;
-  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período</h2><ul className="divide-y divide-border">{blocks.map(b => {
+  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><details open={blocks.length <= 2}><summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período · {blocks.length}<ChevronDown size={16} aria-hidden="true" className="ml-auto shrink-0 text-muted-foreground [details[open]_&]:rotate-180" /></summary><ul className="divide-y divide-border">{blocks.map(b => {
     const content = <><strong>{professionals.find(p => p.id === b.professionalId)?.name}</strong> · {formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}<p className="text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</p></>;
     return <li key={b.id} className="py-1 text-sm">{onOpenBlock ? <button type="button" onClick={() => onOpenBlock(b)} className="min-h-11 w-full rounded-lg px-2 py-1 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{content}</button> : <div className="px-2 py-1">{content}</div>}</li>;
-  })}</ul></section>;
+  })}</ul></details></section>;
 }
 
 function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof List; label: string }) {

@@ -23,7 +23,7 @@
 .admin-catalog-tools { position: sticky; top: 0; z-index: 10; background: hsl(var(--background)); padding-block: 8px; }
 @media (max-width: 639px) {
   .admin-page-layout > :not(.agenda-workspace) > header { gap: 12px; padding-bottom: 12px; }
-  .admin-page-layout > :not(.agenda-workspace) > header > div > p:first-child:not(:only-child) { font-size: 10px; letter-spacing: .06em; }
+  .admin-page-layout > :not(.agenda-workspace) > header > div > p:first-child:not(:only-child) { font-size: 12px; letter-spacing: .06em; }
   .admin-form-dialog { padding: 16px; border-radius: 16px; }
   .admin-form-dialog [data-form-footer] { bottom: -16px; margin-inline: -16px; margin-bottom: -16px; padding-inline: 16px; }
   .admin-catalog-tools > div:has(input) { width: 100%; border-radius: 12px; }
@@ -63,7 +63,7 @@
 .admin-guided-dialog > div:first-child { flex-shrink: 0; padding: 20px 48px 16px 20px; }
 .admin-wizard-form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .admin-wizard-steps { display: flex; flex-shrink: 0; padding: 8px 16px 20px; border-bottom: 1px solid hsl(var(--border)); }
-.admin-wizard-steps li { position: relative; display: flex; flex: 1; flex-direction: column; align-items: center; gap: 8px; font-size: 11px; }
+.admin-wizard-steps li { position: relative; display: flex; flex: 1; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; }
 .admin-wizard-steps li > span:first-child { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; }
 .admin-wizard-steps li:not(:last-child)::after { content: ''; position: absolute; height: 1px; top: 14px; left: calc(50% + 20px); right: calc(-50% + 20px); background: hsl(var(--border)); }
 .admin-wizard-steps li[data-complete=true]::after { background: hsl(var(--primary)); }
@@ -111,10 +111,12 @@
  .professional-edit-dialog { height: 100dvh; max-height: 100dvh; width: 100%; border-radius: 0; border: 0; }
 }
 
-.client-profile-actions > :is(a,button) { display: flex; flex: 1; min-width: 56px; flex-direction: column; justify-content: center; gap: 6px; border: 0; background: transparent; padding: 0; font-size: 11px; color: hsl(var(--foreground)); }
+.client-profile-actions > :is(a,button) { display: flex; flex: 1; min-width: 56px; flex-direction: column; justify-content: center; gap: 6px; border: 0; background: transparent; padding: 0; font-size: 12px; color: hsl(var(--foreground)); }
 .client-profile-actions > :is(a,button) > svg { width: 40px; height: 40px; padding: 10px; border: 1px solid hsl(var(--primary) / .5); border-radius: 50%; color: hsl(var(--primary)); }
 
 .admin-catalog-tools > .service-category-filters > button { background: transparent; border: 0; padding: 0; }
+.service-category-filters { scrollbar-width: none; }
+.service-category-filters::-webkit-scrollbar { display: none; }
 
 /* Direct task forms: no wizard-height whitespace, useful reading widths on desktop. */
 .admin-guided-dialog:has(.admin-task-form) { height: auto; }
@@ -123,4 +125,9 @@
 @media (min-width: 1024px) {
   .admin-directory-page { max-width: 80rem; margin-inline: auto; }
   .client-directory { max-width: 72rem; }
+}
+
+/* Phones in landscape: icon and label share a row, so the bottom bar costs 44px instead of 62px. */
+@media (max-height: 500px) and (max-width: 1023px) {
+  .admin-mobile-bar-item { min-height: 44px; flex-direction: row; justify-content: center; gap: 8px; padding-block: 0; }
 }

@@ -152,7 +152,7 @@ export function NotificationList({
                     {isClientReminder ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                   </span>
                   <div className="min-w-0 flex-1">
-                    {isClientReminder && <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-violet-500">EverFlair lembra você</p>}
+                    {isClientReminder && <p className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-violet-500">EverFlair lembra você</p>}
                     <Link href={href} className="font-medium hover:text-primary">
                       {TITLES[notification.template] ?? "Atualização do agendamento"}
                     </Link>
@@ -190,7 +190,7 @@ export function NotificationList({
                     {reason && (
                       <p className="mt-1 text-xs text-muted-foreground">Motivo: {reason}</p>
                     )}
-                    <p className="mt-2 text-[11px] text-muted-foreground">
+                    <p className="mt-2 text-xs text-muted-foreground">
                       {formatInTimeZone(new Date(notification.createdAt), timezone, "dd/MM/yyyy HH:mm")}
                     </p>
                   </div>

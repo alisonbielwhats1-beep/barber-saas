@@ -87,7 +87,7 @@ export function PackageForm({
           </div>
           <div>
             <label htmlFor="package-form-serviceId" className="mb-1 block text-sm font-medium">Serviço (opcional)</label>
-            <select id="package-form-serviceId" name="serviceId" defaultValue={pkg?.serviceId ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <select id="package-form-serviceId" name="serviceId" defaultValue={pkg?.serviceId ?? ""} className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
               <option value="">Genérico (qualquer serviço)</option>
               {services.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>

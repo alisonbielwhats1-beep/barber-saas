@@ -94,7 +94,7 @@ export default async function ProfissionaisPage() {
     <div className="admin-directory-page flex min-w-0 flex-col gap-3 pb-20 md:gap-6 md:pb-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 hidden md:block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 hidden md:block text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Equipe · <span className="capitalize">{periodLabel}</span>
           </p>
           <h1 className="text-2xl md:text-[26px] font-semibold tracking-tight">
@@ -156,7 +156,7 @@ export default async function ProfissionaisPage() {
                     </div>
                   )}
                   {canSeeFinancial && p.rank <= 3 && p.revenue > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 hidden md:grid h-6 w-6 place-items-center rounded-full text-[10px] font-bold text-black shadow" style={{ background: MEDAL[p.rank - 1] }}>
+                    <span className="absolute -right-1.5 -top-1.5 hidden md:grid h-6 w-6 place-items-center rounded-full text-xs font-bold text-black shadow" style={{ background: MEDAL[p.rank - 1] }}>
                       {p.rank}
                     </span>
                   )}
@@ -167,7 +167,7 @@ export default async function ProfissionaisPage() {
                     {canSeeFinancial && p.rank === 1 && p.revenue > 0 && <Trophy className="hidden md:block h-3.5 w-3.5 shrink-0 text-warning" />}
                   </div>
                   <p className="break-words text-[12px] text-muted-foreground">{p.bio || p.email}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {canSeeFinancial && (
                       <>
                         <span className="hidden md:inline">Comissão <strong className="text-foreground">{p.commissionPct}%</strong></span>
@@ -180,7 +180,7 @@ export default async function ProfissionaisPage() {
                     <span className={`md:hidden ${p.active ? "text-success" : "text-muted-foreground"}`}>{p.active ? "Ativo" : "Inativo"}</span>
                   </div>
                 </div>
-                <span className={`hidden md:block shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
+                <span className={`hidden md:block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                   {p.active ? "Ativo" : "Inativo"}
                 </span>
               </div>
@@ -189,7 +189,7 @@ export default async function ProfissionaisPage() {
               <div className="space-y-1 break-words text-xs text-muted-foreground md:hidden"><p>{p.bio || p.email}</p><p>{p.workingDays} dias/sem{canSeeFinancial ? ` · Comissão ${p.commissionPct}%` : ""}</p></div>
               {/* Meta */}
               {canSeeFinancial && <div className="mt-4 rounded-xl bg-surface-1 p-3">
-                <div className="mb-1.5 flex items-center justify-between text-[11px]">
+                <div className="mb-1.5 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-muted-foreground"><Target className="h-3 w-3" /> Meta do período</span>
                   <span className="font-medium">
                     {p.goalCents > 0 ? <>{formatMoney(p.revenue)} <span className="text-muted-foreground">/ {formatMoney(p.goalCents)}</span></> : "Meta não definida"}
@@ -204,7 +204,7 @@ export default async function ProfissionaisPage() {
                     }}
                   />
                 </div>
-                }<p className="mt-1 text-right text-[10px] text-muted-foreground">
+                }<p className="mt-1 text-right text-xs text-muted-foreground">
                   {p.goalCents > 0 ? `${(p.goalPct * 100).toFixed(0)}% da meta${p.goalPct >= 1 ? " · atingida" : ""}` : "Defina uma meta ao editar o profissional"}
                 </p>
               </div>}
@@ -267,7 +267,7 @@ function Overview({ icon: Icon, accent, label, value }: { icon: IconType; accent
       </span>
       <div className="min-w-0">
         <p className="text-sm font-semibold leading-tight tracking-tight sm:text-lg">{value}</p>
-        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
+        <p className="mt-1 text-xs leading-snug text-muted-foreground">{label}</p>
       </div>
     </div>
   );
@@ -276,7 +276,7 @@ function Overview({ icon: Icon, accent, label, value }: { icon: IconType; accent
 function Stat({ icon: Icon, label, value, accent }: { icon: IconType; label: string; value: string; accent?: string }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border/50 py-3">
-      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
         <Icon className="h-3 w-3" /> {label}
       </span>
       <p className="mt-0.5 text-[14px] font-semibold" style={accent ? { color: accent } : undefined}>{value}</p>

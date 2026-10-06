@@ -194,7 +194,7 @@ export function PricingRulesManager({ rules, canManage }: { rules: Rule[]; canMa
                   <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-medium">{rule.label} <span className="font-semibold text-primary">{value}</span></p>
-                    <p className="text-[11px] text-muted-foreground">{target} · {rule.active ? "Ativa" : "Desativada"}</p>
+                    <p className="text-xs text-muted-foreground">{target} · {rule.active ? "Ativa" : "Desativada"}</p>
                   </div>
                 </div>
                 {canManage && (
@@ -203,7 +203,7 @@ export function PricingRulesManager({ rules, canManage }: { rules: Rule[]; canMa
                       type="button"
                       disabled={pending}
                       onClick={() => run(() => togglePricingRule(rule.id, !rule.active), rule.active ? "Regra desativada" : "Regra ativada")}
-                      className="min-h-11 rounded-lg px-3 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+                      className="min-h-11 rounded-lg px-3 text-xs font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
                     >
                       {rule.active ? "Desativar" : "Ativar"}
                     </button>

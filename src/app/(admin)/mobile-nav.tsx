@@ -50,11 +50,14 @@ export function MobileNav({
   unreadNotifications = 0,
   isPlatformAdmin = false,
   accountControls,
+  accountFooter,
 }: {
   role: string;
   unreadNotifications?: number;
   isPlatformAdmin?: boolean;
   accountControls?: React.ReactNode;
+  /** Perfil e "Sair": ficam no fim do menu para a lista de módulos aparecer logo. */
+  accountFooter?: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -128,7 +131,7 @@ export function MobileNav({
             <OpenCommandPaletteButton />
             {visibleGroups(role).map((group) => (
               <div key={group.title}>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   {group.title}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -136,7 +139,7 @@ export function MobileNav({
                     item.soon ? (
                       <div
                         key={item.href}
-                        className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-3 text-[13px] text-muted-foreground/45"
+                        className="flex items-center gap-2.5 rounded-xl border border-border bg-card min-h-12 px-3 py-3 text-sm text-muted-foreground/45"
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
                         {item.label}
@@ -148,7 +151,7 @@ export function MobileNav({
                         prefetch={false}
                         onClick={() => setMobileOpen(false)}
                         className={cn(
-                          "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
+                          "flex items-center gap-2.5 rounded-xl border min-h-12 px-3 py-3 text-sm font-medium transition-colors",
                           isActive(item.href)
                             ? "border-primary/40 bg-primary/10 text-foreground"
                             : "border-border bg-card text-muted-foreground",
@@ -173,7 +176,7 @@ export function MobileNav({
                 prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-xl border min-h-12 px-3 py-3 text-sm font-medium transition-colors",
                   isActive("/configuracoes")
                     ? "border-primary/40 bg-primary/10 text-foreground"
                     : "border-border bg-card text-muted-foreground",
@@ -188,17 +191,18 @@ export function MobileNav({
                 href="/plataforma/solicitacoes"
                 prefetch={false}
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-3 text-[13px] font-medium text-foreground"
+                className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/10 min-h-12 px-3 py-3 text-sm font-medium text-foreground"
               >
                 <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
                 Administração da plataforma
               </Link>
             )}
+            {accountFooter}
           </div>
         </DialogContent>}
 
       {/* Barra inferior */}
-      <nav style={{ paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }} className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
+      <nav style={{ paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }} className="admin-mobile-bar fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
         {PRIMARY.filter((item) => !item.roles || item.roles.includes(role)).map((item) => {
           const active = !open && isActive(item.href);
           return (
@@ -208,7 +212,7 @@ export function MobileNav({
               prefetch={false}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                "admin-mobile-bar-item flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
@@ -228,7 +232,7 @@ export function MobileNav({
             ref={moreTriggerRef}
             aria-label="Abrir todos os módulos"
             className={cn(
-              "flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+              "admin-mobile-bar-item flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
               (open || !PRIMARY.some(item => pathname === item.href || pathname.startsWith(`${item.href}/`))) ? "text-primary" : "text-muted-foreground",
             )}
           >

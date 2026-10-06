@@ -36,7 +36,7 @@ function GenderBadge({ gender, source }: { gender: "MALE" | "FEMALE" | "OTHER" |
   return (
     <span
       title={source === "inferred" ? `${label} (estimado pelo nome, confira em Editar)` : label}
-      className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full text-[8px] font-bold leading-none"
+      className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-xs font-bold leading-none"
       style={{
         color: `hsl(var(--${color}))`,
         background: `hsl(var(--${color}) / 0.10)`,
@@ -179,9 +179,9 @@ export function ClientsCrm({
   return (
     <div className="client-directory space-y-4 pb-16 md:pb-0">
       <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 md:flex-none">
+        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-0 md:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar clientes…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar clientes…" className="h-11 w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
         </div>
         {segment !== "all" && <div className="order-3 flex w-full gap-2 overflow-x-auto" role="group" aria-label="Filtros de clientes">
           <Seg active onClick={() => setSegment("all")}>{({vip:"VIP",birthday:"Aniversariantes",lapsed:"Sumidos",recurring:"Recorrentes"})[segment]} ×</Seg>
@@ -201,7 +201,7 @@ export function ClientsCrm({
       </div>
 
       {showExcluded && <p className="text-xs text-muted-foreground">Clientes excluídos da lista. O acesso e o histórico continuam preservados.</p>}
-      {importOpen && <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4"><div className="mb-3 flex items-start justify-between"><div><p className="text-[13px] font-semibold">Importar clientes por CSV</p><p className="text-[11px] text-muted-foreground">Colunas aceitas: nome, telefone, email e aniversario. Duplicados são ignorados.</p></div><button onClick={() => setImportOpen(false)} aria-label="Fechar importação"><X className="h-4 w-4 text-muted-foreground" /></button></div><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(setCsv); }} className="mb-3 block w-full text-[11px] text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-[11px] file:font-medium" /><textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={4} placeholder={'nome,telefone,email,aniversario\nAna,11999990000,ana@email.com,1990-08-20'} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[12px] outline-none" /><button onClick={importCsv} disabled={pending || !csv.trim()} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Importar clientes</button></div>}
+      {importOpen && <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4"><div className="mb-3 flex items-start justify-between"><div><p className="text-[13px] font-semibold">Importar clientes por CSV</p><p className="text-xs text-muted-foreground">Colunas aceitas: nome, telefone, email e aniversario. Duplicados são ignorados.</p></div><button onClick={() => setImportOpen(false)} aria-label="Fechar importação"><X className="h-4 w-4 text-muted-foreground" /></button></div><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(setCsv); }} className="mb-3 block w-full text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-xs file:font-medium" /><textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={4} placeholder={'nome,telefone,email,aniversario\nAna,11999990000,ana@email.com,1990-08-20'} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[12px] outline-none" /><button onClick={importCsv} disabled={pending || !csv.trim()} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Importar clientes</button></div>}
 
       <div aria-label="Lista de clientes" className="overflow-hidden">
         {shown.length === 0 ? (
@@ -220,21 +220,21 @@ export function ClientsCrm({
                     {c.isVip && <Crown className="h-3 w-3 shrink-0 text-warning" />}
                     {c.birthdayThisMonth && <Cake className="h-3 w-3 shrink-0 text-marketing" />}
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{c.phone || "Sem telefone"}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">{c.phone || "Sem telefone"}</p>
+                  <p className="truncate text-xs text-muted-foreground">
                     {c.visits} {c.visits === 1 ? "atendimento" : "atendimentos"}{c.favoritePro ? ` · ${c.favoritePro.split(" ")[0]}` : ""}
                   </p>
                   <div className="mt-1 hidden flex-wrap gap-1 md:flex">
-                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                       {c.accountStatus === "registered" ? "Conta criada" : "Sem conta"}
                     </span>
                     {c.upcomingCount > 0 && (
-                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] text-primary">
+                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
                         {c.upcomingCount === 1 ? "Próximo agendamento" : `${c.upcomingCount} próximos`}
                       </span>
                     )}
                     {c.possibleDuplicates.length > 0 && (
-                      <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-[9px] text-warning">
+                      <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-xs text-warning">
                         Possível duplicata
                       </span>
                     )}
@@ -244,15 +244,15 @@ export function ClientsCrm({
               <button type="button" aria-label={`Ver detalhes de ${c.name}`} onClick={() => openDetail(c)} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground md:hidden"><ChevronRight size={18} aria-hidden /></button>
               <div className="hidden w-24 text-right sm:block">
                 <p className="text-[13px] font-semibold">{formatMoney(c.totalSpent)}</p>
-                <p className="text-[10px] text-muted-foreground">LTV</p>
+                <p className="text-xs text-muted-foreground">LTV</p>
               </div>
               <div className="hidden w-24 text-right md:block">
                 <p className="text-[12px] text-muted-foreground">
                   {c.daysSince == null ? "nunca" : c.daysSince === 0 ? "hoje" : `${c.daysSince}d atrás`}
                 </p>
-                <p className="text-[10px] text-muted-foreground">última visita</p>
+                <p className="text-xs text-muted-foreground">última visita</p>
               </div>
-              {c.isLapsed && <span className="hidden shrink-0 rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-semibold text-danger lg:inline">Sumido</span>}
+              {c.isLapsed && <span className="hidden shrink-0 rounded-full bg-danger/10 px-2 py-0.5 text-xs font-semibold text-danger lg:inline">Sumido</span>}
               {c.phone && (
                 <a href={waLink(c.phone, c.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="hidden h-11 w-11 shrink-0 place-items-center rounded-lg bg-success/10 md:grid text-success transition hover:bg-success/20" title="WhatsApp">
                   <MessageCircle className="h-4 w-4" />
@@ -295,7 +295,7 @@ export function ClientsCrm({
                     <MessageCircle className="h-4 w-4" /> WhatsApp
                   </a>
                 )}
-                {canManage && !showExcluded && <Link href={`/agenda?client=${encodeURIComponent(detail.id)}`} className="flex min-h-11 items-center rounded-full border border-border px-3 text-sm"><CalendarPlus className="h-4 w-4" aria-hidden />Novo ag.</Link>}
+                {canManage && !showExcluded && <Link href={`/agenda?client=${encodeURIComponent(detail.id)}`} className="flex min-h-11 items-center rounded-full border border-border px-3 text-sm"><CalendarPlus className="h-4 w-4" aria-hidden />Agendar</Link>}
                 {canManage && (
                   <ClientForm
                     client={{
@@ -333,13 +333,13 @@ export function ClientsCrm({
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                     <div>
                       <p className="text-[12px] font-semibold text-warning">Possível cadastro duplicado</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                         A coincidência de telefone ou e-mail não confirma que seja a mesma pessoa. Escolha o cadastro que deve permanecer e preserve o histórico.
                       </p>
                     </div>
                   </div>
                   <div className="mt-3 rounded-lg border border-border bg-card p-3">
-                    <p className="text-[10px] uppercase text-muted-foreground">Cadastro aberto</p>
+                    <p className="text-xs uppercase text-muted-foreground">Cadastro aberto</p>
                     <p className="break-words text-xs font-semibold">{detail.name}</p>
                     <p className="break-all text-xs text-muted-foreground">{detail.email ?? "Sem e-mail"}</p>
                     <p className="mt-1 text-xs text-muted-foreground">Cliente desde {formatInTimeZone(new Date(detail.createdAt),timezone,"MMM yyyy",{locale:ptBR})} · {detail.visits} atendimentos</p><AccountBadge registered={detail.accountStatus === "registered"} />
@@ -351,26 +351,26 @@ export function ClientsCrm({
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate text-[12px] font-semibold">{candidate.name}</p>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               {candidate.phone ?? "Sem telefone"} · {candidate.visits} {candidate.visits === 1 ? "atendimento" : "atendimentos"}
                             </p>
                             <p className="break-all text-xs text-muted-foreground">{candidate.email ?? "Sem e-mail"}</p>
                             <AccountBadge registered={candidate.hasAccount} />
                           </div>
-                          <span className="shrink-0 text-[10px] text-warning">{candidate.matchReasons.map(duplicateReasonLabel).join(" + ")}</span>
+                          <span className="shrink-0 text-xs text-warning">{candidate.matchReasons.map(duplicateReasonLabel).join(" + ")}</span>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => setMergeCandidate({ source: candidateToRow(candidate, detail), target: detail })}
-                            className="min-h-9 flex-1 rounded-lg border border-border px-2 text-[11px] font-medium hover:border-primary/60"
+                            className="min-h-11 flex-1 rounded-lg border border-border px-2 text-xs font-medium hover:border-primary/60"
                           >
                             Manter cadastro aberto{detail.accountStatus === "registered" && !candidate.hasAccount ? " (recomendado)" : ""}
                           </button>
                           <button
                             type="button"
                             onClick={() => setMergeCandidate({ source: detail, target: candidateToRow(candidate, detail) })}
-                            className="min-h-9 flex-1 rounded-lg bg-primary/10 px-2 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                            className="min-h-11 flex-1 rounded-lg bg-primary/10 px-2 text-xs font-semibold text-primary hover:bg-primary/20"
                           >
                             Manter esta duplicata{candidate.hasAccount && detail.accountStatus !== "registered" ? " (recomendado)" : ""}
                           </button>
@@ -389,7 +389,7 @@ export function ClientsCrm({
               </div>
 
               <div className="rounded-xl border border-border bg-surface-1 p-3">
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold">Fidelidade · {detail.loyaltyPoints} pontos</span>
                   <span className="text-muted-foreground">
                     {detail.nextLoyaltyTier
@@ -400,7 +400,7 @@ export function ClientsCrm({
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                   <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${detail.loyaltyProgressPct}%` }} />
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-2"><p className="text-[10px] text-muted-foreground">Cada atendimento concluído vale 1 ponto.</p>{canManage && <button onClick={() => redeem(detail)} disabled={pending || !detail.canRedeemLoyaltyReward} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-primary/10 px-2.5 text-[10px] font-semibold text-primary disabled:opacity-40"><Gift className="h-3.5 w-3.5" /> Resgatar recompensa</button>}</div>
+                <div className="mt-2 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">Cada atendimento concluído vale 1 ponto.</p>{canManage && <button onClick={() => redeem(detail)} disabled={pending || !detail.canRedeemLoyaltyReward} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg bg-primary/10 px-2.5 text-xs font-semibold text-primary disabled:opacity-40"><Gift className="h-3.5 w-3.5" /> Resgatar recompensa</button>}</div>
               </div>
 
               </div></details></TabsContent><TabsContent value="preferences" className="space-y-4">                {canDelete && <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setVisibilityTarget(detail); setDetail(null); }}>{showExcluded ? "Restaurar à lista" : "Excluir da lista"}</button>}
@@ -420,7 +420,7 @@ export function ClientsCrm({
 
               {detail.notes && (
                 <div className="rounded-xl bg-surface-1 px-3 py-2.5 text-[12px]">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Observações</p>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground">Observações</p>
                   <p className="mt-0.5">{detail.notes}</p>
                 </div>
               )}
@@ -434,7 +434,7 @@ export function ClientsCrm({
                     <button
                       type="button"
                       onClick={() => setHistoryExpanded((open) => !open)}
-                      className="text-[11px] font-medium text-primary hover:underline"
+                      className="text-xs font-medium text-primary hover:underline"
                     >
                       {historyExpanded ? "Ver menos" : `Ver todos (${history.length})`}
                     </button>
@@ -449,7 +449,7 @@ export function ClientsCrm({
                         <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: h.serviceColor ?? "#2ECC8B" }} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[12px] font-medium">{h.serviceName}</p>
-                          <p className="text-[10px] text-muted-foreground">{formatInTimeZone(new Date(h.startAt), timezone, "d MMM yyyy · HH:mm", { locale: ptBR })} · {h.proName.split(" ")[0]}</p>
+                          <p className="text-xs text-muted-foreground">{formatInTimeZone(new Date(h.startAt), timezone, "d MMM yyyy · HH:mm", { locale: ptBR })} · {h.proName.split(" ")[0]}</p>
                         </div>
                         <p className="text-[12px] font-semibold">{formatMoney(h.priceCents)}</p>
                         <a className="inline-flex min-h-11 items-center text-xs underline" href={`/agenda?date=${formatInTimeZone(new Date(h.startAt), timezone, "yyyy-MM-dd")}&appointment=${h.id}`}>Ver visita</a>
@@ -495,12 +495,12 @@ export function ClientsCrm({
                 <p className="break-all text-muted-foreground">{mergeCandidate.source.email ?? "Sem e-mail"}</p>
                 <AccountBadge registered={mergeCandidate.source.accountStatus === "registered"} />
               </div>
-              <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[11px] leading-relaxed text-amber-100">
+              <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-xs leading-relaxed text-amber-100">
                 Agendamentos, pacotes, assinaturas e pontos serão mantidos. Essa ação fica registrada na auditoria.
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setMergeCandidate(null)} className="min-h-10 rounded-lg border border-border px-4 text-sm">Cancelar</button>
-                <button type="button" onClick={() => merge(mergeCandidate.source, mergeCandidate.target)} disabled={pending} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                <button type="button" onClick={() => setMergeCandidate(null)} className="min-h-11 rounded-lg border border-border px-4 text-sm">Cancelar</button>
+                <button type="button" onClick={() => merge(mergeCandidate.source, mergeCandidate.target)} disabled={pending} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">
                   <GitMerge className="h-4 w-4" /> {pending ? "Mesclando…" : "Confirmar mesclagem"}
                 </button>
               </div>
@@ -527,7 +527,7 @@ function candidateToRow(candidate: ClientRow["possibleDuplicates"][number], curr
 }
 
 function AccountBadge({ registered }: { registered: boolean }) {
-  return <span className={`mt-1 inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${registered ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{registered ? "Conta criada · acesso ao aplicativo" : "Sem conta criada"}</span>;
+  return <span className={`mt-1 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${registered ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{registered ? "Conta criada · acesso ao aplicativo" : "Sem conta criada"}</span>;
 }
 
 function duplicateReasonLabel(reason: "email" | "phone"): string {
@@ -545,7 +545,7 @@ function Seg({ active, onClick, children, icon: Icon, accent }: { active: boolea
 function DStat({ icon: Icon, label, value }: { icon: typeof Star; label: string; value: string }) {
   return (
     <div className="rounded-xl bg-surface-1 p-3">
-      <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><Icon className="h-3 w-3" /> {label}</span>
+      <span className="flex items-center gap-1 text-xs text-muted-foreground"><Icon className="h-3 w-3" /> {label}</span>
       <p className="mt-0.5 text-[15px] font-semibold tracking-tight">{value}</p>
     </div>
   );
@@ -556,7 +556,7 @@ function Info({ icon: Icon, label, value, wrap = false }: { icon: typeof Star; l
     <div className="flex items-start gap-2">
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
-        <p className="text-[10px] text-muted-foreground">{label}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
         <p className={`${wrap ? "whitespace-pre-wrap" : "truncate"} font-medium`}>{value}</p>
       </div>
     </div>

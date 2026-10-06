@@ -52,7 +52,7 @@ export default function AdminError({
       </div>
 
       {error.digest && (
-        <p className="text-[11px] text-muted-foreground/40">ref: {error.digest}</p>
+        <p className="text-xs text-muted-foreground/40">ref: {error.digest}</p>
       )}
     </div>
   );

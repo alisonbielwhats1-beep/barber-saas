@@ -364,7 +364,7 @@ export function AppointmentDetail({
               </DialogTitle>
             </div>
             <span
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${cfg.badgeClass}`}
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cfg.badgeClass}`}
             >
               {cfg.label}
             </span>
@@ -389,7 +389,7 @@ export function AppointmentDetail({
 
               <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     Data
                   </label>
                   <input
@@ -406,7 +406,7 @@ export function AppointmentDetail({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     Horário
                   </label>
                   <input
@@ -451,7 +451,7 @@ export function AppointmentDetail({
               </p>
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
                   Observações
                 </label>
                 <textarea
@@ -499,7 +499,7 @@ export function AppointmentDetail({
                 <button
                   disabled={pending || afterHours || overbook || !editEndLabel || !editServices.length || (servicesChanged && unknownService)}
                   onClick={() => { if (editReview) saveEdit(); else setEditReview(true); }}
-                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
                 >
                   {pending ? (
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
@@ -511,7 +511,7 @@ export function AppointmentDetail({
                 <button
                   disabled={pending}
                   onClick={() => { setView("detail"); setError(null); }}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-4 py-2.5 text-[13px] text-muted-foreground transition hover:text-foreground"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-4 py-2.5 text-[13px] text-muted-foreground transition hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5" />
                   Cancelar
@@ -537,15 +537,15 @@ export function AppointmentDetail({
                 {appt.pendingReschedule && (
                   <div className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2.5 text-warning">
                     <p className="text-[12px] font-semibold">{appt.pendingReschedule.status === "REJECTED" ? "Cliente recusou a alteração · entre em contato" : "Aguardando aceite do cliente"}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed">
+                    <p className="mt-1 text-xs leading-relaxed">
                       Novo horário: {formatInTimeZone(new Date(appt.pendingReschedule.targetStartAt), timezone, "dd/MM/yyyy 'às' HH:mm")} · {appt.pendingReschedule.targetProfessionalName}.
                     </p>
-                    <p className="mt-1 text-[11px]">Novo valor: {formatMoney(appt.pendingReschedule.targetPriceCents)}</p>
-                    {appt.pendingReschedule.reason && <p className="mt-1 text-[11px]">Motivo: {appt.pendingReschedule.reason}</p>}
+                    <p className="mt-1 text-xs">Novo valor: {formatMoney(appt.pendingReschedule.targetPriceCents)}</p>
+                    {appt.pendingReschedule.reason && <p className="mt-1 text-xs">Motivo: {appt.pendingReschedule.reason}</p>}
                   </div>
                 )}
                 {clientPhoneHref ? (
-                  <a href={clientPhoneHref} className="flex items-center gap-2.5 text-primary">
+                  <a href={clientPhoneHref} className="flex min-h-11 items-center gap-2.5 text-primary">
                     <Phone className="h-4 w-4 shrink-0" />
                     {appt.clientPhone} · Ligar
                   </a>
@@ -588,13 +588,13 @@ export function AppointmentDetail({
                                 #{entry.position} · {entry.name}
                               </p>
                               {entry.phone && (entryTel ? (
-                                <a href={entryTel} className="inline-flex min-h-6 items-center text-[11px] text-muted-foreground underline-offset-2 hover:underline">
+                                <a href={entryTel} className="inline-flex min-h-11 items-center text-xs text-muted-foreground underline-offset-2 hover:underline">
                                   {entry.phone}
                                 </a>
                               ) : (
-                                <p className="text-[11px] text-muted-foreground">{entry.phone}</p>
+                                <p className="text-xs text-muted-foreground">{entry.phone}</p>
                               ))}
-                              <p className="truncate text-[11px] text-muted-foreground">
+                              <p className="truncate text-xs text-muted-foreground">
                                 {entry.serviceName}
                               </p>
                             </div>
@@ -616,7 +616,7 @@ export function AppointmentDetail({
                                     type="button"
                                     disabled={pending}
                                     onClick={() => run(() => promoteWaitlist(appt.id, entry.id))}
-                                    className="min-h-11 flex-1 rounded-lg bg-primary px-3 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                    className="min-h-11 flex-1 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                                   >
                                     Promover
                                   </button>
@@ -626,7 +626,7 @@ export function AppointmentDetail({
                                     href={waitlistWaLink(entry.phone, entry.name, salonName)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 text-[11px] font-medium text-success hover:bg-success/15"
+                                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 text-xs font-medium text-success hover:bg-success/15"
                                   >
                                     <MessageCircle className="h-4 w-4" />
                                     WhatsApp
@@ -640,7 +640,7 @@ export function AppointmentDetail({
                                       setRemoveWaitlistId(entry.id);
                                       setRemoveWaitlistReason("");
                                     }}
-                                    className="min-h-11 flex-1 rounded-lg px-3 text-[11px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                                    className="min-h-11 flex-1 rounded-lg px-3 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
                                     aria-label={`Remover ${entry.name} da fila`}
                                   >
                                     Remover da fila
@@ -657,7 +657,7 @@ export function AppointmentDetail({
                         <p className="text-[12px] font-semibold text-foreground">
                           Remover somente esta pessoa da fila?
                         </p>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           O agendamento confirmado não será alterado. As demais posições serão atualizadas.
                         </p>
                         <input
@@ -702,7 +702,7 @@ export function AppointmentDetail({
                         <button
                           type="button"
                           onClick={() => setHistoryExpanded((open) => !open)}
-                          className="text-[11px] font-medium text-primary hover:underline"
+                          className="inline-flex min-h-11 items-center text-xs font-medium text-primary hover:underline"
                         >
                           {historyExpanded ? "Ver menos" : `Ver tudo (${appt.events.length})`}
                         </button>
@@ -710,7 +710,7 @@ export function AppointmentDetail({
                     </div>
                     <ol className="space-y-2 border-l border-border pl-3">
                       {(historyExpanded ? appt.events : appt.events.slice(0, HISTORY_PREVIEW_COUNT)).map((event) => (
-                        <li key={event.id} className="text-[11px] leading-relaxed">
+                        <li key={event.id} className="text-xs leading-relaxed">
                           <p className="font-medium">{eventTitle(event.eventType)}</p>
                           {event.eventType === "RESCHEDULED" && event.previousStartAt && event.startAt && (
                             <p className="text-muted-foreground">
@@ -766,7 +766,7 @@ export function AppointmentDetail({
               </div>
 
               {/* Utility actions */}
-              <div className="mt-3 grid grid-cols-1 gap-2 border-t border-border pt-3 min-[420px]:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-2 border-t border-border pt-3 min-[340px]:grid-cols-2">
                 {isMutable && (
                   <><button
                     onClick={openEdit}
@@ -780,7 +780,7 @@ export function AppointmentDetail({
                   href={waLink(appt.clientPhone, appt.clientName, salonName, whenLabel)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 py-2 text-[13px] font-medium text-success transition hover:bg-success/15"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 py-2 text-[13px] font-medium text-success transition hover:bg-success/15"
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
@@ -810,7 +810,7 @@ export function AppointmentDetail({
                 {canOpenComanda ? (
                   <button
                     onClick={() => { setError(null); setView("comanda"); }}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
                     title={isCompletedAwaitingPayment
                       ? "Registrar o pagamento pendente"
                       : "Fechar comanda e registrar pagamento"}
@@ -859,7 +859,7 @@ export function AppointmentDetail({
                     className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder="Opcional: fica no histórico e aparece para o cliente"
                   />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     O registro será preservado, o horário liberado e o cliente do agendamento notificado.
                   </p>
                   {appt.waitlist[0] && (

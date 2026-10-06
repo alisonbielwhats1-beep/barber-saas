@@ -112,7 +112,7 @@ export function AccessManager({
       <div className="flex items-center justify-between p-5 pb-3">
         <div>
           <h3 className="text-[13px] font-semibold">Acessos da equipe</h3>
-          <p className="text-[11px] text-muted-foreground">Quem pode entrar no painel e com qual papel.</p>
+          <p className="text-xs text-muted-foreground">Quem pode entrar no painel e com qual papel.</p>
         </div>
         {canManage && invitesEnabled && (
           <Button
@@ -139,14 +139,14 @@ export function AccessManager({
       <div className="divide-y divide-border">
         {members.map((m) => (
           <div key={m.userId} className="flex items-center gap-3 px-5 py-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-black/80" style={{ background: ROLE_COLOR[m.role] ?? "#94A3B8" }}>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold text-black/80" style={{ background: ROLE_COLOR[m.role] ?? "#94A3B8" }}>
               {m.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium">
-                {m.name} {m.isSelf && <span className="text-[11px] text-muted-foreground">(você)</span>}
+                {m.name} {m.isSelf && <span className="text-xs text-muted-foreground">(você)</span>}
               </p>
-              <p className="truncate text-[11px] text-muted-foreground">{m.email}</p>
+              <p className="truncate text-xs text-muted-foreground">{m.email}</p>
             </div>
             {canManage && !m.isSelf ? (
               <select
@@ -161,7 +161,7 @@ export function AccessManager({
                 ))}
               </select>
             ) : (
-              <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: `${ROLE_COLOR[m.role]}1f`, color: ROLE_COLOR[m.role] }}>
+              <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: `${ROLE_COLOR[m.role]}1f`, color: ROLE_COLOR[m.role] }}>
                 {ROLE_LABEL[m.role] ?? m.role}
               </span>
             )}
@@ -200,8 +200,8 @@ export function AccessManager({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-[12px] font-medium">{invite.name}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">{invite.email}</p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="truncate text-xs text-muted-foreground">{invite.email}</p>
+                      <p className="text-xs text-muted-foreground">
                         {ROLE_LABEL[invite.role] ?? invite.role} · {status}
                       </p>
                     </div>
@@ -286,7 +286,7 @@ export function AccessManager({
                 ))}
               </select>
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Um e-mail de uso único será enviado. Para conta nova, a própria
               pessoa definirá a senha; contas existentes mantêm a senha atual.
             </p>

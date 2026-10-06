@@ -139,7 +139,7 @@ export function ReviewsManager({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="break-words font-semibold">{review.clientName}</p>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${review.status === "PUBLISHED" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${review.status === "PUBLISHED" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
                     {review.status === "PUBLISHED" ? "Visível na vitrine" : "Oculta"}
                   </span>
                 </div>
@@ -176,7 +176,7 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent: s
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <p className={`text-2xl font-semibold tracking-tight ${accent}`}>{value}</p>
-      <p className="mt-1 text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }

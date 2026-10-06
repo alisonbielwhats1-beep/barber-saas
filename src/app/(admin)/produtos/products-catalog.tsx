@@ -103,7 +103,7 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
         <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-[13px] font-semibold"><ClipboardList aria-hidden="true" className="h-4 w-4 text-primary" />Histórico de movimentações</summary>
         {movements.length === 0 ? <p className="p-8 text-center text-[12px] text-muted-foreground">As entradas, perdas e inventários aparecerão aqui.</p> : movements.slice(0, 15).map((movement) => {
           const delta = Number(movement.metadata?.delta ?? 0);
-          return <div key={movement.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5"><span className={`grid h-8 w-8 place-items-center rounded-lg text-[12px] font-bold ${delta >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>{delta >= 0 ? `+${delta}` : delta}</span><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium">{String(movement.metadata?.productName ?? "Produto")}</p><p className="truncate text-[10px] text-muted-foreground">{movement.reason ?? "Sem motivo"} · {movement.actorName}</p></div><p className="text-[10px] text-muted-foreground">{format(new Date(movement.createdAt), "dd/MM · HH:mm", { locale: ptBR })}</p></div>;
+          return <div key={movement.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5"><span className={`grid h-8 w-8 place-items-center rounded-lg text-[12px] font-bold ${delta >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>{delta >= 0 ? `+${delta}` : delta}</span><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium">{String(movement.metadata?.productName ?? "Produto")}</p><p className="truncate text-xs text-muted-foreground">{movement.reason ?? "Sem motivo"} · {movement.actorName}</p></div><p className="text-xs text-muted-foreground">{format(new Date(movement.createdAt), "dd/MM · HH:mm", { locale: ptBR })}</p></div>;
         })}
       </details>
         </MobileListTools>
@@ -211,7 +211,7 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
 
         {/* Estoque com barra e ajuste rápido */}
         <div className="mt-3">
-          <div className="mb-1 flex items-center justify-between text-[11px]">
+          <div className="mb-1 flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Estoque</span>
             <span className={needRestock ? "font-semibold text-warning" : "font-semibold"}>
               {p.stock} un · mín {p.minStock}
@@ -238,10 +238,10 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
-          <button disabled={!enabled} onClick={() => setStockDialog(true)} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
+          <button disabled={!enabled} onClick={() => setStockDialog(true)} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
         </div>
 
-        <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
+        <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
           <div className="min-w-0 space-y-0.5">
             {p.supplier && (
               <p className="flex items-center gap-1 truncate"><Truck className="h-3 w-3" /> {p.supplier}</p>
@@ -285,9 +285,9 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
         <DialogContent className="admin-form-dialog max-w-sm">
           <DialogHeader><DialogTitle>Movimentar estoque</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div><label htmlFor={`kind-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Tipo</label><select id={`kind-${p.id}`} value={stockKind} onChange={(event) => setStockKind(event.target.value as typeof stockKind)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]"><option value="PURCHASE">Entrada por compra</option><option value="LOSS">Perda ou descarte</option><option value="INVENTORY">Correção de inventário</option><option value="ADJUSTMENT">Outro ajuste</option></select></div>
-            <div><label htmlFor={`quantity-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Quantidade</label><input id={`quantity-${p.id}`} type="number" min="1" value={stockDelta} onChange={(event) => setStockDelta(event.target.value)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]" /></div>
-            <div><label htmlFor={`reason-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Motivo (opcional)</label><input id={`reason-${p.id}`} value={stockReason} onChange={(event) => setStockReason(event.target.value)} placeholder="Ex.: Nota 123 do fornecedor" className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]" /></div>
+            <div><label htmlFor={`kind-${p.id}`} className="mb-1 block text-xs font-medium text-muted-foreground">Tipo</label><select id={`kind-${p.id}`} value={stockKind} onChange={(event) => setStockKind(event.target.value as typeof stockKind)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]"><option value="PURCHASE">Entrada por compra</option><option value="LOSS">Perda ou descarte</option><option value="INVENTORY">Correção de inventário</option><option value="ADJUSTMENT">Outro ajuste</option></select></div>
+            <div><label htmlFor={`quantity-${p.id}`} className="mb-1 block text-xs font-medium text-muted-foreground">Quantidade</label><input id={`quantity-${p.id}`} type="number" min="1" value={stockDelta} onChange={(event) => setStockDelta(event.target.value)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]" /></div>
+            <div><label htmlFor={`reason-${p.id}`} className="mb-1 block text-xs font-medium text-muted-foreground">Motivo (opcional)</label><input id={`reason-${p.id}`} value={stockReason} onChange={(event) => setStockReason(event.target.value)} placeholder="Ex.: Nota 123 do fornecedor" className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]" /></div>
             <button disabled={!enabled || pending || Number(stockDelta) < 1} onClick={() => run(async () => { const quantity = Math.max(1, Math.floor(Number(stockDelta))); const sign = stockKind === "LOSS" ? -1 : 1; await adjustStock(p.id, sign * quantity, { reason: stockReason, kind: stockKind }); setStockDialog(false); setStockReason(""); }, "Movimentação registrada")} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Salvar movimentação</button>
           </div>
         </DialogContent>
@@ -312,7 +312,7 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
   return (
     <div className="rounded-lg bg-surface-1 py-2">
       <p className="text-[13px] font-semibold" style={accent ? { color: accent } : undefined}>{value}</p>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -323,7 +323,7 @@ function Chip({ active, onClick, children, accent }: { active: boolean; onClick:
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`min-h-9 rounded-full border px-3 text-[12px] font-medium transition-colors ${
+      className={`min-h-11 rounded-full border px-3 text-[13px] font-medium transition-colors ${
         active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
       style={active && accent ? { borderColor: `${accent}66`, color: accent, background: `${accent}14` } : undefined}

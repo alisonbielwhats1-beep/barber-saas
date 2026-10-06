@@ -117,12 +117,12 @@ export function ExpenseManager({ expenses, timezone }: { expenses: ExpenseRow[];
                 </IconButton>
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-[13px] font-medium">{e.description}</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {e.category} · {e.kind === "FIXED" ? "Fixa" : "Variável"} · vence{" "}
                     {formatInTimeZone(new Date(e.dueDate), "UTC", "d MMM", { locale: ptBR })}
                   </p>
                 <span
-                  className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                     paid ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                   }`}
                 >
@@ -147,7 +147,7 @@ export function ExpenseManager({ expenses, timezone }: { expenses: ExpenseRow[];
       )}
 
       {pending && (
-        <div className="flex items-center gap-2 border-t border-border px-5 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 border-t border-border px-5 py-2 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" /> Atualizando…
         </div>
       )}

@@ -131,7 +131,7 @@ export function ClientForm({ client }: Props) {
             </div>
             <div>
               <label htmlFor="client-form-gender" className="mb-1 block text-sm font-medium">Gênero</label>
-              <select id="client-form-gender" aria-label="Gênero" name="gender" defaultValue={client?.gender ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <select id="client-form-gender" aria-label="Gênero" name="gender" defaultValue={client?.gender ?? ""} className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">Não informado</option>
                 <option value="FEMALE">Feminino</option>
                 <option value="MALE">Masculino</option>

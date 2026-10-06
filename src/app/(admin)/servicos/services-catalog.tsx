@@ -123,14 +123,14 @@ export function ServicesCatalog({
     <div className="space-y-2">
       {/* Barra de ferramentas */}
       <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
+        <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-0">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar serviço…"
             aria-label="Buscar serviço"
-            className="w-full min-w-0 md:w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
+            className="h-11 w-full min-w-0 md:w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
 
@@ -140,9 +140,9 @@ export function ServicesCatalog({
               key={c}
               onClick={() => setCategory(c)}
               aria-pressed={activeCategory === c}
-              className="min-h-9 shrink-0 rounded-full px-0 text-[12px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              className="min-h-11 shrink-0 rounded-full px-0 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
-              <span className={`inline-flex min-h-9 items-center rounded-full border px-3 transition-colors ${activeCategory === c ? "border-transparent bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>{c === "all" ? "Todas" : c}</span>
+              <span className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors ${activeCategory === c ? "border-transparent bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>{c === "all" ? "Todas" : c}</span>
             </button>
           ))}
         </div>
@@ -290,7 +290,7 @@ function CategoryGroupList({
     <div className="overflow-hidden border-b border-border/50 last:border-b-0">
       {/* Cabeçalho de texto simples */}
       <div className="hidden border-b border-border bg-surface-1 px-4 py-2 md:block">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           {cat}
         </p>
       </div>
@@ -338,20 +338,20 @@ function ServiceRow({
     >
       <ServiceIcon service={s} />
       <div className="min-w-0 flex-1">
-        <p className="break-words text-[13px] font-medium leading-snug md:truncate">{s.name}</p>
-        <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+        <p className="break-words text-sm font-medium leading-snug md:truncate">{s.name}</p>
+        <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+            <Clock className="h-3.5 w-3.5" />
             {formatDuration(s.durationMin)}
           </span>
           {s.proCount > 0 && (
-            <span className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {s.proCount}
+            <span className="flex items-center gap-1" title="Profissionais que fazem este serviço">
+              <Users className="h-3.5 w-3.5" aria-hidden="true" />
+              {s.proCount}<span className="sr-only"> profissionais</span>
             </span>
           )}
           {!s.active && (
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
               Pausado
             </span>
           )}
@@ -362,12 +362,12 @@ function ServiceRow({
         <p className={`text-[13px] font-semibold ${m === null ? "text-muted-foreground" : ""}`} style={m === null ? undefined : { color: marginColor(m) }}>
           {m === null ? "—" : `${(m * 100).toFixed(0)}%`}
         </p>
-        <p className="text-[10px] text-muted-foreground">{m === null ? "custo não informado" : "margem"}</p>
+        <p className="text-xs text-muted-foreground">{m === null ? "custo não informado" : "margem"}</p>
       </div>}
 
       {canSeeFinancial && <div className="hidden w-10 shrink-0 text-right sm:block">
         <p className="text-[13px] font-semibold">{s.sold}</p>
-        <p className="text-[10px] text-muted-foreground">vendas</p>
+        <p className="text-xs text-muted-foreground">vendas</p>
       </div>}
 
       <p className="w-[4.5rem] md:w-20 shrink-0 text-right text-[13px] font-semibold">

@@ -105,7 +105,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             Ajusta textos e imagens padrão. Não limita os serviços que você pode
             cadastrar.
           </p>
@@ -123,7 +123,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
         </Field>
 
         <Field label="Foto de perfil do estabelecimento">
-          <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
             Aparece ao lado do nome para seus clientes. Use uma foto quadrada do
             salão ou o seu logotipo.
           </p>
@@ -139,7 +139,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
         </Field>
 
         <Field label="Foto de capa da página de agendamento">
-          <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
             Você pode enviar uma foto real do espaço ou manter a imagem padrão do
             tipo de estabelecimento escolhido acima.
           </p>
@@ -154,7 +154,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
                 className="object-cover"
               />
               {!coverUrl && (
-                <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white">
                   Padrão selecionado
                 </span>
               )}
@@ -162,7 +162,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
             <div className="mt-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">Imagem padrão do segmento</p>
-                <p className="text-[11px] text-muted-foreground">Sem custo e sempre disponível.</p>
+                <p className="text-xs text-muted-foreground">Sem custo e sempre disponível.</p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => setCoverUrl("")} disabled={!coverUrl}>
                 <RotateCcw className="h-3.5 w-3.5" /> Usar padrão
@@ -187,7 +187,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
                 />
                 <span>
                   Mostrar o nome do estabelecimento sobre a capa
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
                     Desmarque se a sua imagem já traz o nome, para não aparecer duas vezes.
                   </span>
                 </span>
@@ -317,7 +317,7 @@ function Section({
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
       <h3 className="text-[13px] font-semibold">{title}</h3>
-      {hint && <p className="mb-4 mt-0.5 text-[11px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="mb-4 mt-0.5 text-xs text-muted-foreground">{hint}</p>}
       <div className={hint ? "space-y-3" : "mt-4 space-y-3"}>{children}</div>
     </div>
   );
