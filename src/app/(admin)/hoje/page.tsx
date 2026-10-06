@@ -87,9 +87,9 @@ export default async function HojePage({
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-primary">Operação</p>
+          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-primary">Operação</p>
           <h1 className="text-[26px] font-semibold tracking-tight">Hoje</h1>
-          <p className="mt-1 text-sm capitalize text-muted-foreground">{dateLabel}</p>
+          <p className="mt-1 text-sm text-muted-foreground first-letter:uppercase">{dateLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/hoje?date=${previousDate}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium transition hover:bg-card-hover">
@@ -110,8 +110,8 @@ export default async function HojePage({
       </header>
 
       {nextAppointment && <section aria-label="Próximo atendimento" className="rounded-2xl border border-primary/30 bg-primary/10 p-4 sm:p-5">
-        <p className="text-xs font-medium text-primary">Próximo atendimento</p>
-        <div className="mt-3 flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words text-lg font-semibold">{nextAppointment.clientName}</h2><p className="mt-1 text-sm text-muted-foreground">{nextAppointment.serviceName}</p><p className="mt-1 text-xs text-muted-foreground">Com {nextAppointment.professionalName}</p></div><p className="shrink-0 text-xl font-semibold tabular-nums">{formatInTimeZone(new Date(nextAppointment.startAt), result.salon.timezone, "HH:mm")}</p></div>
+        <p className="text-[13px] font-medium text-primary">Próximo atendimento</p>
+        <div className="mt-3 flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words text-lg font-semibold">{nextAppointment.clientName}</h2><p className="mt-1 text-sm text-muted-foreground">{nextAppointment.serviceName}</p><p className="mt-1 text-[13px] text-muted-foreground">Com {nextAppointment.professionalName}</p></div><p className="shrink-0 text-xl font-semibold tabular-nums">{formatInTimeZone(new Date(nextAppointment.startAt), result.salon.timezone, "HH:mm")}</p></div>
         <Link href={"/agenda?date=" + result.dateKey} className="mt-4 flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda do dia</Link>
       </section>}
       {["OWNER", "MANAGER"].includes(ctx.role) && <ReceiptWorkspace date={result.dateKey} />}

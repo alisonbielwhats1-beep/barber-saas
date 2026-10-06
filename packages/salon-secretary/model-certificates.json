@@ -37,6 +37,41 @@
       "certifiedAt": "2026-10-05T17:27:27.882Z"
     },
     {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "contractVersion": "6e60b165d7222c60d0f8c47c896d95d4d760c3ea37ea1dea6f1f683574a88845",
+      "contractEnv": {
+        "SALON_SECRETARY_ALTER_APPOINTMENT": "true",
+        "SALON_SECRETARY_CANCEL_REASON_OPTIONAL": "true",
+        "SALON_SECRETARY_COPY_V2": "true",
+        "SALON_SECRETARY_EXAMPLES": "selected",
+        "SALON_SECRETARY_EXAMPLES_V2": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true",
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_MULTI_SERVICE": "true",
+        "SALON_SECRETARY_READS_V2": "true",
+        "SALON_SECRETARY_RECURRENCE_GUARD": "true",
+        "SALON_SECRETARY_REFERENCES_V2": "true",
+        "SALON_SECRETARY_SAME_AS": "true",
+        "SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED": "true",
+        "SALON_SECRETARY_STRUCTURED_CONTEXT": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
+        "SALON_SECRETARY_TEMPORAL_POLARITY": "true"
+      },
+      "evidence": {
+        "suite": "golden-free-use-30",
+        "run": "golden-20261006-deepseek-reason-final",
+        "binding": "6a30082858c430cf0590cc2f4daab4f775e8c9103d2e02553ade14a4e7f311b4",
+        "repeat": 3,
+        "cases": 30,
+        "passed": 90,
+        "total": 90,
+        "safetyFailures": 0,
+        "p50Ms": 1808,
+        "p90Ms": 2642
+      },
+      "certifiedAt": "2026-10-06T14:39:08.396Z"
+    },
+    {
       "model": "gpt-6-luna",
       "contractVersion": "c582307bd1cb76622023cbd39fad197a44823b276602f954c0189087095b1f7f",
       "contractEnv": {
@@ -69,6 +104,42 @@
         "p90Ms": 6960
       },
       "certifiedAt": "2026-10-05T17:40:38.382Z"
+    },
+    {
+      "model": "gpt-6-luna",
+      "contractVersion": "afc7bc164941b1741708630dd29784b1f618a3f27b8dd46db8981aa40a8dc66b",
+      "contractEnv": {
+        "SALON_SECRETARY_ALTER_APPOINTMENT": "true",
+        "SALON_SECRETARY_CANCEL_REASON_OPTIONAL": "true",
+        "SALON_SECRETARY_COPY_V2": "true",
+        "SALON_SECRETARY_EXAMPLES": "selected",
+        "SALON_SECRETARY_EXAMPLES_V2": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true",
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_MULTI_SERVICE": "true",
+        "SALON_SECRETARY_READS_V2": "true",
+        "SALON_SECRETARY_RECURRENCE_GUARD": "true",
+        "SALON_SECRETARY_REFERENCES_V2": "true",
+        "SALON_SECRETARY_SAME_AS": "true",
+        "SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED": "true",
+        "SALON_SECRETARY_STRUCTURED_CONTEXT": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
+        "SALON_SECRETARY_TEMPORAL_POLARITY": "true"
+      },
+      "evidence": {
+        "suite": "golden-free-use-30",
+        "run": "golden-20261006-luna-reason-final",
+        "binding": "72a9b00cfe2dd441e4c9158d40d75fb052fb4fa3682774550a4cad136be4a35f",
+        "repeat": 3,
+        "cases": 30,
+        "passed": 89,
+        "total": 90,
+        "safetyFailures": 0,
+        "p50Ms": 5366,
+        "p90Ms": 7904
+      },
+      "certifiedAt": "2026-10-06T15:23:41.715Z",
+      "role": "reserve"
     }
   ]
 }

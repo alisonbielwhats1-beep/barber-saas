@@ -39,7 +39,7 @@ export function ProfileForm({
         <UserRound className="h-4 w-4 text-primary" />
         <h2 className="text-[13px] font-semibold">Meu perfil</h2>
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">
+      <p className="mt-1 text-xs text-muted-foreground">
         Sua foto e seu nome aparecem na equipe e, se você atender clientes, na escolha do profissional.
       </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-[9rem_1fr]">

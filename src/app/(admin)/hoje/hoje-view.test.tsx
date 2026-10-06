@@ -79,6 +79,28 @@ describe("HojeView", () => {
     expect(navigation.refresh).toHaveBeenCalled();
   });
 
+  it("abre em Em aberto, sem cancelados misturados, e Todos continua disponível", async () => {
+    const user = userEvent.setup();
+    render(
+      <HojeView colorScope="test-salon:test-user"
+        date="2026-08-20"
+        initialNowMs={Date.parse("2026-08-20T13:00:00.000Z")}
+        timezone="America/Sao_Paulo"
+        currency="BRL"
+        appointments={[...appointments, { ...appointments[0], id: "appt-cancelled", status: "CANCELLED", clientName: "Cliente Cancelado" }]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Em aberto/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Cliente Pendente")).toBeInTheDocument();
+    expect(screen.queryByText("Cliente Cancelado")).toBeNull();
+    expect(screen.queryByText("Cliente Concluído")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /Todos/ }));
+    expect(screen.getByText("Cliente Cancelado")).toBeInTheDocument();
+    expect(screen.getByText("Cliente Concluído")).toBeInTheDocument();
+  });
+
   it("filtra encerrados sem esconder o total do dia", async () => {
     const user = userEvent.setup();
     render(

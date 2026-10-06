@@ -10,6 +10,10 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 const DialogThemeContext = React.createContext<"salon-dark" | "salon-light" | undefined>(undefined);
 export const DialogThemeProvider = DialogThemeContext.Provider;
+/** O cabeçalho só precisa se afastar do botão X quando a janela usa o preenchimento padrão. */
+const DialogReservesCloseContext = React.createContext(false);
+/** Quem define o próprio preenchimento (p-0, p-4, pr-0…) cuida sozinho do espaço do botão X. */
+const OWN_PADDING = /(^| )p[xr]?-/;
 
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
@@ -17,6 +21,9 @@ export const DialogContent = React.forwardRef<
 >(({ className, children, style, onScroll, mobileSheet = false, ...props }, ref) => {
   const theme = React.useContext(DialogThemeContext);
   const closeButton = React.useRef<HTMLButtonElement>(null);
+  // No celular o conteúdo usa a largura toda (pr-6); o 64px do X (pr-16) só vale de sm para cima.
+  // O título e a descrição se afastam do X pelo DialogHeader (pr-10), não pela janela inteira.
+  const reservesClose = !OWN_PADDING.test(className ?? "");
   return (
   <DialogPrimitive.Portal>
     <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
@@ -25,7 +32,8 @@ export const DialogContent = React.forwardRef<
       data-theme={theme}
       data-mobile-sheet={mobileSheet || undefined}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid min-h-0 min-w-0 w-full max-w-lg overflow-y-auto overscroll-contain -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 pr-16 shadow-2xl",
+        "fixed left-1/2 top-1/2 z-50 grid min-h-0 min-w-0 w-full max-w-lg overflow-y-auto overscroll-contain -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 shadow-2xl",
+        reservesClose && "pr-6 sm:pr-16",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
@@ -49,7 +57,7 @@ export const DialogContent = React.forwardRef<
         onScroll?.(event);
       }}
     >
-      {children}
+      <DialogReservesCloseContext.Provider value={reservesClose}>{children}</DialogReservesCloseContext.Provider>
       <DialogPrimitive.Close
         ref={closeButton}
         type="button"
@@ -66,7 +74,8 @@ export const DialogContent = React.forwardRef<
 DialogContent.displayName = "DialogContent";
 
 export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col gap-1", className)} {...props} />;
+  const reservesClose = React.useContext(DialogReservesCloseContext);
+  return <div className={cn("flex flex-col gap-1", reservesClose && "pr-10 sm:pr-0", className)} {...props} />;
 }
 export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (

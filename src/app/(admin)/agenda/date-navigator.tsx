@@ -53,7 +53,7 @@ export function DateNavigator({ date, today, onSelect }: { date: string; today: 
           <button type="button" aria-label="Próximo mês no calendário" onClick={() => browse(1)} className="grid h-11 w-11 place-items-center rounded-lg hover:bg-card-hover"><ChevronRight size={16} /></button>
         </div>
       </div>
-      <div aria-hidden="true" className="mb-1 grid grid-cols-7 text-center text-[10px] font-medium text-muted-foreground">
+      <div aria-hidden="true" className="mb-1 grid grid-cols-7 text-center text-xs font-medium text-muted-foreground">
         {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map(day => <span key={day}>{day}</span>)}
       </div>
       <div role="group" aria-labelledby={titleId} className="grid grid-cols-7 gap-y-1">

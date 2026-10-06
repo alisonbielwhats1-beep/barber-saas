@@ -48,7 +48,9 @@ import { usageRecorder } from "./salon-secretary-usage";
 import { normalizeSecretaryServiceName } from "./secretary-service-name";
 import { existingServiceInterpretation, withExistingServiceTargets } from "./secretary-existing-service";
 import { secretaryFastPath } from "./secretary-fast-path";
-import { applyScheduleExceptionConsent, refuseScheduleException } from "./secretary-scheduling";
+import { applyScheduleExceptionConsent, refuseScheduleException, applyCancelReason, cancelReasonOpen } from "./secretary-scheduling";
+import { isCancellationCauseStatement } from "./cancel-reason-statement";
+import { cancelReasonOptionalEnabled } from "../../packages/salon-secretary/src/cancel-reason";
 import { exceptionReply, scheduleExceptionPending, scheduleExceptionsEnabled } from "./schedule-exception-policy";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { RouterTrace, tryJevInterpretation, outcomeCode, type RouterOptions } from "./secretary-router";
@@ -1016,6 +1018,12 @@ export class SalonSecretary {
           await persistSchedulingMetrics(actor,sessionId,c);return this.view(s);}
         catch(error){c.proposal=undefined;throw error;}
       }
+      // 06/10 (flag SALON_SECRETARY_CANCEL_REASON_OPTIONAL): the cause said for an open cancellation is its reason, never a discard; no model call.
+      if(cancelReasonOptionalEnabled()&&cancelReasonOpen(s.scheduling)&&isCancellationCauseStatement(message)){
+        const c=s.scheduling!;c.metrics={};
+        try{if(await applyCancelReason(actor,c,message)){s.turns++;this.routerTrace.getStore()!.fastPath();await persistSchedulingMetrics(actor,sessionId,c);return this.view(s);}}
+        catch(error){c.proposal=undefined;throw error;}
+      }
       const parsingStart=performance.now();
       const waiting=s.scheduling&&!s.scheduling.candidates&&!s.scheduling.proposal?s.scheduling.waiting_for:
         !s.customer&&!s.pending&&!s.proposal&&s.draft?.missing_fields.length===1?s.draft.missing_fields[0]:undefined;
@@ -1135,6 +1143,7 @@ export class SalonSecretary {
   }
   private async sendAutomatic(actor: ServiceActor, parent: Session, message: string, operationRef?: string, messageStarted=performance.now()) {
     if (parent.actionPlan && scheduleExceptionsEnabled()) { const view = await this.exceptionReplyTurn(actor, parent, message, operationRef); if (view) return view; }
+    if (parent.actionPlan && cancelReasonOptionalEnabled() && isCancellationCauseStatement(message)) { const view = await this.cancelReasonTurn(actor, parent, message, operationRef); if (view) return view; }
     if (parent.actionPlan) {
       // C5 agent (flag SALON_SECRETARY_AGENT, only inside its message context; B2): a new request on a CLOSED plan (no open action) goes
       // through the agent first; without its answer, the C4 continuation below, with the calls and the time the message has left.
@@ -2310,6 +2319,25 @@ export class SalonSecretary {
   /** 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): a reply to a live "quer … mesmo assim?" of a plan action is read with no model
    * call: a consent applies it (the action still ends in Confirmar), a plain "não" refuses it; anything else goes on as before. The
    * action is the one the screen targets, or the only one asking; a bare "sim" counts only when targeted or the plan has one action. */
+  /** 06/10 (flag SALON_SECRETARY_CANCEL_REASON_OPTIONAL): with one open action, a cancellation ready for Confirmar, the owner's cause
+   * ("Ela solicitou a mudança de planos") is its literal reason, read with no model call; never a discard. The action is the one the
+   * screen targets, or the plan's only open action. Anything else goes on as before. */
+  private async cancelReasonTurn(actor: ServiceActor, parent: Session, message: string, operationRef?: string) {
+    const open = parent.actionPlan!.actions.filter(action => !terminalActionStatus(action.status));
+    const cancelling = (parent.actionUnits ?? []).filter(unit => unit.child && !this.discardedUnit(parent, unit)).map(unit => ({ unit, child: this.get(actor, unit.child!) }))
+      .filter(({ child }) => !child.cancelled && cancelReasonOpen(child.scheduling));
+    const target = operationRef ? cancelling.find(({ child }) => child.id === operationRef) : open.length === 1 && cancelling.length === 1 ? cancelling[0] : undefined;
+    if (!target) return undefined;
+    return this.planContext.run(parent.id, async () => {
+      const c = target.child.scheduling!; c.metrics = {};
+      if (!await applyCancelReason(actor, c, message)) return undefined;
+      parent.actionPlan!.revision++; parent.turns++;
+      await persistSchedulingMetrics(actor, target.child.id, c);
+      this.syncActionUnit(actor, parent, target.unit); this.checkPlanMessageRecipient(actor, parent, target.unit);
+      parent.conversationNotice = undefined; parent.capability_status = undefined;
+      await this.recordAutomaticState(actor, parent); return this.view(parent);
+    });
+  }
   private async exceptionReplyTurn(actor: ServiceActor, parent: Session, message: string, operationRef?: string) {
     const units = parent.actionUnits ?? [];
     const asking = units.filter(unit => unit.child && !this.discardedUnit(parent, unit)).map(unit => ({ unit, child: this.get(actor, unit.child!) }))

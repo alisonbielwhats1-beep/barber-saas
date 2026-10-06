@@ -207,11 +207,11 @@ export default async function DashboardPage({
         title="Visão geral"
         meta={
           <div className="mb-1 flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary">
               <Sparkles className="h-3 w-3" />
               {RANGE_LABELS[range]}
             </span>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {formatPeriodLabel(m.period.from, m.period.to, timezone)}
             </span>
           </div>
@@ -242,7 +242,7 @@ export default async function DashboardPage({
         <section className="rounded-2xl border border-border bg-card p-5">
           <div className="mb-3 flex items-center justify-between">
             <PanelTitle icon={Bell}>Lembretes de amanhã</PanelTitle>
-            <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
+            <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">
               {reminders.length} sem lembrete
             </span>
           </div>
@@ -313,7 +313,7 @@ export default async function DashboardPage({
                 return (
                   <div key={s.serviceId}>
                     <div className="mb-1.5 flex items-center gap-3">
-                      <span className="w-4 text-[11px] text-muted-foreground">{i + 1}</span>
+                      <span className="w-4 text-xs text-muted-foreground">{i + 1}</span>
                       <p className="min-w-0 flex-1 truncate text-[13px] font-medium">{s.name}</p>
                       <p className="shrink-0 text-[13px] font-semibold">{formatMoney(s.revenueCents)}</p>
                     </div>
@@ -324,7 +324,7 @@ export default async function DashboardPage({
                           style={{ width: `${share * 100}%`, background: s.colorHex ?? "hsl(var(--primary))" }}
                         />
                       </div>
-                      <span className="w-8 text-right text-[11px] text-muted-foreground">{s.count}×</span>
+                      <span className="w-8 text-right text-xs text-muted-foreground">{s.count}×</span>
                     </div>
                   </div>
                 );
@@ -344,18 +344,18 @@ export default async function DashboardPage({
                   key={p.professionalId}
                   className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card-hover"
                 >
-                  <span className="w-4 text-center text-[11px] font-medium text-muted-foreground">
+                  <span className="w-4 text-center text-xs font-medium text-muted-foreground">
                     {i + 1}
                   </span>
                   <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-black/80"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold text-black/80"
                     style={{ background: p.colorHex ?? "hsl(var(--primary))" }}
                   >
                     {p.name.split(" ").map((n: string) => n[0]).slice(0, 2).join("")}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium">{p.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {p.appointments} atend. · comissão {formatMoney(p.commissionCents)}
                     </p>
                   </div>
@@ -523,7 +523,7 @@ function HeroKpi({
       } ${className}`}
     >
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
         <span className={`dashboard-kpi-icon grid h-8 w-8 place-items-center rounded-lg ${ACCENT[accent].chip}`}>
@@ -570,8 +570,8 @@ function StatTile({
         <Icon className="h-4 w-4" />
       </span>
       <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-      {hint && <p className="text-[10px] text-muted-foreground/70">{hint}</p>}
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      {hint && <p className="text-xs text-muted-foreground/70">{hint}</p>}
     </div>
   );
 }
@@ -592,7 +592,7 @@ function MiniStat({
       </span>
       <div className="min-w-0">
         <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
+        <p className="mt-1 text-xs leading-snug text-muted-foreground">{label}</p>
       </div>
     </div>
   );
@@ -602,7 +602,7 @@ function TrendBadge({ change }: { change: number }) {
   const up = change >= 0;
   return (
     <span
-      className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+      className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
         up ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
       }`}
     >
@@ -632,7 +632,7 @@ function LegendRow({ color, label, value }: { color: string; label: string; valu
     <div className="flex items-center gap-2 rounded-lg bg-surface-1 px-2.5 py-2">
       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
       <div className="min-w-0">
-        <p className="truncate text-[11px] text-muted-foreground">{label}</p>
+        <p className="truncate text-xs text-muted-foreground">{label}</p>
         <p className="text-[12px] font-semibold">{value}</p>
       </div>
     </div>
@@ -691,7 +691,7 @@ function GenderPanel({
       </div>
 
       <div className="mt-4 rounded-xl bg-surface-1 px-3 py-2.5">
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">
           Serviço mais usado
         </p>
         <p className="mt-0.5 text-[13px] font-medium">
@@ -705,7 +705,7 @@ function GenderPanel({
 function GenderRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-[15px] font-semibold tracking-tight">{value}</p>
     </div>
   );

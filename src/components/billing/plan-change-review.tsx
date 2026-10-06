@@ -2,7 +2,7 @@
 
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { billingCapacityLabel, billingMoney, tablePriceCents, type PlanChangeView } from "@/lib/billing/presentation";
 
 const perCycle = (cycle: string) => cycle === "ANNUAL" ? "a cada 12 meses" : "por mês";
@@ -18,7 +18,7 @@ export function PlanChangeReview({ quote, timezone, busy, error, onConfirm, onCl
   const costlierWithLess = Boolean(quote && !upgrade && quote.to.cycle === quote.from.cycle && quote.to.agendaLimit < quote.from.agendaLimit && quote.to.amountCents > quote.from.amountCents);
   return <Dialog open={Boolean(quote)} onOpenChange={open => { if (!open && !busy) onClose(); }}>
     <DialogContent className="max-w-xl">
-      <div className="space-y-1"><DialogTitle>Revisar troca de plano</DialogTitle><DialogDescription>Confira os valores e quando a mudança entra em vigor.</DialogDescription></div>
+      <DialogHeader><DialogTitle>Revisar troca de plano</DialogTitle><DialogDescription>Confira os valores e quando a mudança entra em vigor.</DialogDescription></DialogHeader>
       {quote && <div className="space-y-4">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-border bg-surface-1 p-4">
           <div className="min-w-0"><p className="text-xs text-muted-foreground">Atual</p><p className="font-medium">{billingCapacityLabel(quote.from.plan, quote.from.agendaLimit)}</p><p className="text-xs text-muted-foreground">{billingMoney(quote.from.amountCents)} {perCycle(quote.from.cycle)}</p></div>

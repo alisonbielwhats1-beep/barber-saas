@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { PlanPicker, type PlanPickerMode } from "./plan-picker";
 import { CurrentPlanCard, Notice, type LegacyPlan } from "./current-plan-card";
@@ -270,7 +270,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     <p className="text-sm text-muted-foreground">Precisa de ajuda? <Link href="/contato" className="underline underline-offset-4">Fale com a plataforma</Link>.</p>
 
     <Dialog open={Boolean(choice)} onOpenChange={open => { if (!open && !busy) setChoice(null); }}><DialogContent>
-      <div className="space-y-1"><DialogTitle>{updatingPrice ? "Atualizar para o novo preço" : replacing ? "Trocar contratação pendente" : "Confirmar contratação"}</DialogTitle><DialogDescription>{updatingPrice && terms ? `A tentativa anterior foi criada a ${billingMoney(terms.amountCents)} ${terms.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"} e não foi paga. Primeiro, confirme o encerramento dela no Mercado Pago, sem nenhuma cobrança. Depois, siga para o pagamento pelo valor atual.` : replacing ? "Primeiro, confirme o encerramento da tentativa anterior. O novo pagamento só ficará disponível depois da confirmação do Mercado Pago." : "Revise o valor antes de seguir para o pagamento seguro no Mercado Pago."}</DialogDescription></div>
+      <DialogHeader><DialogTitle>{updatingPrice ? "Atualizar para o novo preço" : replacing ? "Trocar contratação pendente" : "Confirmar contratação"}</DialogTitle><DialogDescription>{updatingPrice && terms ? `A tentativa anterior foi criada a ${billingMoney(terms.amountCents)} ${terms.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"} e não foi paga. Primeiro, confirme o encerramento dela no Mercado Pago, sem nenhuma cobrança. Depois, siga para o pagamento pelo valor atual.` : replacing ? "Primeiro, confirme o encerramento da tentativa anterior. O novo pagamento só ficará disponível depois da confirmação do Mercado Pago." : "Revise o valor antes de seguir para o pagamento seguro no Mercado Pago."}</DialogDescription></DialogHeader>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       {choiceQuote && <div className="rounded-xl border border-border bg-surface-1 p-4">
         <p className="font-semibold">{billingCapacityLabel(choiceQuote.plan, choiceQuote.agendaLimit)}</p>
@@ -292,7 +292,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     </DialogContent></Dialog>
 
     <Dialog open={cancelOpen} onOpenChange={open => { if (!busy) setCancelOpen(open); }}><DialogContent>
-      <div className="space-y-1"><DialogTitle>{unpaid ? "Cancelar esta contratação?" : "Cancelar a renovação?"}</DialogTitle><DialogDescription>{unpaid ? "Vamos encerrar a tentativa de assinatura no Mercado Pago. Nenhuma cobrança será feita e você poderá escolher um plano novamente." : "Vamos encerrar a cobrança recorrente no Mercado Pago, incluindo uma nova assinatura agendada por troca de plano. Após a confirmação, não haverá novas renovações. Esta ação não solicita estorno."}</DialogDescription></div>
+      <DialogHeader><DialogTitle>{unpaid ? "Cancelar esta contratação?" : "Cancelar a renovação?"}</DialogTitle><DialogDescription>{unpaid ? "Vamos encerrar a tentativa de assinatura no Mercado Pago. Nenhuma cobrança será feita e você poderá escolher um plano novamente." : "Vamos encerrar a cobrança recorrente no Mercado Pago, incluindo uma nova assinatura agendada por troca de plano. Após a confirmação, não haverá novas renovações. Esta ação não solicita estorno."}</DialogDescription></DialogHeader>
       <p className="text-sm">{subscription?.state === "ACTIVE" && subscription.paidThrough ? accessBlocked ? `O período pago permanece registrado até ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(subscription.paidThrough))}. A restrição administrativa do painel é independente do cancelamento.` : `Você continua usando todos os recursos do seu plano pago até ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(subscription.paidThrough))}, mesmo cancelando agora.` : "O cancelamento preserva seu histórico e qualquer período já pago."} Seus agendamentos e dados não serão apagados.</p>
       {!unpaid && smallerPlanFits && <div className="rounded-xl border border-border bg-surface-1 p-4 text-sm">
         <p className="font-semibold">Prefere pagar menos?</p>
@@ -309,9 +309,9 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     <PlanChangeReview quote={quote} timezone={timezone} busy={busy} error={changeError} onConfirm={() => void confirmChange()} onClose={() => { setQuote(null); setChangeError(null); }} />
 
     <Dialog open={cancelChangeOpen} onOpenChange={open => { if (!busy) setCancelChangeOpen(open); }}><DialogContent>
-      {reactivationPending ? <div className="space-y-1"><DialogTitle>Desistir da reativação?</DialogTitle><DialogDescription>Vamos encerrar a nova autorização no Mercado Pago. Nada foi cobrado por ela. A renovação continua cancelada e você mantém o acesso até o fim do período pago.</DialogDescription></div>
-        : change?.priceReduction ? <div className="space-y-1"><DialogTitle>Mudar de plano agora?</DialogTitle><DialogDescription>Para liberar a troca, desfazemos a redução agendada no Mercado Pago e a cobrança volta para {billingMoney(change.from.amountCents)}. O plano que você escolher segue a tabela atual. Se não mudar de plano, o próximo vencimento continua em {billingMoney(change.from.amountCents)} e a redução volta a valer no vencimento seguinte.</DialogDescription></div>
-        : <div className="space-y-1"><DialogTitle>Cancelar esta troca?</DialogTitle><DialogDescription>O cancelamento depende da confirmação do Mercado Pago. Se você já autorizou uma troca mensal/anual, a recorrência anterior pode já ter sido encerrada; nesse caso ela não será reativada automaticamente. Seu período pago permanece disponível.</DialogDescription></div>}
+      {reactivationPending ? <DialogHeader><DialogTitle>Desistir da reativação?</DialogTitle><DialogDescription>Vamos encerrar a nova autorização no Mercado Pago. Nada foi cobrado por ela. A renovação continua cancelada e você mantém o acesso até o fim do período pago.</DialogDescription></DialogHeader>
+        : change?.priceReduction ? <DialogHeader><DialogTitle>Mudar de plano agora?</DialogTitle><DialogDescription>Para liberar a troca, desfazemos a redução agendada no Mercado Pago e a cobrança volta para {billingMoney(change.from.amountCents)}. O plano que você escolher segue a tabela atual. Se não mudar de plano, o próximo vencimento continua em {billingMoney(change.from.amountCents)} e a redução volta a valer no vencimento seguinte.</DialogDescription></DialogHeader>
+        : <DialogHeader><DialogTitle>Cancelar esta troca?</DialogTitle><DialogDescription>O cancelamento depende da confirmação do Mercado Pago. Se você já autorizou uma troca mensal/anual, a recorrência anterior pode já ter sido encerrada; nesse caso ela não será reativada automaticamente. Seu período pago permanece disponível.</DialogDescription></DialogHeader>}
       {changeError && <p role="alert" className="text-sm text-danger">{changeError}</p>}
       <DialogFooter>
         <Button variant="outline" disabled={busy} onClick={() => setCancelChangeOpen(false)}>{reactivationPending ? "Manter reativação" : change?.priceReduction ? "Manter redução" : "Manter troca"}</Button>
@@ -320,7 +320,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     </DialogContent></Dialog>
 
     <Dialog open={reactivateOpen} onOpenChange={open => { if (!busy) setReactivateOpen(open); }}><DialogContent>
-      <div className="space-y-1"><DialogTitle>Reativar a renovação?</DialogTitle><DialogDescription>Seu plano volta a renovar automaticamente no fim do período já pago. Nada é cobrado agora.</DialogDescription></div>
+      <DialogHeader><DialogTitle>Reativar a renovação?</DialogTitle><DialogDescription>Seu plano volta a renovar automaticamente no fim do período já pago. Nada é cobrado agora.</DialogDescription></DialogHeader>
       {subscription?.paidThrough && terms && <dl className="divide-y divide-border rounded-xl border border-border">
         <div className="flex flex-wrap items-baseline justify-between gap-2 p-4"><dt className="text-sm text-muted-foreground">Plano</dt><dd className="font-medium">{billingCapacityLabel(terms.plan, terms.agendaLimit)}</dd></div>
         <div className="flex flex-wrap items-baseline justify-between gap-2 p-4"><dt className="text-sm text-muted-foreground">Cobrança agora</dt><dd className="text-xl font-semibold tabular-nums">{billingMoney(0)}</dd></div>

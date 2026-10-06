@@ -57,7 +57,7 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
     <section className="space-y-3">
       <div>
         <h2 className="text-[15px] font-semibold">Convites pendentes</h2>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Esses profissionais ainda não aparecem na agenda nem podem receber
           agendamentos.
         </p>
@@ -86,7 +86,7 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
                   <p className="truncate text-xs text-muted-foreground">
                     {invite.email}
                   </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Profissional · criado em {dateTime(invite.createdAt)}
                   </p>
                 </div>
@@ -109,7 +109,7 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
                   )}
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-surface-1 p-3 text-[11px]">
+              <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-surface-1 p-3 text-xs">
                 <div>
                   <span className="text-muted-foreground">Enviado em</span>
                   <p className="font-medium">{dateTime(invite.sentAt)}</p>
@@ -190,7 +190,7 @@ function Badge({
     danger: "bg-destructive/10 text-destructive",
   };
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${classes[tone]}`}>
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${classes[tone]}`}>
       {children}
     </span>
   );

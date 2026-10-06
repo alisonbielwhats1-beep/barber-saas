@@ -96,10 +96,10 @@ export default async function RelatoriosPage({
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary">
               <FileBarChart className="h-3 w-3" /> {RANGE_LABELS[range]}
             </span>
-            <span className="text-[11px] text-muted-foreground">{periodLabel}</span>
+            <span className="text-xs text-muted-foreground">{periodLabel}</span>
           </div>
           <h1 className="text-[26px] font-semibold tracking-tight">Relatórios</h1>
         </div>
@@ -168,15 +168,15 @@ export default async function RelatoriosPage({
 function Compare({ label, value, change }: { label: string; value: string; change?: number | null }) {
   return (
     <div className="min-w-0 rounded-lg bg-card p-3">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="mt-2 break-words text-lg font-semibold tracking-tight">{value}</p>
       {change != null ? (
-        <span className={`mt-1.5 hidden sm:inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${change >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
+        <span className={`mt-1.5 hidden sm:inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${change >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
           {change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
           {Math.abs(change * 100).toFixed(0)}% vs período anterior
         </span>
       ) : (
-        <span className="mt-1.5 hidden sm:block text-[11px] text-muted-foreground">no período</span>
+        <span className="mt-1.5 hidden sm:block text-xs text-muted-foreground">no período</span>
       )}
     </div>
   );
@@ -186,7 +186,7 @@ function Mini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-lg font-semibold tracking-tight">{value}</p>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -203,7 +203,7 @@ function Table({ title, headers, rows, empty }: { title: string; headers: string
             <thead>
               <tr className="border-b border-border">
                 {headers.map((h, i) => (
-                  <th key={h} className={`px-5 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
+                  <th key={h} className={`px-5 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
                 ))}
               </tr>
             </thead>

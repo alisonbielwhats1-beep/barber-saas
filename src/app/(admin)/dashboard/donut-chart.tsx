@@ -31,7 +31,7 @@ export function DonutChart({
     <div className="relative h-52 w-full">
       <DonutPie data={data} paddingAngle={total === 0 ? 0 : 3} empty={total === 0} />
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+        <span className="text-xs uppercase tracking-widest text-muted-foreground">
           {centerLabel}
         </span>
         <span className="mt-0.5 text-xl font-semibold tracking-tight">{centerValue}</span>
