@@ -9,6 +9,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { OpeningPanel } from "./opening-panel";
 import { FlexibleQueuePanel } from "./flexible-panel";
 import { hiddenClientIds } from "@/lib/client-list-visibility";
+import { agendaDeepLink, agendaPrefill } from "./agenda-deep-link";
 
 function jsonRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -29,14 +30,26 @@ function waitlistServiceName(value: unknown): string {
   return names.length > 0 ? names.join(" + ") : "Serviço";
 }
 
+function waitlistServiceIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = jsonRecord(item);
+    return typeof record.serviceId === "string" ? [record.serviceId] : [];
+  });
+}
+
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; appointment?: string; client?: string; professional?: string; from?: string }>;
+  searchParams: Promise<{ date?: string; appointment?: string; client?: string; professional?: string; from?: string; service?: string; time?: string; end?: string; block?: string }>;
 }) {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
-  const { date: selectedDate, appointment: selectedAppointment, client: selectedClient, professional: selectedProfessional, from } = await searchParams;
+  const params = await searchParams;
+  const { date: selectedDate, client: selectedClient, professional: selectedProfessional, from } = params;
+  // Deep links carry opaque ids, a day and clocks only; every value is re-validated below against this user's scope.
+  const link = agendaDeepLink(params);
+  const canCreate = true, canManageAvailability = role === "OWNER" || role === "MANAGER" || role === "PROFESSIONAL";
 
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024). Dentro de
@@ -47,10 +60,6 @@ export default async function AgendaPage({
       select: { name: true, timezone: true },
     });
     if (!salon) throw new Error("Estabelecimento não encontrado");
-    const dateStr = selectedDate && isDateKey(selectedDate)
-      ? selectedDate
-      : dateKeyInTimeZone(new Date(), salon.timezone);
-    const range = calendarGridRangeInTimeZone(dateStr, salon.timezone);
     const ownProfessional = role === "PROFESSIONAL"
       ? await tx.professional.findFirst({
           where: { salonId, userId: ctx.userId, active: true },
@@ -60,6 +69,17 @@ export default async function AgendaPage({
     const professionalId = role === "PROFESSIONAL"
       ? (ownProfessional?.id ?? "__professional_not_found__")
       : undefined;
+    // An appointment link without a day opens on that appointment's day, within the same tenant/role scope.
+    const linkedAppointment = !(selectedDate && isDateKey(selectedDate)) && link.appointment
+      ? await tx.appointment.findFirst({
+          where: { id: link.appointment, salonId, ...(professionalId ? { professionalId } : {}) },
+          select: { startAt: true },
+        })
+      : null;
+    const dateStr = selectedDate && isDateKey(selectedDate)
+      ? selectedDate
+      : linkedAppointment ? dateKeyInTimeZone(linkedAppointment.startAt, salon.timezone) : dateKeyInTimeZone(new Date(), salon.timezone);
+    const range = calendarGridRangeInTimeZone(dateStr, salon.timezone);
     const prosRaw = await tx.professional.findMany({
       where: {
         salonId,
@@ -140,8 +160,11 @@ export default async function AgendaPage({
       select: {
         id: true,
         appointmentId: true,
+        clientId: true,
         guestName: true,
         guestPhone: true,
+        professionalId: true,
+        startAt: true,
         serviceSnapshots: true,
         client: { select: { name: true, phone: true } },
       },
@@ -197,6 +220,10 @@ export default async function AgendaPage({
     name: string;
     phone: string | null;
     serviceName: string;
+    clientId: string | null;
+    professionalId: string;
+    startAt: string;
+    serviceIds: string[];
   }>>();
   for (const w of waitlistRaw) {
     const name = w.client?.name ?? w.guestName ?? "Cliente";
@@ -206,6 +233,10 @@ export default async function AgendaPage({
       name,
       phone: w.client?.phone ?? w.guestPhone ?? null,
       serviceName: waitlistServiceName(w.serviceSnapshots),
+      clientId: w.clientId,
+      professionalId: w.professionalId,
+      startAt: w.startAt.toISOString(),
+      serviceIds: waitlistServiceIds(w.serviceSnapshots),
     });
     waitlistByAppt.set(w.appointmentId, list);
   }
@@ -286,8 +317,7 @@ export default async function AgendaPage({
       <AgendaBoard
         colorScope={`${ctx.salonId}:${ctx.userId}`}
         operations={(role === "OWNER" || role === "MANAGER") ? <><OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} /><FlexibleQueuePanel /></> : undefined}
-        initialAppointmentId={selectedAppointment}
-        initialClientId={selectedClient}
+        prefill={agendaPrefill(link, { date: dateStr, canCreate, canManageAvailability, professionals, clients, services, appointments })}
         initialProfessionalId={selectedProfessional}
         availabilityBlocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))}
         date={dateStr}
@@ -300,9 +330,9 @@ export default async function AgendaPage({
         canOverbook={role === "OWNER" || role === "MANAGER"}
         canOverrideBreak={role === "OWNER" || role === "MANAGER" || role === "PROFESSIONAL"}
         canRepeat={role !== "PROFESSIONAL"}
-        canCreate
+        canCreate={canCreate}
         canCancel={role === "OWNER" || role === "MANAGER"}
-        canManageAvailability={role === "OWNER" || role === "MANAGER" || role === "PROFESSIONAL"}
+        canManageAvailability={canManageAvailability}
       />
 
     </>

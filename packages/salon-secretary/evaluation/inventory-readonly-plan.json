@@ -1,0 +1,2337 @@
+{
+  "version": "inventory-readonly-wave2-v1",
+  "evaluationOnly": true,
+  "executed": false,
+  "caseCount": 26,
+  "positives": 8,
+  "adversarial": 18,
+  "maxHttpCalls": 52,
+  "retries": 0,
+  "cases": [
+    {
+      "id": "i01",
+      "message": "Quais produtos estão com estoque baixo?",
+      "category": "FULL_JEV_BYPASS_CANDIDATE",
+      "evidenceState": "PROVEN",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "relation": "stock <= minStock",
+          "includeInactive": true,
+          "scope": "current_tenant",
+          "presentationLimit": 20
+        },
+        "unresolvedByChoices": [],
+        "fullBypassSemanticallyPossible": true,
+        "domainSupport": "SUPPORTED",
+        "expectedPolicy": "PROVEN_IF_VALID_CORRECT"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão com estoque baixo?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão com estoque baixo?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 979,
+        "detail": 554
+      }
+    },
+    {
+      "id": "i02",
+      "message": "Quais produtos estão acabando?",
+      "category": "FULL_JEV_BYPASS_CANDIDATE",
+      "evidenceState": "CALIBRATION_CANDIDATE",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "relation": "stock <= minStock",
+          "includeInactive": true,
+          "scope": "current_tenant",
+          "presentationLimit": 20
+        },
+        "unresolvedByChoices": [],
+        "fullBypassSemanticallyPossible": true,
+        "domainSupport": "SUPPORTED",
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão acabando?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão acabando?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 970,
+        "detail": 545
+      }
+    },
+    {
+      "id": "i03",
+      "message": "Mostre os produtos com estoque baixo.",
+      "category": "FULL_JEV_BYPASS_CANDIDATE",
+      "evidenceState": "CALIBRATION_CANDIDATE",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "relation": "stock <= minStock",
+          "includeInactive": true,
+          "scope": "current_tenant",
+          "presentationLimit": 20
+        },
+        "unresolvedByChoices": [],
+        "fullBypassSemanticallyPossible": true,
+        "domainSupport": "SUPPORTED",
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Mostre os produtos com estoque baixo.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Mostre os produtos com estoque baixo.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 976,
+        "detail": 551
+      }
+    },
+    {
+      "id": "i04",
+      "message": "Liste os itens com estoque baixo.",
+      "category": "FULL_JEV_BYPASS_CANDIDATE",
+      "evidenceState": "CALIBRATION_CANDIDATE",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "relation": "stock <= minStock",
+          "includeInactive": true,
+          "scope": "current_tenant",
+          "presentationLimit": 20
+        },
+        "unresolvedByChoices": [],
+        "fullBypassSemanticallyPossible": true,
+        "domainSupport": "SUPPORTED",
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Liste os itens com estoque baixo.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Liste os itens com estoque baixo.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 972,
+        "detail": 547
+      }
+    },
+    {
+      "id": "i05",
+      "message": "Quero ver os produtos com saldo no mínimo ou abaixo dele.",
+      "category": "FULL_JEV_BYPASS_CANDIDATE",
+      "evidenceState": "CALIBRATION_CANDIDATE",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "relation": "stock <= minStock",
+          "includeInactive": true,
+          "scope": "current_tenant",
+          "presentationLimit": 20
+        },
+        "unresolvedByChoices": [],
+        "fullBypassSemanticallyPossible": true,
+        "domainSupport": "SUPPORTED",
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quero ver os produtos com saldo no mínimo ou abaixo dele.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quero ver os produtos com saldo no mínimo ou abaixo dele.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 997,
+        "detail": 572
+      }
+    },
+    {
+      "id": "i06",
+      "message": "Quais produtos estão no mínimo ou abaixo do estoque mínimo configurado?",
+      "category": "FULL_JEV_BYPASS_CANDIDATE",
+      "evidenceState": "CALIBRATION_CANDIDATE",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "relation": "stock <= minStock",
+          "includeInactive": true,
+          "scope": "current_tenant",
+          "presentationLimit": 20
+        },
+        "unresolvedByChoices": [],
+        "fullBypassSemanticallyPossible": true,
+        "domainSupport": "SUPPORTED",
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão no mínimo ou abaixo do estoque mínimo configurado?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão no mínimo ou abaixo do estoque mínimo configurado?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 1013,
+        "detail": 588
+      }
+    },
+    {
+      "id": "i07",
+      "message": "Me mostra o que está acabando no estoque.",
+      "category": "FULL_JEV_BYPASS_CANDIDATE",
+      "evidenceState": "CALIBRATION_CANDIDATE",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "relation": "stock <= minStock",
+          "includeInactive": true,
+          "scope": "current_tenant",
+          "presentationLimit": 20
+        },
+        "unresolvedByChoices": [],
+        "fullBypassSemanticallyPossible": true,
+        "domainSupport": "SUPPORTED",
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Me mostra o que está acabando no estoque.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Me mostra o que está acabando no estoque.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 981,
+        "detail": 556
+      }
+    },
+    {
+      "id": "i08",
+      "message": "Consulte os produtos cujo saldo é menor ou igual ao mínimo cadastrado.",
+      "category": "FULL_JEV_BYPASS_CANDIDATE",
+      "evidenceState": "CALIBRATION_CANDIDATE",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "relation": "stock <= minStock",
+          "includeInactive": true,
+          "scope": "current_tenant",
+          "presentationLimit": 20
+        },
+        "unresolvedByChoices": [],
+        "fullBypassSemanticallyPossible": true,
+        "domainSupport": "SUPPORTED",
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Consulte os produtos cujo saldo é menor ou igual ao mínimo cadastrado.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Consulte os produtos cujo saldo é menor ou igual ao mínimo cadastrado.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 1011,
+        "detail": 586
+      }
+    },
+    {
+      "id": "n01",
+      "message": "Quanto tenho de Shampoo X?",
+      "category": "JEV_ROUTING_ONLY",
+      "evidenceState": "JEV_ROUTING_ONLY",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "balance",
+        "operation": "stock.balance",
+        "fields": {
+          "product_name": "Shampoo X"
+        },
+        "unresolvedByChoices": [
+          "product_name"
+        ],
+        "domainSupport": "SUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto tenho de Shampoo X?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto tenho de Shampoo X?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 965,
+        "detail": 540
+      }
+    },
+    {
+      "id": "n02",
+      "message": "Qual o saldo do Shampoo X?",
+      "category": "JEV_ROUTING_ONLY",
+      "evidenceState": "JEV_ROUTING_ONLY",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "balance",
+        "operation": "stock.balance",
+        "fields": {
+          "product_name": "Shampoo X"
+        },
+        "unresolvedByChoices": [
+          "product_name"
+        ],
+        "domainSupport": "SUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual o saldo do Shampoo X?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual o saldo do Shampoo X?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 965,
+        "detail": 540
+      }
+    },
+    {
+      "id": "n03",
+      "message": "Tenho Shampoo X em estoque?",
+      "category": "JEV_ROUTING_ONLY",
+      "evidenceState": "JEV_ROUTING_ONLY",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "balance",
+        "operation": "stock.balance",
+        "fields": {
+          "product_name": "Shampoo X",
+          "availabilityQuestion": true
+        },
+        "unresolvedByChoices": [
+          "product_name"
+        ],
+        "domainSupport": "SUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Tenho Shampoo X em estoque?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Tenho Shampoo X em estoque?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 966,
+        "detail": 541
+      }
+    },
+    {
+      "id": "n04",
+      "message": "Procure o produto Shampoo X.",
+      "category": "OPEN_EXTRACTION_REQUIRED",
+      "evidenceState": "JEV_ROUTING_ONLY",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "search",
+        "operation": "product.search",
+        "fields": {
+          "product_name": "Shampoo X"
+        },
+        "unresolvedByChoices": [
+          "product_name"
+        ],
+        "domainSupport": "SUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Procure o produto Shampoo X.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Procure o produto Shampoo X.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 967,
+        "detail": 542
+      }
+    },
+    {
+      "id": "n05",
+      "message": "Liste os produtos do estoque.",
+      "category": "JEV_ROUTING_ONLY",
+      "evidenceState": "JEV_ROUTING_ONLY",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "search",
+        "operation": "product.search",
+        "fields": {
+          "genericListing": true
+        },
+        "unresolvedByChoices": [
+          "current_flow_requires_name_or_low_stock"
+        ],
+        "domainSupport": "NEEDS_INPUT",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Liste os produtos do estoque.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Liste os produtos do estoque.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 968,
+        "detail": 543
+      }
+    },
+    {
+      "id": "n06",
+      "message": "Quais shampoos estão com estoque baixo?",
+      "category": "OPEN_EXTRACTION_REQUIRED",
+      "evidenceState": "JEV_ROUTING_ONLY",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "product_name": "shampoos"
+        },
+        "unresolvedByChoices": [
+          "product_name"
+        ],
+        "domainSupport": "SUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais shampoos estão com estoque baixo?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais shampoos estão com estoque baixo?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 979,
+        "detail": 554
+      }
+    },
+    {
+      "id": "n07",
+      "message": "Quais produtos estão estritamente abaixo do mínimo, sem incluir os que estão exatamente no mínimo?",
+      "category": "OUT_OF_CATALOG",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "relation": "stock < minStock",
+          "excludeEquality": true
+        },
+        "unresolvedByChoices": [
+          "strict_inequality"
+        ],
+        "domainSupport": "UNSUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão estritamente abaixo do mínimo, sem incluir os que estão exatamente no mínimo?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão estritamente abaixo do mínimo, sem incluir os que estão exatamente no mínimo?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 1041,
+        "detail": 616
+      }
+    },
+    {
+      "id": "n08",
+      "message": "Quais produtos ativos estão com estoque baixo?",
+      "category": "OUT_OF_CATALOG",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "active": true
+        },
+        "unresolvedByChoices": [
+          "active_filter"
+        ],
+        "domainSupport": "UNSUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos ativos estão com estoque baixo?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos ativos estão com estoque baixo?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 986,
+        "detail": 561
+      }
+    },
+    {
+      "id": "n09",
+      "message": "Quais produtos estão com saldo exatamente zero?",
+      "category": "OUT_OF_CATALOG",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "search",
+        "operation": "product.search",
+        "fields": {
+          "stockEquals": 0
+        },
+        "unresolvedByChoices": [
+          "exact_stock_filter"
+        ],
+        "domainSupport": "UNSUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão com saldo exatamente zero?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão com saldo exatamente zero?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 987,
+        "detail": 562
+      }
+    },
+    {
+      "id": "n10",
+      "message": "Tenho pelo menos três unidades de Shampoo X?",
+      "category": "OPEN_EXTRACTION_REQUIRED",
+      "evidenceState": "JEV_ROUTING_ONLY",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "balance",
+        "operation": "stock.balance",
+        "fields": {
+          "product_name": "Shampoo X",
+          "threshold": 3
+        },
+        "unresolvedByChoices": [
+          "product_name",
+          "quantity_comparison"
+        ],
+        "domainSupport": "UNSUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Tenho pelo menos três unidades de Shampoo X?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Tenho pelo menos três unidades de Shampoo X?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 984,
+        "detail": 559
+      }
+    },
+    {
+      "id": "n11",
+      "message": "Dê entrada em 10 shampoos.",
+      "category": "MUTATION_FORCED_LUNA",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "IN",
+        "operation": "stock.movement",
+        "fields": {
+          "product_name": "shampoos",
+          "quantity": 10,
+          "mode": "IN"
+        },
+        "unresolvedByChoices": [
+          "product_name",
+          "quantity"
+        ],
+        "domainSupport": "SUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Dê entrada em 10 shampoos.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Dê entrada em 10 shampoos.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 966,
+        "detail": 541
+      }
+    },
+    {
+      "id": "n12",
+      "message": "Baixe 3 condicionadores.",
+      "category": "MUTATION_FORCED_LUNA",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "OUT",
+        "operation": "stock.movement",
+        "fields": {
+          "product_name": "condicionadores",
+          "quantity": 3,
+          "mode": "OUT"
+        },
+        "unresolvedByChoices": [
+          "product_name",
+          "quantity"
+        ],
+        "domainSupport": "SUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Baixe 3 condicionadores.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Baixe 3 condicionadores.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 963,
+        "detail": 538
+      }
+    },
+    {
+      "id": "n13",
+      "message": "Dê baixa nos produtos que estão acabando.",
+      "category": "MUTATION_FORCED_LUNA",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "OUT",
+        "operation": "stock.movement",
+        "fields": {
+          "mode": "OUT",
+          "low_stock": true,
+          "bulk": true
+        },
+        "unresolvedByChoices": [
+          "product_set",
+          "quantity",
+          "bulk_movement"
+        ],
+        "domainSupport": "UNSUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Dê baixa nos produtos que estão acabando.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Dê baixa nos produtos que estão acabando.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 982,
+        "detail": 557
+      }
+    },
+    {
+      "id": "n14",
+      "message": "Qual o saldo de Shampoo X e Condicionador Y?",
+      "category": "COMPOUND_FORCED_LUNA",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "inventory",
+        "shape": "independent",
+        "inventory": "balance",
+        "operation": null,
+        "fields": {
+          "products": [
+            "Shampoo X",
+            "Condicionador Y"
+          ]
+        },
+        "unresolvedByChoices": [
+          "multiple_products",
+          "product_names"
+        ],
+        "domainSupport": "NEEDS_INPUT",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual o saldo de Shampoo X e Condicionador Y?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual o saldo de Shampoo X e Condicionador Y?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 983,
+        "detail": 558
+      }
+    },
+    {
+      "id": "n15",
+      "message": "Quais produtos estão com estoque baixo e cancele a Amanda?",
+      "category": "COMPOUND_FORCED_LUNA",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "multiple",
+        "shape": "independent",
+        "inventory": "low_stock",
+        "operation": null,
+        "fields": {
+          "low_stock": true,
+          "other_operation": "appointment.cancel"
+        },
+        "unresolvedByChoices": [
+          "other_operation",
+          "customer_name",
+          "appointment_resolution"
+        ],
+        "domainSupport": "SUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão com estoque baixo e cancele a Amanda?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estão com estoque baixo e cancele a Amanda?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 998,
+        "detail": 573
+      }
+    },
+    {
+      "id": "n16",
+      "message": "Como está o estoque?",
+      "category": "OPEN_EXTRACTION_REQUIRED",
+      "evidenceState": "JEV_ROUTING_ONLY",
+      "expected": {
+        "skill": "inventory",
+        "shape": "unclear",
+        "inventory": "unclear",
+        "operation": null,
+        "fields": {},
+        "unresolvedByChoices": [
+          "ambiguous_intent"
+        ],
+        "domainSupport": "NEEDS_INPUT",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Como está o estoque?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Como está o estoque?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 960,
+        "detail": 535
+      }
+    },
+    {
+      "id": "n17",
+      "message": "Cadastre o produto Shampoo X.",
+      "category": "OUT_OF_CATALOG",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "out_of_catalog",
+        "shape": "out_of_catalog",
+        "inventory": "none",
+        "operation": null,
+        "fields": {
+          "product_name": "Shampoo X",
+          "requestedOperation": "product.create"
+        },
+        "unresolvedByChoices": [
+          "unpublished_operation"
+        ],
+        "domainSupport": "UNSUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Cadastre o produto Shampoo X.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Cadastre o produto Shampoo X.",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 968,
+        "detail": 543
+      }
+    },
+    {
+      "id": "n18",
+      "message": "Quais produtos estavam com estoque baixo ontem?",
+      "category": "OUT_OF_CATALOG",
+      "evidenceState": "FORCED_LUNA",
+      "expected": {
+        "skill": "inventory",
+        "shape": "single",
+        "inventory": "low_stock",
+        "operation": "product.search",
+        "fields": {
+          "low_stock": true,
+          "period": "yesterday"
+        },
+        "unresolvedByChoices": [
+          "historical_balance"
+        ],
+        "domainSupport": "UNSUPPORTED",
+        "fullBypassSemanticallyPossible": false,
+        "expectedPolicy": "FALLBACK_REQUIRED"
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estavam com estoque baixo ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detail": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais produtos estavam com estoque baixo ontem?",
+            "context": {},
+            "selected_skill": "inventory",
+            "selection_source": "prior_jev_discovery"
+          },
+          "questions": {
+            "inventory": {
+              "type": "choice",
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "criteria": {
+                "balance": null,
+                "low_stock": null,
+                "IN": null,
+                "OUT": null,
+                "search": null,
+                "none": null,
+                "unclear": null
+              }
+            }
+          }
+        }
+      },
+      "payloadBytes": {
+        "discovery": 986,
+        "detail": 561
+      }
+    }
+  ],
+  "predecessorPins": {
+    "packages/salon-secretary/src/inventory-skill.ts": "6924ac110b5e26220f44907c56f5132a7cbc4a318a0ecea7203df3befd78d79c",
+    "src/lib/inventory-catalog.ts": "2901aacfd741cf650d829e39302da4c1d2e29e9c0604c13ea52b053691e3192f",
+    "src/lib/secretary-inventory.ts": "91ae08553532e5a04b473ca8a17877943ff2a3cda0f798cc7fab9fa936edbcd6",
+    "packages/salon-secretary/src/skill-registry.ts": "44ea31bbbbb45008da701f1210f3a51975d3e253df3770e9783ee8262ca222f2",
+    "packages/salon-secretary/evaluation/dataset.ts": "af7ca3a568dbc6bfe96452cc92e0f36bbe65ce3a6b0c046de7f665fa08be5300",
+    "packages/salon-secretary/evaluation/financial-modifier-real-2026-09-23.json": "cccde482f4bf61a3bca0f5a0a799c0094ac8a7a3e8507710191f0c2dcec5f988"
+  },
+  "catalog": {
+    "version": "decision-derivations-v1",
+    "hash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791"
+  },
+  "datasetHash": "288105f295f290ec85cc550e29b6a2e93baa9fbce2a463e5e61312637391dfce",
+  "payloadsHash": "77c62daae25440879fbfba4fb7f517c92a5a4bdeca6bbd60f31ae5bfd32dfbe7",
+  "pricing": {
+    "inputUsdPerMillion": 0.042,
+    "outputUsdPerMillion": 0,
+    "lastOfficialCheck": "2026-09-23",
+    "checkedInThisGate": false,
+    "mustRecheckBeforeExecution": true,
+    "maxInputTokensPerHttpPlanning": 64000,
+    "maximumPlanningEstimateUsd": 0.139776
+  },
+  "payloadBytesMaximum": 39976,
+  "knownEvidence": [
+    "Gate 2.6 Inventory Core",
+    "derived-revalidation.json",
+    "acceptance-calibration-real-2026-09-23.json"
+  ],
+  "stopOn": [
+    "UNSAFE_FALSE_POSITIVE",
+    "UNSAFE_SELECTOR_ONLY_CANDIDATE",
+    "UNKNOWN_DIAGNOSTIC",
+    "FAIL_CLOSED_UNCERTAIN",
+    "HASH_OR_CATALOG_DRIFT",
+    "FORBIDDEN_PAYLOAD",
+    "BUDGET_EXCEEDED",
+    "HTTP_500",
+    "TIMEOUT"
+  ],
+  "semanticLimitation": "inventory=low_stock does not prove absence of name/status/history/threshold modifiers. Oracle completeness is evaluation-only, never a runtime guard.",
+  "prohibited": [
+    "new classifiers",
+    "policy expansion",
+    "runtime router",
+    "mutation execution",
+    "backend/database",
+    "OpenAI",
+    "Luna fallback"
+  ]
+}

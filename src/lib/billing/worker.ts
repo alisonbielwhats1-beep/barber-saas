@@ -10,6 +10,7 @@ import { changesEnabled } from "./change-terms";
 import { parseUpgradeReference } from "./change-provider";
 import { applyUpgradePayment } from "./change-payments";
 import { syncPlanChanges } from "./change-worker";
+import { schedulePriceReduction } from "./price-reduction";
 
 /** The only global scope is dispatch metadata, not subscriptions, payments or tenant records. */
 async function queueScope<T>(fn: (tx: Tx) => Promise<T>) {
@@ -19,7 +20,8 @@ async function queueScope<T>(fn: (tx: Tx) => Promise<T>) {
   });
 }
 
-export async function receiveWebhook(topic: string, resourceId: string, notificationKey: string) {
+/** Returns the subscription queued by this notification so the caller can process it right away. */
+export async function receiveWebhook(topic: string, resourceId: string, notificationKey: string): Promise<{ salonId: string; subscriptionId: string } | null> {
   billingConfig();
   let remote: mp.RemoteSubscription;
   if (topic === "subscription_preapproval") remote = await mp.getSubscription(resourceId);
@@ -28,23 +30,23 @@ export async function receiveWebhook(topic: string, resourceId: string, notifica
     const payment = await mp.getPayment(resourceId);
     if (payment.external_reference?.startsWith("efu:") && changesEnabled()) {
       const ref = parseUpgradeReference(payment.external_reference);
-      await withSalon(ref.salonId, async tx => {
+      return withSalon(ref.salonId, async tx => {
         await subscriptionLock(tx, ref.salonId);
         const change = await tx.billingPlanChange.findFirst({ where: { id: ref.id, salonId: ref.salonId }, include: { subscription: true } });
         if (!change || payment.collector_id !== change.subscription.collectorId) throw new BillingError("UNKNOWN_CHANGE", 404);
         const key = createHash("sha256").update(`${topic}:${resourceId}:${notificationKey}`).digest("hex");
         await tx.billingInbox.upsert({ where: { id: key }, update: {}, create: { id: key, salonId: ref.salonId, subscriptionId: change.subscriptionId, topic, resourceId } });
         await enqueue(tx, change.subscription);
+        return { salonId: ref.salonId, subscriptionId: change.subscriptionId };
       });
-      return;
     }
-    if (!payment.external_reference?.startsWith("ef:")) return;
+    if (!payment.external_reference?.startsWith("ef:")) return null;
     const ref = parseReference(payment.external_reference);
     const sub = await withSalon(ref.salonId, tx => tx.billingSubscription.findUnique({ where: { id: ref.id } }));
     if (!sub?.providerId) throw new BillingError("SUBSCRIPTION_NOT_READY", 503);
     remote = await mp.getSubscription(sub.providerId);
   } else throw new BillingError("UNSUPPORTED_TOPIC", 400);
-  if (!remote.external_reference.startsWith("ef:")) return;
+  if (!remote.external_reference.startsWith("ef:")) return null;
   const ref = parseReference(remote.external_reference);
   const sub = await withSalon(ref.salonId, tx => tx.billingSubscription.findUnique({ where: { id: ref.id } }));
   if (!sub) throw new BillingError("UNKNOWN_SUBSCRIPTION", 404);
@@ -56,6 +58,7 @@ export async function receiveWebhook(topic: string, resourceId: string, notifica
     await tx.billingInbox.upsert({ where: { id: key }, update: {}, create: { id: key, salonId: ref.salonId, subscriptionId: ref.id, topic, resourceId } });
     await enqueue(tx, sub);
   });
+  return { salonId: ref.salonId, subscriptionId: ref.id };
 }
 
 export async function syncSubscription(salonId: string, id: string) {
@@ -126,8 +129,29 @@ export async function syncSubscription(salonId: string, id: string) {
   const nextOffset = sub.invoiceOffset + invoices.length;
   const more = invoices.length > 0 && nextOffset < page.paging.total;
   await withSalon(salonId, async tx => { await subscriptionLock(tx, salonId); return tx.billingSubscription.update({ where: { id }, data: { lastSyncedAt: new Date(), invoiceOffset: more ? nextOffset : 0 } }); });
+  const scheduled = await schedulePriceReduction(sub);
   const pending = changesEnabled() ? await withSalon(salonId, tx => tx.billingPlanChange.findFirst({ where: { subscriptionId: id, salonId, state: { in: ["PREPARING", "AWAITING_PAYMENT", "APPLYING", "CANCEL_REQUESTED"] } }, select: { id: true } })) : null;
-  return more || inbox.length === 1 || Boolean(pending);
+  return more || inbox.length === 1 || Boolean(pending) || scheduled;
+}
+
+type LeasedJob = { subscriptionId: string; salonId: string; leaseUntil: Date };
+
+/** Runs one leased job and always releases its lease, with backoff on failure. */
+async function processJob(job: LeasedJob, startedAt: Date) {
+  let error: string | null = null;
+  let more = false;
+  try { more = await syncSubscription(job.salonId, job.subscriptionId); more = await syncBillingToHq(job.salonId, job.subscriptionId) || more; }
+  catch (e) { error = e instanceof BillingError ? e.code : "PROCESSING_FAILED"; }
+  await queueScope(async tx => {
+    const current = await tx.billingQueue.findUniqueOrThrow({ where: { subscriptionId: job.subscriptionId } });
+    const delay = error ? Math.min(3600000, 60000 * 2 ** Math.min(current.attempts, 6)) : more ? 1000 : 3600000;
+    const receivedDuringRun = current.nextAttemptAt > startedAt;
+    await tx.billingQueue.updateMany({ where: { subscriptionId: job.subscriptionId, leaseUntil: job.leaseUntil }, data: {
+      leaseUntil: null, nextAttemptAt: receivedDuringRun ? current.nextAttemptAt : new Date(Date.now() + delay),
+      attempts: error ? current.attempts + 1 : 0, lastError: error,
+    } });
+  });
+  return { error, more };
 }
 
 export async function runBillingWorker(limit = 2) {
@@ -135,7 +159,7 @@ export async function runBillingWorker(limit = 2) {
   const result = { processed: 0, failed: 0 };
   for (let i = 0; i < limit; i++) {
     const startedAt = new Date();
-    const jobs = await queueScope(tx => tx.$queryRaw<Array<{ subscriptionId: string; salonId: string; leaseUntil: Date }>>`
+    const jobs = await queueScope(tx => tx.$queryRaw<LeasedJob[]>`
       UPDATE "BillingQueue" SET "leaseUntil" = CURRENT_TIMESTAMP + interval '5 minutes'
       WHERE "subscriptionId" = (SELECT "subscriptionId" FROM "BillingQueue"
         WHERE "nextAttemptAt" <= CURRENT_TIMESTAMP AND ("leaseUntil" IS NULL OR "leaseUntil" < CURRENT_TIMESTAMP)
@@ -144,19 +168,63 @@ export async function runBillingWorker(limit = 2) {
     `);
     const job = jobs[0];
     if (!job) break;
-    let error: string | null = null;
-    let more = false;
-    try { more = await syncSubscription(job.salonId, job.subscriptionId); more = await syncBillingToHq(job.salonId, job.subscriptionId) || more; result.processed++; }
-    catch (e) { error = e instanceof BillingError ? e.code : "PROCESSING_FAILED"; result.failed++; }
-    await queueScope(async tx => {
-      const current = await tx.billingQueue.findUniqueOrThrow({ where: { subscriptionId: job.subscriptionId } });
-      const delay = error ? Math.min(3600000, 60000 * 2 ** Math.min(current.attempts, 6)) : more ? 1000 : 3600000;
-      const receivedDuringRun = current.nextAttemptAt > startedAt;
-      await tx.billingQueue.updateMany({ where: { subscriptionId: job.subscriptionId, leaseUntil: job.leaseUntil }, data: {
-        leaseUntil: null, nextAttemptAt: receivedDuringRun ? current.nextAttemptAt : new Date(Date.now() + delay),
-        attempts: error ? current.attempts + 1 : 0, lastError: error,
-      } });
-    });
+    const { error } = await processJob(job, startedAt);
+    if (error) result.failed++; else result.processed++;
   }
   return result;
+}
+
+/** Observable reconciliation state. `lastSyncedAt` alone is not progress. */
+async function progressKey(salonId: string, subscriptionId: string) {
+  return withSalon(salonId, async tx => {
+    const [sub, change, inbox, charges] = await Promise.all([
+      tx.billingSubscription.findUnique({ where: { id: subscriptionId }, select: { providerId: true, providerStatus: true, checkoutUrl: true, cancelRequestedAt: true, cancelledAt: true, paidThrough: true, delinquentSince: true, reviewRequired: true, invoiceOffset: true, current: true } }),
+      changesEnabled() ? tx.billingPlanChange.findFirst({ where: { subscriptionId, salonId }, orderBy: [{ quotedAt: "desc" }, { id: "desc" }], select: { id: true, state: true, checkoutUrl: true, paidAt: true, activatedAt: true, providerStartedAt: true, providerSyncedAt: true, replacementSubscriptionId: true } }) : null,
+      tx.billingInbox.count({ where: { subscriptionId, processedAt: null } }),
+      tx.billingCharge.aggregate({ where: { subscriptionId }, _count: { _all: true }, _max: { providerUpdatedAt: true } }),
+    ]);
+    return JSON.stringify([sub, change, inbox, charges._count._all, charges._max.providerUpdatedAt]);
+  });
+}
+
+/**
+ * Continues the steps of the subscription that was just triggered (webhook,
+ * owner action or return from checkout) instead of waiting for the scheduled
+ * reconciliation. Same lease as the global worker, so they never overlap;
+ * a job in error backoff is left to the schedule. Stops as soon as a step
+ * makes no observable progress, e.g. while the provider waits for the owner.
+ */
+export async function drainBillingSubscription(salonId: string, subscriptionId: string, { deadline = Date.now() + 35_000, maxSteps = 6 } = {}) {
+  billingConfig();
+  let steps = 0;
+  while (steps < maxSteps && Date.now() < deadline) {
+    const before = await progressKey(salonId, subscriptionId);
+    const startedAt = new Date();
+    const jobs = await queueScope(tx => tx.$queryRaw<LeasedJob[]>`
+      UPDATE "BillingQueue" SET "leaseUntil" = CURRENT_TIMESTAMP + interval '5 minutes'
+      WHERE "subscriptionId" = ${subscriptionId}::uuid AND "salonId" = ${salonId}
+        AND ("leaseUntil" IS NULL OR "leaseUntil" < CURRENT_TIMESTAMP)
+        AND ("attempts" = 0 OR "nextAttemptAt" <= CURRENT_TIMESTAMP)
+      RETURNING "subscriptionId", "salonId", "leaseUntil"
+    `);
+    const job = jobs[0];
+    if (!job) break;
+    steps++;
+    const { error, more } = await processJob(job, startedAt);
+    if (error || !more || await progressKey(salonId, subscriptionId) === before) break;
+  }
+  return { steps };
+}
+
+/**
+ * Drains a triggered subscription and, when it replaces another one (cycle
+ * change or reactivated renewal), the source whose change it advances.
+ * One shared budget keeps the pair inside the function time limit.
+ */
+export async function drainTriggeredSubscription(salonId: string, subscriptionId: string, budgetMs = 35_000) {
+  const deadline = Date.now() + budgetMs;
+  await drainBillingSubscription(salonId, subscriptionId, { deadline });
+  if (!changesEnabled() || Date.now() >= deadline) return;
+  const source = await withSalon(salonId, tx => tx.billingPlanChange.findFirst({ where: { replacementSubscriptionId: subscriptionId, salonId }, select: { subscriptionId: true } }));
+  if (source) await drainBillingSubscription(salonId, source.subscriptionId, { deadline });
 }

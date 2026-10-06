@@ -1,0 +1,58 @@
+{
+  "gate": "3.1C-C minimal validation — PROPOSED, NOT EXECUTED",
+  "requires_new_authorization": true,
+  "model": "gpt-6-luna",
+  "router_default": false,
+  "paid_calls_default": false,
+  "environment": "test / 127.0.0.1:55441/everflair_service_mvp / synthetic only",
+  "project": "Everflair Development",
+  "cases": [
+    {
+      "id": "A",
+      "message": "Quais produtos estão com estoque baixo?",
+      "mode": "real JEV, fresh auto session",
+      "expected_path": "JEV_ACCEPTED",
+      "expected": {"skill": "inventory", "shape": "single", "inventory": "low_stock", "operation": "product.search"},
+      "max_real_jev_http": 2,
+      "max_openai_calls": 1,
+      "note": "Normally zero OpenAI; one is reserved for automatic fail-closed fallback. Unexpected fallback stops validation after recording."
+    },
+    {
+      "id": "B",
+      "message": "Quanto recebi ontem?",
+      "mode": "real Luna, fresh auto session",
+      "expected_path": "DIRECT_LUNA",
+      "expected": {"skill": "financial", "operation": "financial.report", "metric": "received_revenue", "period": "yesterday"},
+      "max_real_jev_http": 0,
+      "max_openai_calls": 1
+    },
+    {
+      "id": "C",
+      "message": "45 minutos",
+      "mode": "offline synthetic pending duration draft, same Secretary coordinator",
+      "expected_path": "FAST_PATH",
+      "expected": {"durationMin": 45, "confirmation": false},
+      "max_real_jev_http": 0,
+      "max_openai_calls": 0,
+      "note": "No real setup inference; mocks reproduce the existing draft continuation test."
+    },
+    {
+      "id": "D",
+      "message": "Quanto faturei ontem?",
+      "mode": "injected local HTTP 500 transport, real Luna fallback, fresh auto session",
+      "expected_path": "JEV_FALLBACK_LUNA",
+      "expected": {"skill": "financial", "operation": "financial.report", "metric": "service_revenue", "period": "yesterday"},
+      "max_real_jev_http": 0,
+      "max_simulated_jev_http": 1,
+      "max_openai_calls": 1
+    }
+  ],
+  "limits": {"real_jev_http": 2, "openai_inferences": 3, "retries": 0, "confirmations": 0, "max_input_tokens_per_http": 64000, "max_luna_output_tokens": 1200},
+  "historical_planning_rates_usd_per_million": {"checked_at": "2026-09-22", "jev_input": 0.042, "jev_output": 0, "luna_input": 0.10, "luna_cached_input": 0.01, "luna_cache_write": 0.125, "luna_output": 0.50},
+  "conditional_estimate_usd": {"jev_max": 0.005376, "openai_max": 0.0258, "total_max": 0.031176, "proposed_stop_budget": 0.04},
+  "preflight": ["Reverify official prices; stop on discrepancy", "Enforce input/output and dispatch caps before network", "Validate local fixture, tenant, roles, RLS and permissions without resetting data", "Dedicated credential, store=false, guard active, no hosted tools or containers", "Never serialize expected, fixture refs or plan to either provider"],
+  "allowed_effects": ["read-only domain queries in disposable local database", "technical usage/router audit", "offline mocked draft/proposal for C"],
+  "stop": ["unexpected path or material interpretation", "authorization/tenant mismatch", "unsafe acceptance", "wire guard violation", "cap or budget exceeded", "operational write or confirmation"],
+  "finally": ["SALON_SECRETARY_ALLOW_PAID_CALLS=false", "SALON_SECRETARY_JEV_ROUTER_ENABLED=false"],
+  "promote_or_deploy": false
+}

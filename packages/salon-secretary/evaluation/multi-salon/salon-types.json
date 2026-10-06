@@ -1,0 +1,347 @@
+{
+  "version": 1,
+  "about": [
+    "Evaluation-only synthetic salon types for multi-salon scenario generation: realistic pt-BR service catalogs (name, durationMin, priceCents in BRL cents), aliases, specialties, professional roles and counts, and opening-hours variants. Runtime code must never read this file.",
+    "Weekdays follow the harness: zero is Sunday. Times are minutes after midnight in the salon timezone, like BASE_FIXTURE openMinutes and closeMinutes.",
+    "aliases are how owners commonly call a service. An alias shared by two services of one catalog (corte, escova, alongamento, volume, limpeza, peeling) is a real ambiguity: a correct secretary asks or shows candidates, never auto-picks. Aliases are never meaning-preserving noise: use them only in scenarios whose oracle declares that behaviour, and never let an alias equal another service name of the same catalog.",
+    "Service tags: number-word (name or alias holds a spoken number word, as meia in meia perna, next to clocks like dez e meia), temporal-word (holds a temporal word, as dia in dia de spa), english (English term that owners and speech-to-text spell in many ways).",
+    "Professional counts go from one to fifteen across types (min, max, typical per type); roles map to specialties and a professional performs every service that shares a specialty with one of its roles.",
+    "Harness fit: Sunday opening and open weekdays map to openWeekdays; a single window per day maps to openMinutes and closeMinutes. Different hours per weekday and breaks need per-weekday working hours (WorkingHours has no uniqueness per weekday, so two windows a day are storable) or a recurring daily block: a generator must seed them explicitly, since the current seed writes one window per open weekday.",
+    "Anti-overfitting: catalogs go well beyond the base fixture (Corte Completo, Escova, Barba, Coloração) and most service names differ from it; a generator should sample the salon type, the catalog subset, the professional count and the hours variant per scenario and report results per type.",
+    "Dev and holdout types (barbearia and salao-de-beleza against esmalteria, sobrancelha-e-cilios and estetica-spa) never share a service name, a name equal to an alias of the other side, or a name inside another's name: nails, eyebrow design and facial cleansing live in the holdout types only, so the type gap is measured on service vocabulary dev never shows. Only generic aliases (hidratação, sobrancelha, retoque, tintura, combo) may repeat across the split; aliases are never rendered.",
+    "Generator version three (fourth candidate): DEV hour profiles for the half-of-day rule of the tenant facts. A night studio is one day with a break from the early morning to the evening (open after midnight on the same weekday), a day-and-night salon opens every day, a lunch break splits the day, and professionalWindow restricts the scenario's main professional to that part of each open day (a morning-only professional in a salon open until the evening). A harness window cannot end at midnight, so a day that runs until midnight closes five minutes before it. daypartWeight makes a clock whose half of the day an owner can leave unsaid likelier in the profiles built for that rule. The DEV types estudio-noturno and trancas-e-afro join barbearia and salao-de-beleza; the holdout types keep their hours."
+  ],
+  "types": [
+    {
+      "id": "barbearia",
+      "label": "Barbearia",
+      "specialties": [{ "id": "cabelo", "label": "Cabelo" }, { "id": "barba", "label": "Barba" }, { "id": "quimica", "label": "Química" }, { "id": "estetica", "label": "Estética masculina" }],
+      "services": [
+        { "key": "corte_masculino", "name": "Corte masculino", "durationMin": 30, "priceCents": 4500, "specialties": ["cabelo"], "aliases": ["corte", "corte de cabelo", "cabelo"] },
+        { "key": "corte_degrade", "name": "Corte degradê", "durationMin": 40, "priceCents": 5000, "specialties": ["cabelo"], "aliases": ["degradê", "fade", "disfarçado", "corte"] },
+        { "key": "corte_tesoura", "name": "Corte na tesoura", "durationMin": 45, "priceCents": 5500, "specialties": ["cabelo"], "aliases": ["tesoura", "corte"] },
+        { "key": "corte_maquina", "name": "Corte na máquina", "durationMin": 20, "priceCents": 3500, "specialties": ["cabelo"], "aliases": ["máquina", "zerar", "raspar"] },
+        { "key": "corte_infantil", "name": "Corte infantil", "durationMin": 30, "priceCents": 4000, "specialties": ["cabelo"], "aliases": ["corte de criança", "corte kids"] },
+        { "key": "barba", "name": "Barba", "durationMin": 30, "priceCents": 3500, "specialties": ["barba"], "aliases": ["fazer a barba", "aparar a barba"] },
+        { "key": "barboterapia", "name": "Barboterapia", "durationMin": 45, "priceCents": 5500, "specialties": ["barba"], "aliases": ["toalha quente", "barba terapia"] },
+        { "key": "corte_e_barba", "name": "Corte e barba", "durationMin": 60, "priceCents": 7500, "specialties": ["cabelo", "barba"], "aliases": ["combo", "cabelo e barba", "corte com barba"] },
+        { "key": "pezinho", "name": "Pezinho", "durationMin": 15, "priceCents": 1500, "specialties": ["cabelo"], "aliases": ["acabamento", "contorno"] },
+        { "key": "sobrancelha_masculina", "name": "Sobrancelha masculina", "durationMin": 15, "priceCents": 2000, "specialties": ["estetica"], "aliases": ["sobrancelha", "sobrancelha na navalha"] },
+        { "key": "pigmentacao_barba", "name": "Pigmentação de barba", "durationMin": 30, "priceCents": 4000, "specialties": ["barba"], "aliases": ["pigmentação", "pintar a barba"] },
+        { "key": "platinado", "name": "Platinado", "durationMin": 120, "priceCents": 18000, "specialties": ["quimica"], "aliases": ["nevou", "descoloração"] },
+        { "key": "luzes_masculinas", "name": "Luzes masculinas", "durationMin": 90, "priceCents": 12000, "specialties": ["quimica"], "aliases": ["luzes", "reflexo"] },
+        { "key": "relaxamento", "name": "Relaxamento capilar", "durationMin": 45, "priceCents": 6000, "specialties": ["quimica"], "aliases": ["relaxamento"] },
+        { "key": "selagem_masculina", "name": "Selagem masculina", "durationMin": 60, "priceCents": 9000, "specialties": ["quimica"], "aliases": ["selagem", "progressiva masculina"] },
+        { "key": "hidratacao_masculina", "name": "Hidratação masculina", "durationMin": 30, "priceCents": 4000, "specialties": ["cabelo"], "aliases": ["hidratação"] }
+      ],
+      "professionals": {
+        "min": 1,
+        "max": 8,
+        "typical": 3,
+        "roles": [
+          { "id": "barbeiro", "label": "Barbeiro", "specialties": ["cabelo", "barba", "estetica"] },
+          { "id": "barbeiro-visagista", "label": "Barbeiro visagista", "specialties": ["cabelo", "barba", "quimica", "estetica"] },
+          { "id": "aprendiz", "label": "Barbeiro aprendiz", "specialties": ["cabelo"] }
+        ]
+      },
+      "hours": [
+        {
+          "id": "terca-a-sabado",
+          "label": "Terça a sábado (fecha domingo e segunda)",
+          "days": [{ "weekdays": [2, 3, 4, 5], "openMinutes": 540, "closeMinutes": 1200 }, { "weekdays": [6], "openMinutes": 480, "closeMinutes": 1080 }]
+        },
+        {
+          "id": "com-domingo",
+          "label": "Segunda a sábado e domingo de manhã",
+          "days": [{ "weekdays": [1, 2, 3, 4, 5], "openMinutes": 540, "closeMinutes": 1200 }, { "weekdays": [6], "openMinutes": 480, "closeMinutes": 1140 }, { "weekdays": [0], "openMinutes": 480, "closeMinutes": 780 }]
+        },
+        {
+          "id": "vinte-e-quatro-horas",
+          "label": "Aberta dia e noite, todos os dias",
+          "daypartWeight": 4,
+          "days": [{ "weekdays": [0, 1, 2, 3, 4, 5, 6], "openMinutes": 0, "closeMinutes": 1435 }]
+        },
+        {
+          "id": "manha-profissional",
+          "label": "Segunda a sábado das sete às vinte; o profissional principal atende só de manhã",
+          "daypartWeight": 4,
+          "days": [{ "weekdays": [1, 2, 3, 4, 5, 6], "openMinutes": 420, "closeMinutes": 1200 }],
+          "professionalWindow": { "fromMinutes": 420, "toMinutes": 720 }
+        }
+      ]
+    },
+    {
+      "id": "salao-de-beleza",
+      "label": "Salão de beleza",
+      "specialties": [
+        { "id": "cabelo", "label": "Cabelo" },
+        { "id": "quimica", "label": "Química" },
+        { "id": "tratamento", "label": "Tratamento capilar" },
+        { "id": "penteado", "label": "Penteado" },
+        { "id": "maquiagem", "label": "Maquiagem" }
+      ],
+      "services": [
+        { "key": "corte_feminino", "name": "Corte feminino", "durationMin": 60, "priceCents": 9000, "specialties": ["cabelo"], "aliases": ["corte", "cortar o cabelo"] },
+        { "key": "corte_masculino", "name": "Corte masculino", "durationMin": 30, "priceCents": 5000, "specialties": ["cabelo"], "aliases": ["corte de homem"] },
+        { "key": "corte_infantil", "name": "Corte infantil", "durationMin": 30, "priceCents": 4500, "specialties": ["cabelo"], "aliases": ["corte de criança"] },
+        { "key": "escova_simples", "name": "Escova simples", "durationMin": 45, "priceCents": 6000, "specialties": ["cabelo"], "aliases": ["escova", "escova lisa"] },
+        { "key": "escova_modelada", "name": "Escova modelada", "durationMin": 60, "priceCents": 8000, "specialties": ["cabelo", "penteado"], "aliases": ["escova", "escova com cachos"] },
+        { "key": "progressiva", "name": "Progressiva", "durationMin": 180, "priceCents": 28000, "specialties": ["quimica"], "aliases": ["escova progressiva", "alisamento"] },
+        { "key": "coloracao", "name": "Coloração", "durationMin": 120, "priceCents": 18000, "specialties": ["quimica"], "aliases": ["tintura", "pintar o cabelo", "cor"] },
+        { "key": "retoque_raiz", "name": "Retoque de raiz", "durationMin": 90, "priceCents": 12000, "specialties": ["quimica"], "aliases": ["raiz", "retoque"] },
+        { "key": "mechas", "name": "Mechas", "durationMin": 180, "priceCents": 35000, "specialties": ["quimica"], "aliases": ["mecha"] },
+        { "key": "luzes", "name": "Luzes", "durationMin": 180, "priceCents": 38000, "specialties": ["quimica"], "aliases": ["reflexo"] },
+        { "key": "morena_iluminada", "name": "Morena iluminada", "durationMin": 210, "priceCents": 42000, "specialties": ["quimica"], "aliases": ["iluminada"] },
+        { "key": "balayage", "name": "Balayage", "durationMin": 240, "priceCents": 48000, "specialties": ["quimica"], "aliases": ["balaiagem"], "tags": ["english"] },
+        { "key": "tonalizacao", "name": "Tonalização", "durationMin": 60, "priceCents": 10000, "specialties": ["quimica"], "aliases": ["matização", "tonalizante"] },
+        { "key": "hidratacao", "name": "Hidratação capilar", "durationMin": 45, "priceCents": 8000, "specialties": ["tratamento"], "aliases": ["hidratação"] },
+        { "key": "reconstrucao", "name": "Reconstrução capilar", "durationMin": 60, "priceCents": 12000, "specialties": ["tratamento"], "aliases": ["reconstrução"] },
+        { "key": "cauterizacao", "name": "Cauterização", "durationMin": 90, "priceCents": 15000, "specialties": ["tratamento"], "aliases": ["cauterizar"] },
+        { "key": "cristalizacao", "name": "Cristalização capilar", "durationMin": 60, "priceCents": 11000, "specialties": ["tratamento"], "aliases": ["cristalização"] },
+        { "key": "botox_capilar", "name": "Botox capilar", "durationMin": 120, "priceCents": 20000, "specialties": ["tratamento", "quimica"], "aliases": ["botox"], "tags": ["english"] },
+        { "key": "penteado", "name": "Penteado", "durationMin": 60, "priceCents": 15000, "specialties": ["penteado"], "aliases": ["penteado de festa", "coque"] },
+        { "key": "babyliss", "name": "Babyliss", "durationMin": 45, "priceCents": 7000, "specialties": ["penteado"], "aliases": ["cachos", "ondas"], "tags": ["english"] },
+        { "key": "maquiagem_social", "name": "Maquiagem social", "durationMin": 60, "priceCents": 15000, "specialties": ["maquiagem"], "aliases": ["maquiagem", "make"], "tags": ["english"] }
+      ],
+      "professionals": {
+        "min": 2,
+        "max": 15,
+        "typical": 6,
+        "roles": [
+          { "id": "cabeleireira", "label": "Cabeleireira", "specialties": ["cabelo", "penteado", "tratamento"] },
+          { "id": "colorista", "label": "Colorista", "specialties": ["quimica", "cabelo", "tratamento"] },
+          { "id": "escovista", "label": "Escovista", "specialties": ["cabelo", "penteado"] },
+          { "id": "maquiadora", "label": "Maquiadora", "specialties": ["maquiagem", "penteado"] }
+        ]
+      },
+      "hours": [
+        { "id": "segunda-fechada", "label": "Terça a sábado", "days": [{ "weekdays": [2, 3, 4, 5], "openMinutes": 540, "closeMinutes": 1140 }, { "weekdays": [6], "openMinutes": 480, "closeMinutes": 1080 }] },
+        { "id": "comercial", "label": "Segunda a sábado, sábado mais curto", "days": [{ "weekdays": [1, 2, 3, 4, 5], "openMinutes": 480, "closeMinutes": 1080 }, { "weekdays": [6], "openMinutes": 480, "closeMinutes": 960 }] },
+        {
+          "id": "com-almoco",
+          "label": "Terça a sábado com pausa para almoço",
+          "days": [{ "weekdays": [2, 3, 4, 5], "openMinutes": 540, "closeMinutes": 1140, "breaks": [{ "fromMinutes": 720, "toMinutes": 780 }] }, { "weekdays": [6], "openMinutes": 540, "closeMinutes": 1020, "breaks": [{ "fromMinutes": 720, "toMinutes": 780 }] }]
+        }
+      ]
+    },
+    {
+      "id": "esmalteria",
+      "label": "Esmalteria",
+      "specialties": [{ "id": "maos", "label": "Mãos" }, { "id": "pes", "label": "Pés" }, { "id": "gel", "label": "Gel" }, { "id": "alongamento", "label": "Alongamento" }, { "id": "spa", "label": "Spa dos pés" }],
+      "services": [
+        { "key": "mao", "name": "Mão", "durationMin": 40, "priceCents": 3500, "specialties": ["maos"], "aliases": ["manicure", "fazer a unha", "unha da mão"] },
+        { "key": "pe", "name": "Pé", "durationMin": 45, "priceCents": 4000, "specialties": ["pes"], "aliases": ["pedicure", "unha do pé"] },
+        { "key": "pe_e_mao", "name": "Pé e mão", "durationMin": 80, "priceCents": 7000, "specialties": ["maos", "pes"], "aliases": ["mão e pé", "combo"] },
+        { "key": "troca_esmalte", "name": "Troca de esmalte", "durationMin": 20, "priceCents": 2000, "specialties": ["maos"], "aliases": ["só esmaltar", "trocar o esmalte"] },
+        { "key": "esmaltacao_gel", "name": "Esmaltação em gel", "durationMin": 60, "priceCents": 8000, "specialties": ["gel"], "aliases": ["esmalte em gel", "gel"] },
+        { "key": "blindagem", "name": "Blindagem", "durationMin": 60, "priceCents": 7000, "specialties": ["gel"], "aliases": ["blindagem de unha"] },
+        { "key": "banho_gel", "name": "Banho de gel", "durationMin": 75, "priceCents": 9000, "specialties": ["gel"], "aliases": ["banho"] },
+        { "key": "remocao_gel", "name": "Remoção de gel", "durationMin": 30, "priceCents": 3000, "specialties": ["gel"], "aliases": ["tirar o gel", "remoção"] },
+        { "key": "alongamento_gel", "name": "Alongamento em gel", "durationMin": 150, "priceCents": 18000, "specialties": ["alongamento"], "aliases": ["alongamento", "unha de gel"] },
+        { "key": "alongamento_fibra", "name": "Alongamento em fibra de vidro", "durationMin": 150, "priceCents": 20000, "specialties": ["alongamento"], "aliases": ["fibra", "fibra de vidro", "alongamento"] },
+        { "key": "manutencao_alongamento", "name": "Manutenção de alongamento", "durationMin": 90, "priceCents": 12000, "specialties": ["alongamento"], "aliases": ["manutenção"] },
+        { "key": "francesinha", "name": "Francesinha", "durationMin": 50, "priceCents": 4500, "specialties": ["maos"], "aliases": ["francesa"] },
+        { "key": "nail_art", "name": "Nail art", "durationMin": 30, "priceCents": 2500, "specialties": ["maos"], "aliases": ["decoração", "unha decorada", "desenho na unha"], "tags": ["english"] },
+        { "key": "spa_pes", "name": "Spa dos pés", "durationMin": 60, "priceCents": 8000, "specialties": ["spa", "pes"], "aliases": ["spa", "spa do pé"] },
+        { "key": "plastica_pes", "name": "Plástica dos pés", "durationMin": 60, "priceCents": 7500, "specialties": ["spa", "pes"], "aliases": ["plástica", "hidratação dos pés"] }
+      ],
+      "professionals": {
+        "min": 1,
+        "max": 10,
+        "typical": 4,
+        "roles": [
+          { "id": "manicure", "label": "Manicure", "specialties": ["maos", "pes", "spa"] },
+          { "id": "nail-designer", "label": "Nail designer", "specialties": ["gel", "alongamento", "maos"] },
+          { "id": "pedicure", "label": "Pedicure", "specialties": ["pes", "spa"] }
+        ]
+      },
+      "hours": [
+        { "id": "shopping", "label": "Loja de shopping, abre domingo à tarde", "days": [{ "weekdays": [1, 2, 3, 4, 5, 6], "openMinutes": 600, "closeMinutes": 1320 }, { "weekdays": [0], "openMinutes": 840, "closeMinutes": 1200 }] },
+        { "id": "rua", "label": "Loja de rua", "days": [{ "weekdays": [1, 2, 3, 4, 5], "openMinutes": 540, "closeMinutes": 1140 }, { "weekdays": [6], "openMinutes": 480, "closeMinutes": 1020 }] }
+      ]
+    },
+    {
+      "id": "sobrancelha-e-cilios",
+      "label": "Sobrancelha e cílios",
+      "specialties": [{ "id": "sobrancelha", "label": "Sobrancelha" }, { "id": "cilios", "label": "Cílios" }, { "id": "micropigmentacao", "label": "Micropigmentação" }, { "id": "depilacao-facial", "label": "Depilação facial" }],
+      "services": [
+        { "key": "design_sobrancelha", "name": "Design de sobrancelha", "durationMin": 30, "priceCents": 4500, "specialties": ["sobrancelha"], "aliases": ["design", "sobrancelha", "fazer a sobrancelha"] },
+        { "key": "design_henna", "name": "Design com henna", "durationMin": 45, "priceCents": 6000, "specialties": ["sobrancelha"], "aliases": ["henna", "rena", "sobrancelha com henna"] },
+        { "key": "brow_lamination", "name": "Brow lamination", "durationMin": 60, "priceCents": 15000, "specialties": ["sobrancelha"], "aliases": ["laminação", "laminação de sobrancelha"], "tags": ["english"] },
+        { "key": "micropigmentacao", "name": "Micropigmentação de sobrancelha", "durationMin": 150, "priceCents": 60000, "specialties": ["micropigmentacao"], "aliases": ["micro", "micropigmentação"] },
+        { "key": "retoque_micropigmentacao", "name": "Retoque de micropigmentação", "durationMin": 90, "priceCents": 25000, "specialties": ["micropigmentacao"], "aliases": ["retoque"] },
+        { "key": "extensao_fio_a_fio", "name": "Extensão de cílios fio a fio", "durationMin": 120, "priceCents": 18000, "specialties": ["cilios"], "aliases": ["fio a fio", "extensão de cílios", "cílios"] },
+        { "key": "volume_russo", "name": "Volume russo", "durationMin": 150, "priceCents": 22000, "specialties": ["cilios"], "aliases": ["russo", "volume", "cílios volume russo"] },
+        { "key": "volume_brasileiro", "name": "Volume brasileiro", "durationMin": 120, "priceCents": 20000, "specialties": ["cilios"], "aliases": ["brasileiro", "volume"] },
+        { "key": "manutencao_cilios", "name": "Manutenção de cílios", "durationMin": 75, "priceCents": 11000, "specialties": ["cilios"], "aliases": ["manutenção", "manutenção dos cílios"] },
+        { "key": "lash_lifting", "name": "Lash lifting", "durationMin": 60, "priceCents": 14000, "specialties": ["cilios"], "aliases": ["lifting", "lash", "permanente de cílios"], "tags": ["english"] },
+        { "key": "remocao_cilios", "name": "Remoção de extensão de cílios", "durationMin": 30, "priceCents": 4000, "specialties": ["cilios"], "aliases": ["remoção", "tirar os cílios"] },
+        { "key": "tintura_cilios", "name": "Tintura de cílios", "durationMin": 30, "priceCents": 4000, "specialties": ["cilios"], "aliases": ["tintura"] },
+        { "key": "buco_linha", "name": "Buço com linha", "durationMin": 15, "priceCents": 2000, "specialties": ["depilacao-facial"], "aliases": ["buço", "linha"] },
+        { "key": "epilacao_facial", "name": "Epilação facial com linha", "durationMin": 30, "priceCents": 4000, "specialties": ["depilacao-facial"], "aliases": ["rosto", "epilação"] }
+      ],
+      "professionals": {
+        "min": 1,
+        "max": 4,
+        "typical": 2,
+        "roles": [
+          { "id": "designer-sobrancelha", "label": "Designer de sobrancelhas", "specialties": ["sobrancelha", "depilacao-facial"] },
+          { "id": "lash-designer", "label": "Lash designer", "specialties": ["cilios"] },
+          { "id": "micropigmentadora", "label": "Micropigmentadora", "specialties": ["micropigmentacao", "sobrancelha"] }
+        ]
+      },
+      "hours": [
+        {
+          "id": "estudio-com-almoco",
+          "label": "Estúdio com pausa para almoço",
+          "days": [{ "weekdays": [1, 2, 3, 4, 5], "openMinutes": 540, "closeMinutes": 1080, "breaks": [{ "fromMinutes": 720, "toMinutes": 780 }] }, { "weekdays": [6], "openMinutes": 540, "closeMinutes": 780 }]
+        },
+        {
+          "id": "estudio-noturno",
+          "label": "Estúdio até a noite, almoço mais tarde",
+          "days": [{ "weekdays": [2, 3, 4, 5], "openMinutes": 600, "closeMinutes": 1260, "breaks": [{ "fromMinutes": 780, "toMinutes": 840 }] }, { "weekdays": [6], "openMinutes": 540, "closeMinutes": 960 }]
+        }
+      ]
+    },
+    {
+      "id": "estetica-spa",
+      "label": "Estética e spa",
+      "specialties": [{ "id": "facial", "label": "Facial" }, { "id": "corporal", "label": "Corporal" }, { "id": "massagem", "label": "Massagem" }, { "id": "depilacao", "label": "Depilação" }, { "id": "spa", "label": "Spa" }],
+      "services": [
+        { "key": "limpeza_pele", "name": "Limpeza de pele", "durationMin": 90, "priceCents": 18000, "specialties": ["facial"], "aliases": ["limpeza", "limpeza facial"] },
+        { "key": "limpeza_profunda", "name": "Limpeza de pele profunda", "durationMin": 120, "priceCents": 23000, "specialties": ["facial"], "aliases": ["limpeza profunda", "limpeza"] },
+        { "key": "peeling_diamante", "name": "Peeling de diamante", "durationMin": 60, "priceCents": 18000, "specialties": ["facial"], "aliases": ["peeling", "diamante"], "tags": ["english"] },
+        { "key": "peeling_quimico", "name": "Peeling químico", "durationMin": 45, "priceCents": 22000, "specialties": ["facial"], "aliases": ["peeling", "ácido"], "tags": ["english"] },
+        { "key": "hidratacao_facial", "name": "Hidratação facial", "durationMin": 45, "priceCents": 12000, "specialties": ["facial"], "aliases": ["hidratação"] },
+        { "key": "radiofrequencia", "name": "Radiofrequência facial", "durationMin": 45, "priceCents": 20000, "specialties": ["facial"], "aliases": ["radiofrequência", "rádio"] },
+        { "key": "microagulhamento", "name": "Microagulhamento", "durationMin": 60, "priceCents": 35000, "specialties": ["facial"], "aliases": ["agulhamento"] },
+        { "key": "drenagem", "name": "Drenagem linfática", "durationMin": 60, "priceCents": 15000, "specialties": ["corporal"], "aliases": ["drenagem"] },
+        { "key": "massagem_modeladora", "name": "Massagem modeladora", "durationMin": 60, "priceCents": 16000, "specialties": ["corporal", "massagem"], "aliases": ["modeladora"] },
+        { "key": "massagem_relaxante", "name": "Massagem relaxante", "durationMin": 60, "priceCents": 15000, "specialties": ["massagem"], "aliases": ["relaxante", "massagem"] },
+        { "key": "pedras_quentes", "name": "Massagem com pedras quentes", "durationMin": 75, "priceCents": 19000, "specialties": ["massagem"], "aliases": ["pedras quentes", "pedras"] },
+        { "key": "reflexologia", "name": "Reflexologia podal", "durationMin": 45, "priceCents": 11000, "specialties": ["massagem"], "aliases": ["reflexologia", "massagem nos pés"] },
+        { "key": "ventosaterapia", "name": "Ventosaterapia", "durationMin": 45, "priceCents": 12000, "specialties": ["corporal"], "aliases": ["ventosa"] },
+        { "key": "depilacao_perna", "name": "Depilação de perna inteira", "durationMin": 60, "priceCents": 9000, "specialties": ["depilacao"], "aliases": ["perna inteira", "perna"] },
+        { "key": "depilacao_meia_perna", "name": "Depilação de meia perna", "durationMin": 30, "priceCents": 5500, "specialties": ["depilacao"], "aliases": ["meia perna"], "tags": ["number-word"] },
+        { "key": "depilacao_axila", "name": "Depilação de axila", "durationMin": 15, "priceCents": 3000, "specialties": ["depilacao"], "aliases": ["axila"] },
+        { "key": "depilacao_virilha", "name": "Depilação de virilha", "durationMin": 30, "priceCents": 6000, "specialties": ["depilacao"], "aliases": ["virilha"] },
+        { "key": "depilacao_buco", "name": "Depilação de buço", "durationMin": 10, "priceCents": 2000, "specialties": ["depilacao"], "aliases": ["buço"] },
+        { "key": "day_spa", "name": "Day spa", "durationMin": 240, "priceCents": 45000, "specialties": ["spa", "massagem", "facial"], "aliases": ["dia de spa", "spa"], "tags": ["english", "temporal-word"] }
+      ],
+      "professionals": {
+        "min": 1,
+        "max": 12,
+        "typical": 5,
+        "roles": [
+          { "id": "esteticista", "label": "Esteticista", "specialties": ["facial", "corporal", "depilacao"] },
+          { "id": "massoterapeuta", "label": "Massoterapeuta", "specialties": ["massagem", "corporal", "spa"] },
+          { "id": "depiladora", "label": "Depiladora", "specialties": ["depilacao"] }
+        ]
+      },
+      "hours": [
+        {
+          "id": "spa-com-almoco",
+          "label": "Spa com pausa para almoço",
+          "days": [{ "weekdays": [1, 2, 3, 4, 5], "openMinutes": 480, "closeMinutes": 1200, "breaks": [{ "fromMinutes": 720, "toMinutes": 780 }] }, { "weekdays": [6], "openMinutes": 480, "closeMinutes": 840 }]
+        },
+        { "id": "clinica", "label": "Clínica de estética", "days": [{ "weekdays": [1, 2, 3, 4, 5], "openMinutes": 540, "closeMinutes": 1140 }, { "weekdays": [6], "openMinutes": 540, "closeMinutes": 780 }] }
+      ]
+    },
+    {
+      "id": "estudio-noturno",
+      "label": "Estúdio de beleza noturno",
+      "specialties": [{ "id": "cabelo", "label": "Cabelo" }, { "id": "barba", "label": "Barba" }, { "id": "maquiagem", "label": "Maquiagem" }, { "id": "penteado", "label": "Penteado" }, { "id": "cor", "label": "Cor" }],
+      "services": [
+        { "key": "corte_social", "name": "Corte social", "durationMin": 30, "priceCents": 4500, "specialties": ["cabelo"], "aliases": ["corte", "social"] },
+        { "key": "corte_navalhado", "name": "Corte navalhado", "durationMin": 40, "priceCents": 5500, "specialties": ["cabelo"], "aliases": ["navalhado", "corte"] },
+        { "key": "barba_desenhada", "name": "Barba desenhada", "durationMin": 30, "priceCents": 4000, "specialties": ["barba"], "aliases": ["barba"] },
+        { "key": "barba_e_bigode", "name": "Barba e bigode", "durationMin": 35, "priceCents": 4500, "specialties": ["barba"], "aliases": ["bigode"] },
+        { "key": "maquiagem_artistica", "name": "Maquiagem artística", "durationMin": 90, "priceCents": 18000, "specialties": ["maquiagem"], "aliases": ["make artística", "maquiagem"] },
+        { "key": "maquiagem_balada", "name": "Maquiagem de balada", "durationMin": 60, "priceCents": 12000, "specialties": ["maquiagem"], "aliases": ["make de balada", "maquiagem"] },
+        { "key": "penteado_preso", "name": "Penteado preso", "durationMin": 60, "priceCents": 13000, "specialties": ["penteado"], "aliases": ["coque", "preso"] },
+        { "key": "chapinha", "name": "Chapinha", "durationMin": 40, "priceCents": 6000, "specialties": ["cabelo"], "aliases": ["prancha", "chapa"] },
+        { "key": "cachos_definidos", "name": "Cachos definidos", "durationMin": 60, "priceCents": 9000, "specialties": ["cabelo", "penteado"], "aliases": ["definição", "cachos"] },
+        { "key": "coloracao_fantasia", "name": "Coloração fantasia", "durationMin": 120, "priceCents": 20000, "specialties": ["cor"], "aliases": ["cor fantasia", "cabelo colorido"] },
+        { "key": "tonalizante_rapido", "name": "Tonalizante rápido", "durationMin": 45, "priceCents": 7000, "specialties": ["cor"], "aliases": ["tonalizante"] },
+        { "key": "aplicacao_glitter", "name": "Aplicação de glitter", "durationMin": 20, "priceCents": 2500, "specialties": ["maquiagem"], "aliases": ["glitter", "brilho"], "tags": ["english"] },
+        { "key": "trancas_rapidas", "name": "Tranças rápidas", "durationMin": 90, "priceCents": 12000, "specialties": ["penteado"], "aliases": ["trança", "trancinha"] }
+      ],
+      "professionals": {
+        "min": 1,
+        "max": 6,
+        "typical": 3,
+        "roles": [
+          { "id": "barbeiro-noturno", "label": "Barbeiro", "specialties": ["cabelo", "barba"] },
+          { "id": "maquiador", "label": "Maquiador", "specialties": ["maquiagem", "penteado"] },
+          { "id": "cabeleireiro-cor", "label": "Cabeleireiro de cor", "specialties": ["cabelo", "cor", "penteado"] }
+        ]
+      },
+      "hours": [
+        {
+          "id": "noturno",
+          "label": "Terça a domingo, do fim da tarde à madrugada",
+          "daypartWeight": 4,
+          "days": [{ "weekdays": [0, 2, 3, 4, 5, 6], "openMinutes": 0, "closeMinutes": 1435, "breaks": [{ "fromMinutes": 180, "toMinutes": 1080 }] }]
+        },
+        {
+          "id": "madrugada-fim-de-semana",
+          "label": "Quarta a sábado, da noite à madrugada",
+          "daypartWeight": 4,
+          "days": [{ "weekdays": [3, 4, 5, 6], "openMinutes": 0, "closeMinutes": 1435, "breaks": [{ "fromMinutes": 240, "toMinutes": 1140 }] }]
+        },
+        {
+          "id": "vinte-e-quatro-horas",
+          "label": "Aberto dia e noite, todos os dias",
+          "daypartWeight": 4,
+          "days": [{ "weekdays": [0, 1, 2, 3, 4, 5, 6], "openMinutes": 0, "closeMinutes": 1435 }]
+        }
+      ]
+    },
+    {
+      "id": "trancas-e-afro",
+      "label": "Estúdio de tranças e cabelo afro",
+      "specialties": [{ "id": "trancas", "label": "Tranças" }, { "id": "dreads", "label": "Dreads" }, { "id": "cachos", "label": "Cachos" }, { "id": "corte-afro", "label": "Corte afro" }],
+      "services": [
+        { "key": "box_braids", "name": "Box braids", "durationMin": 240, "priceCents": 35000, "specialties": ["trancas"], "aliases": ["box", "tranças box"], "tags": ["english"] },
+        { "key": "trancas_nago", "name": "Tranças nagô", "durationMin": 120, "priceCents": 15000, "specialties": ["trancas"], "aliases": ["nagô", "tranças"] },
+        { "key": "twist", "name": "Twist", "durationMin": 180, "priceCents": 25000, "specialties": ["trancas"], "aliases": ["torção", "tranças twist"], "tags": ["english"] },
+        { "key": "crochet_braids", "name": "Crochet braids", "durationMin": 150, "priceCents": 22000, "specialties": ["trancas"], "aliases": ["crochet"], "tags": ["english"] },
+        { "key": "trancas_fulani", "name": "Tranças fulani", "durationMin": 180, "priceCents": 28000, "specialties": ["trancas"], "aliases": ["fulani", "tranças"] },
+        { "key": "retwist_dreads", "name": "Retwist de dreads", "durationMin": 120, "priceCents": 16000, "specialties": ["dreads"], "aliases": ["retwist", "dreads"], "tags": ["english"] },
+        { "key": "retirada_trancas", "name": "Retirada de tranças", "durationMin": 90, "priceCents": 8000, "specialties": ["trancas", "dreads"], "aliases": ["retirada", "desfazer as tranças"] },
+        { "key": "corte_afro", "name": "Corte afro", "durationMin": 45, "priceCents": 5500, "specialties": ["corte-afro"], "aliases": ["afro", "corte"] },
+        { "key": "corte_black_power", "name": "Corte black power", "durationMin": 60, "priceCents": 7000, "specialties": ["corte-afro"], "aliases": ["black power", "black", "corte"], "tags": ["english"] },
+        { "key": "big_chop", "name": "Big chop", "durationMin": 60, "priceCents": 8000, "specialties": ["corte-afro"], "aliases": ["corte da transição"], "tags": ["english"] },
+        { "key": "finalizacao_cachos", "name": "Finalização de cachos", "durationMin": 60, "priceCents": 9000, "specialties": ["cachos"], "aliases": ["finalização", "fitagem"] },
+        { "key": "umectacao", "name": "Umectação capilar", "durationMin": 45, "priceCents": 7000, "specialties": ["cachos"], "aliases": ["umectação"] },
+        { "key": "texturizacao", "name": "Texturização", "durationMin": 60, "priceCents": 10000, "specialties": ["cachos"], "aliases": ["textura"] },
+        { "key": "tranca_embutida", "name": "Trança embutida", "durationMin": 60, "priceCents": 8000, "specialties": ["trancas"], "aliases": ["embutida"] },
+        { "key": "penteado_afro", "name": "Penteado afro", "durationMin": 60, "priceCents": 9000, "specialties": ["cachos"], "aliases": ["penteado"] }
+      ],
+      "professionals": {
+        "min": 1,
+        "max": 6,
+        "typical": 3,
+        "roles": [
+          { "id": "trancista", "label": "Trancista", "specialties": ["trancas"] },
+          { "id": "cabeleireira-afro", "label": "Cabeleireira afro", "specialties": ["cachos", "corte-afro"] },
+          { "id": "especialista-dreads", "label": "Especialista em dreads", "specialties": ["dreads", "trancas"] }
+        ]
+      },
+      "hours": [
+        {
+          "id": "com-almoco",
+          "label": "Terça a sábado com pausa para almoço",
+          "days": [{ "weekdays": [2, 3, 4, 5], "openMinutes": 540, "closeMinutes": 1140, "breaks": [{ "fromMinutes": 720, "toMinutes": 780 }] }, { "weekdays": [6], "openMinutes": 540, "closeMinutes": 1020, "breaks": [{ "fromMinutes": 720, "toMinutes": 780 }] }]
+        },
+        {
+          "id": "manha-profissional",
+          "label": "Segunda a sábado das sete às vinte; a profissional principal atende só de manhã",
+          "daypartWeight": 4,
+          "days": [{ "weekdays": [1, 2, 3, 4, 5, 6], "openMinutes": 420, "closeMinutes": 1200 }],
+          "professionalWindow": { "fromMinutes": 420, "toMinutes": 720 }
+        }
+      ]
+    }
+  ]
+}

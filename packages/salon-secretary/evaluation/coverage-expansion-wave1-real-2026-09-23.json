@@ -1,0 +1,2764 @@
+{
+  "version": "jev-coverage-expansion-wave1-real-v1",
+  "wave": 1,
+  "frozenPlanSha256": "0db86b3cd6087cfaa6a1d8403aeeb481ca2d718cf4afa61df5c0cabe380e2de7",
+  "datasetHash": "7f544f9609dbeff4cf95cadc3902ed9a8eadd1fe08416126d29e63a952289775",
+  "payloadsHash": "2afdac98bac99b5aecfb24a11b4f4c483f4750303bbfc4766257e59bc29cfa19",
+  "catalog": {
+    "version": "decision-derivations-v1",
+    "hash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+    "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b"
+  },
+  "sourceHashes": {
+    "packages/salon-secretary/evaluation/coverage-expansion-plan.json": "0db86b3cd6087cfaa6a1d8403aeeb481ca2d718cf4afa61df5c0cabe380e2de7",
+    "docs/SECRETARIA_JEV_COVERAGE_EXPANSION_WAVE1.md": "e90a67ba10569ae42c2dfc9dfcafc97f949b396a78e17373195284c8c54e4dcc",
+    "packages/salon-secretary/evaluation/acceptance-policy.ts": "ba2223442b203b6c0a055662b7a6f861e648bdfe06bb0fc680da7da7eca0958c",
+    "packages/salon-secretary/evaluation/conditional-plan.ts": "836ef27063f0a191d409b9103b5d4f6fce8db86b1d85dfa03e74ff03585f0761",
+    "packages/salon-secretary/evaluation/jev-provider.ts": "44449d30c852e36fe277ef7572d8de7ed0bf86d6e61f7535894303c065024960",
+    "packages/salon-secretary/evaluation/derived-provider.ts": "e0f91cd3fa67058183a92f0f78cc19d3ad504896931e9b03b1e30ddcfea1995c",
+    "packages/salon-secretary/evaluation/derived-plan.ts": "9212fd428464f692d49e9d44db240fe64fa3de20b4e4a76d24e7cba282aba52f",
+    "packages/salon-secretary/evaluation/derivation-catalog.ts": "93c145a85ad25f32e813a08a61e068f5d7590ef148abc36422a6959c32a9a6b1",
+    "packages/salon-secretary/evaluation/coverage-expansion-dataset.ts": "3964c42bcbc60820e83b801bd808b69369ba95a96e2588f8f7358744ccf2dafa"
+  },
+  "pricing": {
+    "inputUsdPerMillion": 0.042,
+    "outputUsdPerMillion": 0,
+    "estimateNotBilled": true,
+    "maximumCostUsd": 0.172032
+  },
+  "cases": [
+    {
+      "id": "f01",
+      "tag": "DIRECT",
+      "message": "Quanto faturei ontem?",
+      "oracle": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "score": {
+        "id": "f01",
+        "wave": 1,
+        "intent": "service_revenue",
+        "skill": "financial",
+        "risks": [
+          "READ_ONLY"
+        ],
+        "value": "FULL_JEV_BYPASS",
+        "evidenceState": "PROVEN",
+        "policyDecision": "ACCEPT_JEV",
+        "reason": "ACCEPTED_CLOSED_DECISION",
+        "classification": "CORRECT_ACCEPT",
+        "linguisticCorrect": true,
+        "unsafeFalsePositive": false,
+        "shadowClosedCandidate": true,
+        "unsafeShadowCandidate": false,
+        "predicted": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "expectedClosedProjection": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "provenance": {
+          "skill": "ASKED",
+          "operation": "DERIVED",
+          "shape": "ASKED",
+          "period": "ASKED",
+          "metric": "ASKED",
+          "inventory": "NOT_APPLICABLE",
+          "communication": "NOT_APPLICABLE"
+        },
+        "status": "OK",
+        "error": null,
+        "fallbackReasons": [
+          "NO_ACCEPTANCE_POLICY"
+        ],
+        "potentialBypassCorrect": true,
+        "calibrationOnlyCorrectNotAccepted": false,
+        "fullBypassAccepted": true,
+        "routingOnlyCorrect": false,
+        "confidence": [
+          {
+            "dimension": "skill",
+            "selectedChoice": "financial",
+            "probability": 1,
+            "confidence": 0.99,
+            "runnerUp": "unclear",
+            "runnerUpProbability": 0,
+            "margin": 1,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "shape",
+            "selectedChoice": "single",
+            "probability": 0.72,
+            "confidence": 0.64,
+            "runnerUp": "out_of_catalog",
+            "runnerUpProbability": 0.22,
+            "margin": 0.5,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "metric",
+            "selectedChoice": "service_revenue",
+            "probability": 0.98,
+            "confidence": 0.97,
+            "runnerUp": "unclear",
+            "runnerUpProbability": 0.01,
+            "margin": 0.97,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "period",
+            "selectedChoice": "yesterday",
+            "probability": 1,
+            "confidence": 1,
+            "runnerUp": "this_week",
+            "runnerUpProbability": 0,
+            "margin": 1,
+            "correct": true,
+            "selectedIsTop1": true
+          }
+        ],
+        "latencyMs": 657.556,
+        "httpCalls": 2,
+        "http": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "latencyMs": 362.8091,
+            "usage": {
+              "inputTokens": 502,
+              "outputTokens": 138
+            },
+            "estimatedCostUsd": 0.000021084,
+            "diagnostic": null
+          },
+          {
+            "stage": {
+              "kind": "detail",
+              "skill": "financial"
+            },
+            "latencyMs": 289.84389999999996,
+            "usage": {
+              "inputTokens": 607,
+              "outputTokens": 183
+            },
+            "estimatedCostUsd": 0.000025494000000000004,
+            "diagnostic": null
+          }
+        ],
+        "usage": {
+          "inputTokens": 1109,
+          "outputTokens": 321
+        },
+        "estimatedCostUsd": 0.000046578,
+        "executable": false
+      },
+      "classification": "CORRECT_ACCEPT",
+      "policy": {
+        "policyVersion": "jev-acceptance-v1",
+        "decision": "ACCEPT_JEV",
+        "reason": "ACCEPTED_CLOSED_DECISION",
+        "enrollmentId": "financial-revenue",
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "requiredDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "interpretation": {
+          "skill": "financial",
+          "operation": "financial.report",
+          "shape": "single",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "provenance": {
+          "skill": "JEV",
+          "shape": "JEV",
+          "metric": "JEV",
+          "period": "JEV",
+          "operation": "DETERMINISTIC_DERIVATION"
+        },
+        "backendOnly": [
+          "customer_ref",
+          "service_ref",
+          "professional_ref",
+          "appointment_ref",
+          "product_ref",
+          "recipient_ref",
+          "financial_values",
+          "stock",
+          "availability",
+          "authorization",
+          "tenant"
+        ],
+        "confidenceData": [
+          {
+            "dimension": "skill",
+            "selected": "financial",
+            "selectedProbability": 1,
+            "runnerUpProbability": 0,
+            "margin": 1,
+            "confidence": 0.99,
+            "correct": null
+          },
+          {
+            "dimension": "shape",
+            "selected": "single",
+            "selectedProbability": 0.72,
+            "runnerUpProbability": 0.22,
+            "margin": 0.5,
+            "confidence": 0.64,
+            "correct": null
+          },
+          {
+            "dimension": "metric",
+            "selected": "service_revenue",
+            "selectedProbability": 0.98,
+            "runnerUpProbability": 0.01,
+            "margin": 0.97,
+            "confidence": 0.97,
+            "correct": null
+          },
+          {
+            "dimension": "period",
+            "selected": "yesterday",
+            "selectedProbability": 1,
+            "runnerUpProbability": 0,
+            "margin": 1,
+            "confidence": 1,
+            "correct": null
+          }
+        ],
+        "executable": false
+      },
+      "result": {
+        "provider": "JEV",
+        "status": "OK",
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "dependencies": [],
+        "answers": {
+          "skill": {
+            "choice": "financial",
+            "probabilities": {
+              "unclear": 0,
+              "customers": 0,
+              "communication": 0,
+              "multiple": 0,
+              "financial": 1,
+              "inventory": 0,
+              "scheduling": 0,
+              "out_of_catalog": 0,
+              "services": 0
+            },
+            "confidence": 0.99
+          },
+          "shape": {
+            "choice": "single",
+            "probabilities": {
+              "independent": 0.04,
+              "out_of_catalog": 0.22,
+              "unclear": 0.02,
+              "single": 0.72,
+              "dependent": 0
+            },
+            "confidence": 0.64
+          },
+          "metric": {
+            "choice": "service_revenue",
+            "probabilities": {
+              "completed_count": 0,
+              "service_revenue": 0.98,
+              "outstanding_receivables": 0,
+              "received_revenue": 0,
+              "none": 0,
+              "multiple": 0,
+              "unclear": 0.01,
+              "realized_revenue": 0.01,
+              "average_ticket": 0
+            },
+            "confidence": 0.97
+          },
+          "period": {
+            "choice": "yesterday",
+            "probabilities": {
+              "this_week": 0,
+              "last_week": 0,
+              "this_month": 0,
+              "comparison": 0,
+              "yesterday": 1,
+              "today": 0,
+              "none": 0,
+              "unclear": 0,
+              "last_month": 0
+            },
+            "confidence": 1
+          }
+        },
+        "latencyMs": 657.556,
+        "usage": {
+          "inputTokens": 1109,
+          "outputTokens": 321
+        },
+        "estimatedCostUsd": 0.000046578,
+        "actualCostUsd": null,
+        "modelRequested": "jev-1.13.0",
+        "modelReturned": "jev-1.13.0",
+        "requestId": null,
+        "error": null,
+        "fallbackReasons": [
+          "NO_ACCEPTANCE_POLICY"
+        ],
+        "executable": false,
+        "planVersion": "derived-v3",
+        "stages": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Quanto faturei ontem?",
+                "context": {}
+              },
+              "questions": {
+                "skill": {
+                  "type": "choice",
+                  "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                  "criteria": {
+                    "services": null,
+                    "customers": null,
+                    "scheduling": null,
+                    "financial": null,
+                    "inventory": null,
+                    "communication": null,
+                    "multiple": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                },
+                "shape": {
+                  "type": "choice",
+                  "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                  "criteria": {
+                    "single": null,
+                    "independent": null,
+                    "dependent": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "OK",
+              "decision": null,
+              "dependencies": null,
+              "answers": {
+                "skill": {
+                  "choice": "financial",
+                  "probabilities": {
+                    "unclear": 0,
+                    "customers": 0,
+                    "communication": 0,
+                    "multiple": 0,
+                    "financial": 1,
+                    "inventory": 0,
+                    "scheduling": 0,
+                    "out_of_catalog": 0,
+                    "services": 0
+                  },
+                  "confidence": 0.99
+                },
+                "shape": {
+                  "choice": "single",
+                  "probabilities": {
+                    "independent": 0.04,
+                    "out_of_catalog": 0.22,
+                    "unclear": 0.02,
+                    "single": 0.72,
+                    "dependent": 0
+                  },
+                  "confidence": 0.64
+                }
+              },
+              "latencyMs": 362.8091,
+              "usage": {
+                "inputTokens": 502,
+                "outputTokens": 138
+              },
+              "estimatedCostUsd": 0.000021084,
+              "actualCostUsd": null,
+              "modelRequested": "jev-1.13.0",
+              "modelReturned": "jev-1.13.0",
+              "requestId": null,
+              "error": null,
+              "fallbackReasons": [],
+              "executable": false
+            }
+          },
+          {
+            "stage": {
+              "kind": "detail",
+              "skill": "financial"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Quanto faturei ontem?",
+                "context": {},
+                "selected_skill": "financial",
+                "selection_source": "prior_jev_discovery"
+              },
+              "questions": {
+                "metric": {
+                  "type": "choice",
+                  "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                  "criteria": {
+                    "service_revenue": null,
+                    "realized_revenue": null,
+                    "received_revenue": null,
+                    "outstanding_receivables": null,
+                    "completed_count": null,
+                    "average_ticket": null,
+                    "multiple": null,
+                    "none": null,
+                    "unclear": null
+                  }
+                },
+                "period": {
+                  "type": "choice",
+                  "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                  "criteria": {
+                    "today": null,
+                    "yesterday": null,
+                    "this_week": null,
+                    "last_week": null,
+                    "this_month": null,
+                    "last_month": null,
+                    "comparison": null,
+                    "none": null,
+                    "unclear": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "OK",
+              "decision": null,
+              "dependencies": null,
+              "answers": {
+                "metric": {
+                  "choice": "service_revenue",
+                  "probabilities": {
+                    "completed_count": 0,
+                    "service_revenue": 0.98,
+                    "outstanding_receivables": 0,
+                    "received_revenue": 0,
+                    "none": 0,
+                    "multiple": 0,
+                    "unclear": 0.01,
+                    "realized_revenue": 0.01,
+                    "average_ticket": 0
+                  },
+                  "confidence": 0.97
+                },
+                "period": {
+                  "choice": "yesterday",
+                  "probabilities": {
+                    "this_week": 0,
+                    "last_week": 0,
+                    "this_month": 0,
+                    "comparison": 0,
+                    "yesterday": 1,
+                    "today": 0,
+                    "none": 0,
+                    "unclear": 0,
+                    "last_month": 0
+                  },
+                  "confidence": 1
+                }
+              },
+              "latencyMs": 289.84389999999996,
+              "usage": {
+                "inputTokens": 607,
+                "outputTokens": 183
+              },
+              "estimatedCostUsd": 0.000025494000000000004,
+              "actualCostUsd": null,
+              "modelRequested": "jev-1.13.0",
+              "modelReturned": "jev-1.13.0",
+              "requestId": null,
+              "error": null,
+              "fallbackReasons": [],
+              "executable": false
+            }
+          }
+        ],
+        "dimensionSources": {
+          "skill": "ASKED",
+          "operation": "DERIVED",
+          "shape": "ASKED",
+          "period": "ASKED",
+          "metric": "ASKED",
+          "inventory": "NOT_APPLICABLE",
+          "communication": "NOT_APPLICABLE"
+        },
+        "closedCoverage": true,
+        "requiresLuna": false,
+        "accepted": false,
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ]
+      },
+      "rounds": [
+        {
+          "label": "discovery",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto faturei ontem?",
+              "context": {}
+            },
+            "questions": {
+              "skill": {
+                "type": "choice",
+                "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                "criteria": {
+                  "services": null,
+                  "customers": null,
+                  "scheduling": null,
+                  "financial": null,
+                  "inventory": null,
+                  "communication": null,
+                  "multiple": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              },
+              "shape": {
+                "type": "choice",
+                "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                "criteria": {
+                  "single": null,
+                  "independent": null,
+                  "dependent": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 356.18940000000003,
+          "stageLatencyMs": 362.8091,
+          "sentBytes": 960,
+          "requestId": null,
+          "modelRequested": "jev-1.13.0",
+          "modelReturned": "jev-1.13.0",
+          "status": "OK",
+          "error": null,
+          "answers": {
+            "skill": {
+              "choice": "financial",
+              "probabilities": {
+                "unclear": 0,
+                "customers": 0,
+                "communication": 0,
+                "multiple": 0,
+                "financial": 1,
+                "inventory": 0,
+                "scheduling": 0,
+                "out_of_catalog": 0,
+                "services": 0
+              },
+              "confidence": 0.99
+            },
+            "shape": {
+              "choice": "single",
+              "probabilities": {
+                "independent": 0.04,
+                "out_of_catalog": 0.22,
+                "unclear": 0.02,
+                "single": 0.72,
+                "dependent": 0
+              },
+              "confidence": 0.64
+            }
+          },
+          "usage": {
+            "inputTokens": 502,
+            "outputTokens": 138
+          },
+          "estimatedCostUsd": 0.000021084,
+          "invalidResponseDiagnostic": null
+        },
+        {
+          "label": "detail",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto faturei ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 287.4383,
+          "stageLatencyMs": 289.84389999999996,
+          "sentBytes": 1240,
+          "requestId": null,
+          "modelRequested": "jev-1.13.0",
+          "modelReturned": "jev-1.13.0",
+          "status": "OK",
+          "error": null,
+          "answers": {
+            "metric": {
+              "choice": "service_revenue",
+              "probabilities": {
+                "completed_count": 0,
+                "service_revenue": 0.98,
+                "outstanding_receivables": 0,
+                "received_revenue": 0,
+                "none": 0,
+                "multiple": 0,
+                "unclear": 0.01,
+                "realized_revenue": 0.01,
+                "average_ticket": 0
+              },
+              "confidence": 0.97
+            },
+            "period": {
+              "choice": "yesterday",
+              "probabilities": {
+                "this_week": 0,
+                "last_week": 0,
+                "this_month": 0,
+                "comparison": 0,
+                "yesterday": 1,
+                "today": 0,
+                "none": 0,
+                "unclear": 0,
+                "last_month": 0
+              },
+              "confidence": 1
+            }
+          },
+          "usage": {
+            "inputTokens": 607,
+            "outputTokens": 183
+          },
+          "estimatedCostUsd": 0.000025494000000000004,
+          "invalidResponseDiagnostic": null
+        }
+      ],
+      "httpCalls": 2,
+      "discoveryMs": 362.8091,
+      "detailMs": 289.84389999999996,
+      "policyMs": 0.955600000000004,
+      "totalEvaluationMs": 659.2849999999999,
+      "sentBytes": 2200,
+      "estimatedCostUsd": 0.000046578,
+      "wouldAvoidLunaUnderCurrentPolicy": true,
+      "calibrationOnlyCorrectNotAccepted": false
+    },
+    {
+      "id": "f02",
+      "tag": "PARAPHRASE",
+      "message": "Qual foi meu faturamento de ontem?",
+      "oracle": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "score": {
+        "id": "f02",
+        "wave": 1,
+        "intent": "service_revenue",
+        "skill": "financial",
+        "risks": [
+          "READ_ONLY"
+        ],
+        "value": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "policyDecision": "FALLBACK_REQUIRED",
+        "reason": "UNCALIBRATED_INPUT",
+        "classification": "CORRECT_FALLBACK_UNDER_V1",
+        "linguisticCorrect": true,
+        "unsafeFalsePositive": false,
+        "shadowClosedCandidate": true,
+        "unsafeShadowCandidate": false,
+        "predicted": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "expectedClosedProjection": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "provenance": {
+          "skill": "ASKED",
+          "operation": "DERIVED",
+          "shape": "ASKED",
+          "period": "ASKED",
+          "metric": "ASKED",
+          "inventory": "NOT_APPLICABLE",
+          "communication": "NOT_APPLICABLE"
+        },
+        "status": "OK",
+        "error": null,
+        "fallbackReasons": [
+          "NO_ACCEPTANCE_POLICY"
+        ],
+        "potentialBypassCorrect": true,
+        "calibrationOnlyCorrectNotAccepted": true,
+        "fullBypassAccepted": false,
+        "routingOnlyCorrect": false,
+        "confidence": [
+          {
+            "dimension": "skill",
+            "selectedChoice": "financial",
+            "probability": 1,
+            "confidence": 0.99,
+            "runnerUp": "services",
+            "runnerUpProbability": 0,
+            "margin": 1,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "shape",
+            "selectedChoice": "single",
+            "probability": 0.84,
+            "confidence": 0.8,
+            "runnerUp": "out_of_catalog",
+            "runnerUpProbability": 0.11,
+            "margin": 0.73,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "metric",
+            "selectedChoice": "service_revenue",
+            "probability": 0.98,
+            "confidence": 0.98,
+            "runnerUp": "unclear",
+            "runnerUpProbability": 0.01,
+            "margin": 0.97,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "period",
+            "selectedChoice": "yesterday",
+            "probability": 1,
+            "confidence": 1,
+            "runnerUp": "last_month",
+            "runnerUpProbability": 0,
+            "margin": 1,
+            "correct": true,
+            "selectedIsTop1": true
+          }
+        ],
+        "latencyMs": 704.711,
+        "httpCalls": 2,
+        "http": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "latencyMs": 290.85630000000015,
+            "usage": {
+              "inputTokens": 504,
+              "outputTokens": 138
+            },
+            "estimatedCostUsd": 0.000021168,
+            "diagnostic": null
+          },
+          {
+            "stage": {
+              "kind": "detail",
+              "skill": "financial"
+            },
+            "latencyMs": 304.20270000000005,
+            "usage": {
+              "inputTokens": 609,
+              "outputTokens": 183
+            },
+            "estimatedCostUsd": 0.000025578,
+            "diagnostic": null
+          }
+        ],
+        "usage": {
+          "inputTokens": 1113,
+          "outputTokens": 321
+        },
+        "estimatedCostUsd": 0.000046746,
+        "executable": false
+      },
+      "classification": "CORRECT_FALLBACK",
+      "policy": {
+        "policyVersion": "jev-acceptance-v1",
+        "decision": "FALLBACK_REQUIRED",
+        "reason": "UNCALIBRATED_INPUT",
+        "enrollmentId": null,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "requiredDecisions": [],
+        "interpretation": null,
+        "provenance": {},
+        "backendOnly": [
+          "customer_ref",
+          "service_ref",
+          "professional_ref",
+          "appointment_ref",
+          "product_ref",
+          "recipient_ref",
+          "financial_values",
+          "stock",
+          "availability",
+          "authorization",
+          "tenant"
+        ],
+        "confidenceData": [],
+        "executable": false
+      },
+      "result": {
+        "provider": "JEV",
+        "status": "OK",
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "dependencies": [],
+        "answers": {
+          "skill": {
+            "choice": "financial",
+            "probabilities": {
+              "services": 0,
+              "out_of_catalog": 0,
+              "financial": 1,
+              "multiple": 0,
+              "unclear": 0,
+              "customers": 0,
+              "communication": 0,
+              "inventory": 0,
+              "scheduling": 0
+            },
+            "confidence": 0.99
+          },
+          "shape": {
+            "choice": "single",
+            "probabilities": {
+              "dependent": 0,
+              "unclear": 0.01,
+              "independent": 0.04,
+              "single": 0.84,
+              "out_of_catalog": 0.11
+            },
+            "confidence": 0.8
+          },
+          "metric": {
+            "choice": "service_revenue",
+            "probabilities": {
+              "service_revenue": 0.98,
+              "completed_count": 0,
+              "outstanding_receivables": 0,
+              "unclear": 0.01,
+              "none": 0,
+              "received_revenue": 0,
+              "realized_revenue": 0.01,
+              "average_ticket": 0,
+              "multiple": 0
+            },
+            "confidence": 0.98
+          },
+          "period": {
+            "choice": "yesterday",
+            "probabilities": {
+              "last_month": 0,
+              "unclear": 0,
+              "last_week": 0,
+              "this_week": 0,
+              "comparison": 0,
+              "yesterday": 1,
+              "today": 0,
+              "none": 0,
+              "this_month": 0
+            },
+            "confidence": 1
+          }
+        },
+        "latencyMs": 704.711,
+        "usage": {
+          "inputTokens": 1113,
+          "outputTokens": 321
+        },
+        "estimatedCostUsd": 0.000046746,
+        "actualCostUsd": null,
+        "modelRequested": "jev-1.13.0",
+        "modelReturned": "jev-1.13.0",
+        "requestId": null,
+        "error": null,
+        "fallbackReasons": [
+          "NO_ACCEPTANCE_POLICY"
+        ],
+        "executable": false,
+        "planVersion": "derived-v3",
+        "stages": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Qual foi meu faturamento de ontem?",
+                "context": {}
+              },
+              "questions": {
+                "skill": {
+                  "type": "choice",
+                  "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                  "criteria": {
+                    "services": null,
+                    "customers": null,
+                    "scheduling": null,
+                    "financial": null,
+                    "inventory": null,
+                    "communication": null,
+                    "multiple": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                },
+                "shape": {
+                  "type": "choice",
+                  "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                  "criteria": {
+                    "single": null,
+                    "independent": null,
+                    "dependent": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "OK",
+              "decision": null,
+              "dependencies": null,
+              "answers": {
+                "skill": {
+                  "choice": "financial",
+                  "probabilities": {
+                    "services": 0,
+                    "out_of_catalog": 0,
+                    "financial": 1,
+                    "multiple": 0,
+                    "unclear": 0,
+                    "customers": 0,
+                    "communication": 0,
+                    "inventory": 0,
+                    "scheduling": 0
+                  },
+                  "confidence": 0.99
+                },
+                "shape": {
+                  "choice": "single",
+                  "probabilities": {
+                    "dependent": 0,
+                    "unclear": 0.01,
+                    "independent": 0.04,
+                    "single": 0.84,
+                    "out_of_catalog": 0.11
+                  },
+                  "confidence": 0.8
+                }
+              },
+              "latencyMs": 290.85630000000015,
+              "usage": {
+                "inputTokens": 504,
+                "outputTokens": 138
+              },
+              "estimatedCostUsd": 0.000021168,
+              "actualCostUsd": null,
+              "modelRequested": "jev-1.13.0",
+              "modelReturned": "jev-1.13.0",
+              "requestId": null,
+              "error": null,
+              "fallbackReasons": [],
+              "executable": false
+            }
+          },
+          {
+            "stage": {
+              "kind": "detail",
+              "skill": "financial"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Qual foi meu faturamento de ontem?",
+                "context": {},
+                "selected_skill": "financial",
+                "selection_source": "prior_jev_discovery"
+              },
+              "questions": {
+                "metric": {
+                  "type": "choice",
+                  "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                  "criteria": {
+                    "service_revenue": null,
+                    "realized_revenue": null,
+                    "received_revenue": null,
+                    "outstanding_receivables": null,
+                    "completed_count": null,
+                    "average_ticket": null,
+                    "multiple": null,
+                    "none": null,
+                    "unclear": null
+                  }
+                },
+                "period": {
+                  "type": "choice",
+                  "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                  "criteria": {
+                    "today": null,
+                    "yesterday": null,
+                    "this_week": null,
+                    "last_week": null,
+                    "this_month": null,
+                    "last_month": null,
+                    "comparison": null,
+                    "none": null,
+                    "unclear": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "OK",
+              "decision": null,
+              "dependencies": null,
+              "answers": {
+                "metric": {
+                  "choice": "service_revenue",
+                  "probabilities": {
+                    "service_revenue": 0.98,
+                    "completed_count": 0,
+                    "outstanding_receivables": 0,
+                    "unclear": 0.01,
+                    "none": 0,
+                    "received_revenue": 0,
+                    "realized_revenue": 0.01,
+                    "average_ticket": 0,
+                    "multiple": 0
+                  },
+                  "confidence": 0.98
+                },
+                "period": {
+                  "choice": "yesterday",
+                  "probabilities": {
+                    "last_month": 0,
+                    "unclear": 0,
+                    "last_week": 0,
+                    "this_week": 0,
+                    "comparison": 0,
+                    "yesterday": 1,
+                    "today": 0,
+                    "none": 0,
+                    "this_month": 0
+                  },
+                  "confidence": 1
+                }
+              },
+              "latencyMs": 304.20270000000005,
+              "usage": {
+                "inputTokens": 609,
+                "outputTokens": 183
+              },
+              "estimatedCostUsd": 0.000025578,
+              "actualCostUsd": null,
+              "modelRequested": "jev-1.13.0",
+              "modelReturned": "jev-1.13.0",
+              "requestId": null,
+              "error": null,
+              "fallbackReasons": [],
+              "executable": false
+            }
+          }
+        ],
+        "dimensionSources": {
+          "skill": "ASKED",
+          "operation": "DERIVED",
+          "shape": "ASKED",
+          "period": "ASKED",
+          "metric": "ASKED",
+          "inventory": "NOT_APPLICABLE",
+          "communication": "NOT_APPLICABLE"
+        },
+        "closedCoverage": true,
+        "requiresLuna": false,
+        "accepted": false,
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ]
+      },
+      "rounds": [
+        {
+          "label": "discovery",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi meu faturamento de ontem?",
+              "context": {}
+            },
+            "questions": {
+              "skill": {
+                "type": "choice",
+                "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                "criteria": {
+                  "services": null,
+                  "customers": null,
+                  "scheduling": null,
+                  "financial": null,
+                  "inventory": null,
+                  "communication": null,
+                  "multiple": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              },
+              "shape": {
+                "type": "choice",
+                "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                "criteria": {
+                  "single": null,
+                  "independent": null,
+                  "dependent": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 288.30920000000015,
+          "stageLatencyMs": 290.85630000000015,
+          "sentBytes": 973,
+          "requestId": null,
+          "modelRequested": "jev-1.13.0",
+          "modelReturned": "jev-1.13.0",
+          "status": "OK",
+          "error": null,
+          "answers": {
+            "skill": {
+              "choice": "financial",
+              "probabilities": {
+                "services": 0,
+                "out_of_catalog": 0,
+                "financial": 1,
+                "multiple": 0,
+                "unclear": 0,
+                "customers": 0,
+                "communication": 0,
+                "inventory": 0,
+                "scheduling": 0
+              },
+              "confidence": 0.99
+            },
+            "shape": {
+              "choice": "single",
+              "probabilities": {
+                "dependent": 0,
+                "unclear": 0.01,
+                "independent": 0.04,
+                "single": 0.84,
+                "out_of_catalog": 0.11
+              },
+              "confidence": 0.8
+            }
+          },
+          "usage": {
+            "inputTokens": 504,
+            "outputTokens": 138
+          },
+          "estimatedCostUsd": 0.000021168,
+          "invalidResponseDiagnostic": null
+        },
+        {
+          "label": "detail",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi meu faturamento de ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 301.9981,
+          "stageLatencyMs": 304.20270000000005,
+          "sentBytes": 1253,
+          "requestId": null,
+          "modelRequested": "jev-1.13.0",
+          "modelReturned": "jev-1.13.0",
+          "status": "OK",
+          "error": null,
+          "answers": {
+            "metric": {
+              "choice": "service_revenue",
+              "probabilities": {
+                "service_revenue": 0.98,
+                "completed_count": 0,
+                "outstanding_receivables": 0,
+                "unclear": 0.01,
+                "none": 0,
+                "received_revenue": 0,
+                "realized_revenue": 0.01,
+                "average_ticket": 0,
+                "multiple": 0
+              },
+              "confidence": 0.98
+            },
+            "period": {
+              "choice": "yesterday",
+              "probabilities": {
+                "last_month": 0,
+                "unclear": 0,
+                "last_week": 0,
+                "this_week": 0,
+                "comparison": 0,
+                "yesterday": 1,
+                "today": 0,
+                "none": 0,
+                "this_month": 0
+              },
+              "confidence": 1
+            }
+          },
+          "usage": {
+            "inputTokens": 609,
+            "outputTokens": 183
+          },
+          "estimatedCostUsd": 0.000025578,
+          "invalidResponseDiagnostic": null
+        }
+      ],
+      "httpCalls": 2,
+      "discoveryMs": 290.85630000000015,
+      "detailMs": 304.20270000000005,
+      "policyMs": 0.09239999999999782,
+      "totalEvaluationMs": 705.1508000000001,
+      "sentBytes": 2226,
+      "estimatedCostUsd": 0.000046746,
+      "wouldAvoidLunaUnderCurrentPolicy": false,
+      "calibrationOnlyCorrectNotAccepted": true
+    },
+    {
+      "id": "f03",
+      "tag": "PERIOD",
+      "message": "Qual foi o faturamento de serviços concluídos esta semana?",
+      "oracle": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "this_week",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "this_week"
+        }
+      },
+      "score": {
+        "id": "f03",
+        "wave": 1,
+        "intent": "service_revenue",
+        "skill": "financial",
+        "risks": [
+          "READ_ONLY"
+        ],
+        "value": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "policyDecision": "FALLBACK_REQUIRED",
+        "reason": "UNCALIBRATED_INPUT",
+        "classification": "CORRECT_FALLBACK_UNDER_V1",
+        "linguisticCorrect": true,
+        "unsafeFalsePositive": false,
+        "shadowClosedCandidate": true,
+        "unsafeShadowCandidate": false,
+        "predicted": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "metric": "service_revenue",
+          "period": "this_week",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "expectedClosedProjection": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "this_week",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "provenance": {
+          "skill": "ASKED",
+          "operation": "DERIVED",
+          "shape": "ASKED",
+          "period": "ASKED",
+          "metric": "ASKED",
+          "inventory": "NOT_APPLICABLE",
+          "communication": "NOT_APPLICABLE"
+        },
+        "status": "OK",
+        "error": null,
+        "fallbackReasons": [
+          "NO_ACCEPTANCE_POLICY"
+        ],
+        "potentialBypassCorrect": true,
+        "calibrationOnlyCorrectNotAccepted": true,
+        "fullBypassAccepted": false,
+        "routingOnlyCorrect": false,
+        "confidence": [
+          {
+            "dimension": "skill",
+            "selectedChoice": "financial",
+            "probability": 0.97,
+            "confidence": 0.96,
+            "runnerUp": "multiple",
+            "runnerUpProbability": 0.03,
+            "margin": 0.94,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "shape",
+            "selectedChoice": "single",
+            "probability": 0.79,
+            "confidence": 0.74,
+            "runnerUp": "out_of_catalog",
+            "runnerUpProbability": 0.13,
+            "margin": 0.66,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "metric",
+            "selectedChoice": "service_revenue",
+            "probability": 0.93,
+            "confidence": 0.91,
+            "runnerUp": "realized_revenue",
+            "runnerUpProbability": 0.07,
+            "margin": 0.8600000000000001,
+            "correct": true,
+            "selectedIsTop1": true
+          },
+          {
+            "dimension": "period",
+            "selectedChoice": "this_week",
+            "probability": 1,
+            "confidence": 1,
+            "runnerUp": "last_week",
+            "runnerUpProbability": 0,
+            "margin": 1,
+            "correct": true,
+            "selectedIsTop1": true
+          }
+        ],
+        "latencyMs": 642.2034000000001,
+        "httpCalls": 2,
+        "http": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "latencyMs": 329.16550000000007,
+            "usage": {
+              "inputTokens": 510,
+              "outputTokens": 138
+            },
+            "estimatedCostUsd": 0.00002142,
+            "diagnostic": null
+          },
+          {
+            "stage": {
+              "kind": "detail",
+              "skill": "financial"
+            },
+            "latencyMs": 309.1071000000002,
+            "usage": {
+              "inputTokens": 615,
+              "outputTokens": 182
+            },
+            "estimatedCostUsd": 0.000025830000000000002,
+            "diagnostic": null
+          }
+        ],
+        "usage": {
+          "inputTokens": 1125,
+          "outputTokens": 320
+        },
+        "estimatedCostUsd": 0.00004725,
+        "executable": false
+      },
+      "classification": "CORRECT_FALLBACK",
+      "policy": {
+        "policyVersion": "jev-acceptance-v1",
+        "decision": "FALLBACK_REQUIRED",
+        "reason": "UNCALIBRATED_INPUT",
+        "enrollmentId": null,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "requiredDecisions": [],
+        "interpretation": null,
+        "provenance": {},
+        "backendOnly": [
+          "customer_ref",
+          "service_ref",
+          "professional_ref",
+          "appointment_ref",
+          "product_ref",
+          "recipient_ref",
+          "financial_values",
+          "stock",
+          "availability",
+          "authorization",
+          "tenant"
+        ],
+        "confidenceData": [],
+        "executable": false
+      },
+      "result": {
+        "provider": "JEV",
+        "status": "OK",
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "metric": "service_revenue",
+          "period": "this_week",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "dependencies": [],
+        "answers": {
+          "skill": {
+            "choice": "financial",
+            "probabilities": {
+              "scheduling": 0,
+              "multiple": 0.03,
+              "out_of_catalog": 0,
+              "services": 0,
+              "financial": 0.97,
+              "communication": 0,
+              "unclear": 0,
+              "inventory": 0,
+              "customers": 0
+            },
+            "confidence": 0.96
+          },
+          "shape": {
+            "choice": "single",
+            "probabilities": {
+              "out_of_catalog": 0.13,
+              "single": 0.79,
+              "unclear": 0.01,
+              "independent": 0.06,
+              "dependent": 0.01
+            },
+            "confidence": 0.74
+          },
+          "metric": {
+            "choice": "service_revenue",
+            "probabilities": {
+              "outstanding_receivables": 0,
+              "realized_revenue": 0.07,
+              "service_revenue": 0.93,
+              "completed_count": 0,
+              "received_revenue": 0,
+              "multiple": 0,
+              "average_ticket": 0,
+              "none": 0,
+              "unclear": 0
+            },
+            "confidence": 0.91
+          },
+          "period": {
+            "choice": "this_week",
+            "probabilities": {
+              "last_week": 0,
+              "yesterday": 0,
+              "this_month": 0,
+              "last_month": 0,
+              "today": 0,
+              "this_week": 1,
+              "unclear": 0,
+              "none": 0,
+              "comparison": 0
+            },
+            "confidence": 1
+          }
+        },
+        "latencyMs": 642.2034000000001,
+        "usage": {
+          "inputTokens": 1125,
+          "outputTokens": 320
+        },
+        "estimatedCostUsd": 0.00004725,
+        "actualCostUsd": null,
+        "modelRequested": "jev-1.13.0",
+        "modelReturned": "jev-1.13.0",
+        "requestId": null,
+        "error": null,
+        "fallbackReasons": [
+          "NO_ACCEPTANCE_POLICY"
+        ],
+        "executable": false,
+        "planVersion": "derived-v3",
+        "stages": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Qual foi o faturamento de serviços concluídos esta semana?",
+                "context": {}
+              },
+              "questions": {
+                "skill": {
+                  "type": "choice",
+                  "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                  "criteria": {
+                    "services": null,
+                    "customers": null,
+                    "scheduling": null,
+                    "financial": null,
+                    "inventory": null,
+                    "communication": null,
+                    "multiple": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                },
+                "shape": {
+                  "type": "choice",
+                  "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                  "criteria": {
+                    "single": null,
+                    "independent": null,
+                    "dependent": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "OK",
+              "decision": null,
+              "dependencies": null,
+              "answers": {
+                "skill": {
+                  "choice": "financial",
+                  "probabilities": {
+                    "scheduling": 0,
+                    "multiple": 0.03,
+                    "out_of_catalog": 0,
+                    "services": 0,
+                    "financial": 0.97,
+                    "communication": 0,
+                    "unclear": 0,
+                    "inventory": 0,
+                    "customers": 0
+                  },
+                  "confidence": 0.96
+                },
+                "shape": {
+                  "choice": "single",
+                  "probabilities": {
+                    "out_of_catalog": 0.13,
+                    "single": 0.79,
+                    "unclear": 0.01,
+                    "independent": 0.06,
+                    "dependent": 0.01
+                  },
+                  "confidence": 0.74
+                }
+              },
+              "latencyMs": 329.16550000000007,
+              "usage": {
+                "inputTokens": 510,
+                "outputTokens": 138
+              },
+              "estimatedCostUsd": 0.00002142,
+              "actualCostUsd": null,
+              "modelRequested": "jev-1.13.0",
+              "modelReturned": "jev-1.13.0",
+              "requestId": null,
+              "error": null,
+              "fallbackReasons": [],
+              "executable": false
+            }
+          },
+          {
+            "stage": {
+              "kind": "detail",
+              "skill": "financial"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Qual foi o faturamento de serviços concluídos esta semana?",
+                "context": {},
+                "selected_skill": "financial",
+                "selection_source": "prior_jev_discovery"
+              },
+              "questions": {
+                "metric": {
+                  "type": "choice",
+                  "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                  "criteria": {
+                    "service_revenue": null,
+                    "realized_revenue": null,
+                    "received_revenue": null,
+                    "outstanding_receivables": null,
+                    "completed_count": null,
+                    "average_ticket": null,
+                    "multiple": null,
+                    "none": null,
+                    "unclear": null
+                  }
+                },
+                "period": {
+                  "type": "choice",
+                  "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                  "criteria": {
+                    "today": null,
+                    "yesterday": null,
+                    "this_week": null,
+                    "last_week": null,
+                    "this_month": null,
+                    "last_month": null,
+                    "comparison": null,
+                    "none": null,
+                    "unclear": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "OK",
+              "decision": null,
+              "dependencies": null,
+              "answers": {
+                "metric": {
+                  "choice": "service_revenue",
+                  "probabilities": {
+                    "outstanding_receivables": 0,
+                    "realized_revenue": 0.07,
+                    "service_revenue": 0.93,
+                    "completed_count": 0,
+                    "received_revenue": 0,
+                    "multiple": 0,
+                    "average_ticket": 0,
+                    "none": 0,
+                    "unclear": 0
+                  },
+                  "confidence": 0.91
+                },
+                "period": {
+                  "choice": "this_week",
+                  "probabilities": {
+                    "last_week": 0,
+                    "yesterday": 0,
+                    "this_month": 0,
+                    "last_month": 0,
+                    "today": 0,
+                    "this_week": 1,
+                    "unclear": 0,
+                    "none": 0,
+                    "comparison": 0
+                  },
+                  "confidence": 1
+                }
+              },
+              "latencyMs": 309.1071000000002,
+              "usage": {
+                "inputTokens": 615,
+                "outputTokens": 182
+              },
+              "estimatedCostUsd": 0.000025830000000000002,
+              "actualCostUsd": null,
+              "modelRequested": "jev-1.13.0",
+              "modelReturned": "jev-1.13.0",
+              "requestId": null,
+              "error": null,
+              "fallbackReasons": [],
+              "executable": false
+            }
+          }
+        ],
+        "dimensionSources": {
+          "skill": "ASKED",
+          "operation": "DERIVED",
+          "shape": "ASKED",
+          "period": "ASKED",
+          "metric": "ASKED",
+          "inventory": "NOT_APPLICABLE",
+          "communication": "NOT_APPLICABLE"
+        },
+        "closedCoverage": true,
+        "requiresLuna": false,
+        "accepted": false,
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ]
+      },
+      "rounds": [
+        {
+          "label": "discovery",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi o faturamento de serviços concluídos esta semana?",
+              "context": {}
+            },
+            "questions": {
+              "skill": {
+                "type": "choice",
+                "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                "criteria": {
+                  "services": null,
+                  "customers": null,
+                  "scheduling": null,
+                  "financial": null,
+                  "inventory": null,
+                  "communication": null,
+                  "multiple": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              },
+              "shape": {
+                "type": "choice",
+                "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                "criteria": {
+                  "single": null,
+                  "independent": null,
+                  "dependent": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 326.5517000000002,
+          "stageLatencyMs": 329.16550000000007,
+          "sentBytes": 999,
+          "requestId": null,
+          "modelRequested": "jev-1.13.0",
+          "modelReturned": "jev-1.13.0",
+          "status": "OK",
+          "error": null,
+          "answers": {
+            "skill": {
+              "choice": "financial",
+              "probabilities": {
+                "scheduling": 0,
+                "multiple": 0.03,
+                "out_of_catalog": 0,
+                "services": 0,
+                "financial": 0.97,
+                "communication": 0,
+                "unclear": 0,
+                "inventory": 0,
+                "customers": 0
+              },
+              "confidence": 0.96
+            },
+            "shape": {
+              "choice": "single",
+              "probabilities": {
+                "out_of_catalog": 0.13,
+                "single": 0.79,
+                "unclear": 0.01,
+                "independent": 0.06,
+                "dependent": 0.01
+              },
+              "confidence": 0.74
+            }
+          },
+          "usage": {
+            "inputTokens": 510,
+            "outputTokens": 138
+          },
+          "estimatedCostUsd": 0.00002142,
+          "invalidResponseDiagnostic": null
+        },
+        {
+          "label": "detail",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi o faturamento de serviços concluídos esta semana?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 306.8062,
+          "stageLatencyMs": 309.1071000000002,
+          "sentBytes": 1279,
+          "requestId": null,
+          "modelRequested": "jev-1.13.0",
+          "modelReturned": "jev-1.13.0",
+          "status": "OK",
+          "error": null,
+          "answers": {
+            "metric": {
+              "choice": "service_revenue",
+              "probabilities": {
+                "outstanding_receivables": 0,
+                "realized_revenue": 0.07,
+                "service_revenue": 0.93,
+                "completed_count": 0,
+                "received_revenue": 0,
+                "multiple": 0,
+                "average_ticket": 0,
+                "none": 0,
+                "unclear": 0
+              },
+              "confidence": 0.91
+            },
+            "period": {
+              "choice": "this_week",
+              "probabilities": {
+                "last_week": 0,
+                "yesterday": 0,
+                "this_month": 0,
+                "last_month": 0,
+                "today": 0,
+                "this_week": 1,
+                "unclear": 0,
+                "none": 0,
+                "comparison": 0
+              },
+              "confidence": 1
+            }
+          },
+          "usage": {
+            "inputTokens": 615,
+            "outputTokens": 182
+          },
+          "estimatedCostUsd": 0.000025830000000000002,
+          "invalidResponseDiagnostic": null
+        }
+      ],
+      "httpCalls": 2,
+      "discoveryMs": 329.16550000000007,
+      "detailMs": 309.1071000000002,
+      "policyMs": 0.0464999999999236,
+      "totalEvaluationMs": 642.6308999999999,
+      "sentBytes": 2278,
+      "estimatedCostUsd": 0.00004725,
+      "wouldAvoidLunaUnderCurrentPolicy": false,
+      "calibrationOnlyCorrectNotAccepted": true
+    },
+    {
+      "id": "f04",
+      "tag": "DIRECT",
+      "message": "Quanto eu recebi ontem?",
+      "oracle": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "received_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "received_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "score": {
+        "id": "f04",
+        "wave": 1,
+        "intent": "received_revenue",
+        "skill": "financial",
+        "risks": [
+          "READ_ONLY"
+        ],
+        "value": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "policyDecision": "FALLBACK_REQUIRED",
+        "reason": "INVALID_PROVIDER_RESPONSE",
+        "classification": "CORRECT_FALLBACK_UNDER_V1",
+        "linguisticCorrect": false,
+        "unsafeFalsePositive": false,
+        "shadowClosedCandidate": false,
+        "unsafeShadowCandidate": false,
+        "predicted": null,
+        "expectedClosedProjection": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "received_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "derivations": [],
+        "provenance": {
+          "skill": "NOT_RESOLVED",
+          "operation": "NOT_RESOLVED",
+          "shape": "NOT_RESOLVED",
+          "period": "NOT_RESOLVED",
+          "metric": "NOT_RESOLVED",
+          "inventory": "NOT_RESOLVED",
+          "communication": "NOT_RESOLVED"
+        },
+        "status": "ERROR",
+        "error": "INVALID_RESPONSE",
+        "fallbackReasons": [
+          "INVALID_RESPONSE"
+        ],
+        "potentialBypassCorrect": false,
+        "calibrationOnlyCorrectNotAccepted": false,
+        "fullBypassAccepted": false,
+        "routingOnlyCorrect": false,
+        "confidence": [],
+        "latencyMs": 327.82220000000007,
+        "httpCalls": 1,
+        "http": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "latencyMs": 325.74299999999994,
+            "usage": {
+              "inputTokens": null,
+              "outputTokens": null
+            },
+            "estimatedCostUsd": null,
+            "diagnostic": {
+              "reason": "PROBABILITY_SCHEMA_INVALID",
+              "path": "answers.shape.probabilities",
+              "httpStatus": 200,
+              "requestId": null,
+              "sanitizedInvalidResponse": {
+                "observedType": "object",
+                "presentTopLevelFields": [
+                  "model",
+                  "answers",
+                  "usage"
+                ],
+                "unexpectedTopLevelFieldCount": 0,
+                "modelType": "string",
+                "publishedModel": "jev-1.13.0",
+                "answersType": "object",
+                "answerCount": 2,
+                "returnedQuestions": [
+                  "skill",
+                  "shape"
+                ],
+                "unexpectedQuestionCount": 0,
+                "answers": {
+                  "skill": {
+                    "observedType": "object",
+                    "presentFields": [
+                      "type",
+                      "choice",
+                      "probabilities",
+                      "confidence"
+                    ],
+                    "unexpectedFieldCount": 0,
+                    "choiceType": "string",
+                    "publishedChoice": "financial",
+                    "probabilitiesType": "object",
+                    "publishedProbabilityKeys": [
+                      "services",
+                      "customers",
+                      "scheduling",
+                      "financial",
+                      "inventory",
+                      "communication",
+                      "multiple",
+                      "unclear",
+                      "out_of_catalog"
+                    ],
+                    "unexpectedProbabilityKeyCount": 0,
+                    "publishedProbabilities": {
+                      "services": 0,
+                      "customers": 0,
+                      "scheduling": 0,
+                      "financial": 0.97,
+                      "inventory": 0,
+                      "communication": 0.01,
+                      "multiple": 0,
+                      "unclear": 0.02,
+                      "out_of_catalog": 0
+                    },
+                    "confidenceType": "number",
+                    "confidence": 0.95
+                  },
+                  "shape": {
+                    "observedType": "object",
+                    "presentFields": [
+                      "type",
+                      "choice",
+                      "probabilities",
+                      "confidence"
+                    ],
+                    "unexpectedFieldCount": 0,
+                    "choiceType": "string",
+                    "publishedChoice": "single",
+                    "probabilitiesType": "object",
+                    "publishedProbabilityKeys": [
+                      "single",
+                      "independent",
+                      "dependent",
+                      "unclear",
+                      "out_of_catalog"
+                    ],
+                    "unexpectedProbabilityKeyCount": 0,
+                    "publishedProbabilities": {
+                      "single": 0.54,
+                      "independent": 0.05,
+                      "dependent": 0.01,
+                      "unclear": 0.07,
+                      "out_of_catalog": 0.32
+                    },
+                    "confidenceType": "number",
+                    "confidence": 0.43
+                  }
+                },
+                "usageType": "object",
+                "usage": {
+                  "inputTokens": 502,
+                  "outputTokens": 138
+                }
+              }
+            }
+          }
+        ],
+        "usage": {
+          "inputTokens": null,
+          "outputTokens": null
+        },
+        "estimatedCostUsd": null,
+        "executable": false
+      },
+      "classification": "INVALID_PROVIDER_RESPONSE",
+      "policy": {
+        "policyVersion": "jev-acceptance-v1",
+        "decision": "FALLBACK_REQUIRED",
+        "reason": "INVALID_PROVIDER_RESPONSE",
+        "enrollmentId": null,
+        "riskClasses": [],
+        "requiredDecisions": [],
+        "interpretation": null,
+        "provenance": {},
+        "backendOnly": [
+          "customer_ref",
+          "service_ref",
+          "professional_ref",
+          "appointment_ref",
+          "product_ref",
+          "recipient_ref",
+          "financial_values",
+          "stock",
+          "availability",
+          "authorization",
+          "tenant"
+        ],
+        "confidenceData": [],
+        "executable": false
+      },
+      "result": {
+        "provider": "JEV",
+        "status": "ERROR",
+        "decision": null,
+        "dependencies": null,
+        "answers": {},
+        "latencyMs": 327.82220000000007,
+        "usage": {
+          "inputTokens": null,
+          "outputTokens": null
+        },
+        "estimatedCostUsd": null,
+        "actualCostUsd": null,
+        "modelRequested": null,
+        "modelReturned": null,
+        "requestId": null,
+        "error": "INVALID_RESPONSE",
+        "fallbackReasons": [
+          "INVALID_RESPONSE"
+        ],
+        "executable": false,
+        "planVersion": "derived-v3",
+        "stages": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Quanto eu recebi ontem?",
+                "context": {}
+              },
+              "questions": {
+                "skill": {
+                  "type": "choice",
+                  "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                  "criteria": {
+                    "services": null,
+                    "customers": null,
+                    "scheduling": null,
+                    "financial": null,
+                    "inventory": null,
+                    "communication": null,
+                    "multiple": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                },
+                "shape": {
+                  "type": "choice",
+                  "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                  "criteria": {
+                    "single": null,
+                    "independent": null,
+                    "dependent": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "ERROR",
+              "decision": null,
+              "dependencies": null,
+              "answers": {},
+              "latencyMs": 325.74299999999994,
+              "usage": {
+                "inputTokens": null,
+                "outputTokens": null
+              },
+              "estimatedCostUsd": null,
+              "actualCostUsd": null,
+              "modelRequested": null,
+              "modelReturned": null,
+              "requestId": null,
+              "error": "INVALID_RESPONSE",
+              "fallbackReasons": [
+                "INVALID_RESPONSE"
+              ],
+              "executable": false,
+              "invalidResponseDiagnostic": {
+                "reason": "PROBABILITY_SCHEMA_INVALID",
+                "path": "answers.shape.probabilities",
+                "httpStatus": 200,
+                "requestId": null,
+                "sanitizedInvalidResponse": {
+                  "observedType": "object",
+                  "presentTopLevelFields": [
+                    "model",
+                    "answers",
+                    "usage"
+                  ],
+                  "unexpectedTopLevelFieldCount": 0,
+                  "modelType": "string",
+                  "publishedModel": "jev-1.13.0",
+                  "answersType": "object",
+                  "answerCount": 2,
+                  "returnedQuestions": [
+                    "skill",
+                    "shape"
+                  ],
+                  "unexpectedQuestionCount": 0,
+                  "answers": {
+                    "skill": {
+                      "observedType": "object",
+                      "presentFields": [
+                        "type",
+                        "choice",
+                        "probabilities",
+                        "confidence"
+                      ],
+                      "unexpectedFieldCount": 0,
+                      "choiceType": "string",
+                      "publishedChoice": "financial",
+                      "probabilitiesType": "object",
+                      "publishedProbabilityKeys": [
+                        "services",
+                        "customers",
+                        "scheduling",
+                        "financial",
+                        "inventory",
+                        "communication",
+                        "multiple",
+                        "unclear",
+                        "out_of_catalog"
+                      ],
+                      "unexpectedProbabilityKeyCount": 0,
+                      "publishedProbabilities": {
+                        "services": 0,
+                        "customers": 0,
+                        "scheduling": 0,
+                        "financial": 0.97,
+                        "inventory": 0,
+                        "communication": 0.01,
+                        "multiple": 0,
+                        "unclear": 0.02,
+                        "out_of_catalog": 0
+                      },
+                      "confidenceType": "number",
+                      "confidence": 0.95
+                    },
+                    "shape": {
+                      "observedType": "object",
+                      "presentFields": [
+                        "type",
+                        "choice",
+                        "probabilities",
+                        "confidence"
+                      ],
+                      "unexpectedFieldCount": 0,
+                      "choiceType": "string",
+                      "publishedChoice": "single",
+                      "probabilitiesType": "object",
+                      "publishedProbabilityKeys": [
+                        "single",
+                        "independent",
+                        "dependent",
+                        "unclear",
+                        "out_of_catalog"
+                      ],
+                      "unexpectedProbabilityKeyCount": 0,
+                      "publishedProbabilities": {
+                        "single": 0.54,
+                        "independent": 0.05,
+                        "dependent": 0.01,
+                        "unclear": 0.07,
+                        "out_of_catalog": 0.32
+                      },
+                      "confidenceType": "number",
+                      "confidence": 0.43
+                    }
+                  },
+                  "usageType": "object",
+                  "usage": {
+                    "inputTokens": 502,
+                    "outputTokens": 138
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "dimensionSources": {
+          "skill": "NOT_RESOLVED",
+          "operation": "NOT_RESOLVED",
+          "shape": "NOT_RESOLVED",
+          "period": "NOT_RESOLVED",
+          "metric": "NOT_RESOLVED",
+          "inventory": "NOT_RESOLVED",
+          "communication": "NOT_RESOLVED"
+        },
+        "closedCoverage": false,
+        "requiresLuna": true,
+        "accepted": false,
+        "derivations": []
+      },
+      "rounds": [
+        {
+          "label": "discovery",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto eu recebi ontem?",
+              "context": {}
+            },
+            "questions": {
+              "skill": {
+                "type": "choice",
+                "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                "criteria": {
+                  "services": null,
+                  "customers": null,
+                  "scheduling": null,
+                  "financial": null,
+                  "inventory": null,
+                  "communication": null,
+                  "multiple": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              },
+              "shape": {
+                "type": "choice",
+                "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                "criteria": {
+                  "single": null,
+                  "independent": null,
+                  "dependent": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 323.2416000000003,
+          "stageLatencyMs": 325.74299999999994,
+          "sentBytes": 962,
+          "requestId": null,
+          "modelRequested": null,
+          "modelReturned": null,
+          "status": "ERROR",
+          "error": "INVALID_RESPONSE",
+          "answers": {},
+          "usage": {
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          "estimatedCostUsd": null,
+          "invalidResponseDiagnostic": {
+            "reason": "PROBABILITY_SCHEMA_INVALID",
+            "path": "answers.shape.probabilities",
+            "httpStatus": 200,
+            "requestId": null,
+            "sanitizedInvalidResponse": {
+              "observedType": "object",
+              "presentTopLevelFields": [
+                "model",
+                "answers",
+                "usage"
+              ],
+              "unexpectedTopLevelFieldCount": 0,
+              "modelType": "string",
+              "publishedModel": "jev-1.13.0",
+              "answersType": "object",
+              "answerCount": 2,
+              "returnedQuestions": [
+                "skill",
+                "shape"
+              ],
+              "unexpectedQuestionCount": 0,
+              "answers": {
+                "skill": {
+                  "observedType": "object",
+                  "presentFields": [
+                    "type",
+                    "choice",
+                    "probabilities",
+                    "confidence"
+                  ],
+                  "unexpectedFieldCount": 0,
+                  "choiceType": "string",
+                  "publishedChoice": "financial",
+                  "probabilitiesType": "object",
+                  "publishedProbabilityKeys": [
+                    "services",
+                    "customers",
+                    "scheduling",
+                    "financial",
+                    "inventory",
+                    "communication",
+                    "multiple",
+                    "unclear",
+                    "out_of_catalog"
+                  ],
+                  "unexpectedProbabilityKeyCount": 0,
+                  "publishedProbabilities": {
+                    "services": 0,
+                    "customers": 0,
+                    "scheduling": 0,
+                    "financial": 0.97,
+                    "inventory": 0,
+                    "communication": 0.01,
+                    "multiple": 0,
+                    "unclear": 0.02,
+                    "out_of_catalog": 0
+                  },
+                  "confidenceType": "number",
+                  "confidence": 0.95
+                },
+                "shape": {
+                  "observedType": "object",
+                  "presentFields": [
+                    "type",
+                    "choice",
+                    "probabilities",
+                    "confidence"
+                  ],
+                  "unexpectedFieldCount": 0,
+                  "choiceType": "string",
+                  "publishedChoice": "single",
+                  "probabilitiesType": "object",
+                  "publishedProbabilityKeys": [
+                    "single",
+                    "independent",
+                    "dependent",
+                    "unclear",
+                    "out_of_catalog"
+                  ],
+                  "unexpectedProbabilityKeyCount": 0,
+                  "publishedProbabilities": {
+                    "single": 0.54,
+                    "independent": 0.05,
+                    "dependent": 0.01,
+                    "unclear": 0.07,
+                    "out_of_catalog": 0.32
+                  },
+                  "confidenceType": "number",
+                  "confidence": 0.43
+                }
+              },
+              "usageType": "object",
+              "usage": {
+                "inputTokens": 502,
+                "outputTokens": 138
+              }
+            }
+          }
+        }
+      ],
+      "httpCalls": 1,
+      "discoveryMs": 325.74299999999994,
+      "detailMs": null,
+      "policyMs": 0.0905999999999949,
+      "totalEvaluationMs": 328.24310000000014,
+      "sentBytes": 962,
+      "estimatedCostUsd": null,
+      "wouldAvoidLunaUnderCurrentPolicy": false,
+      "calibrationOnlyCorrectNotAccepted": false
+    }
+  ],
+  "activeCase": null,
+  "executedEvaluations": 4,
+  "executedHttp": 7,
+  "estimatedCostUsdKnown": 0.00014057400000000003,
+  "reservedCostUsd": 0.002828574,
+  "stopReason": "STRICT_PROBABILITY_OR_SCHEMA_FAILURE",
+  "zeroOpenAI": true,
+  "zeroTools": true,
+  "zeroDatabase": true,
+  "zeroEverflairEffects": true,
+  "paidFlagFalse": true,
+  "model": "gpt-6-luna"
+}

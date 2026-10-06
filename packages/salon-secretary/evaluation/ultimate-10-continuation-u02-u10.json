@@ -1,0 +1,639 @@
+{
+  "scope": "ULTIMATE10_CONTINUATION_U02_U10",
+  "source_manifest_sha256": "482b4fdfbf38e70da00e3507b6fb7e7167e66bdc40428c8f7767991cce077fb0",
+  "case_count": 9,
+  "turn_count": 10,
+  "max_inferences": 10,
+  "max_usd": 0.086,
+  "excluded": [
+    "u01"
+  ],
+  "cases": [
+    {
+      "case_id": "u02",
+      "focus": "Quatro ações, dependência e leitura",
+      "capability": "DESIGN_TARGET",
+      "capability_reason": "O Registry não combina o par dependente cancel→create com duas ações independentes no mesmo plano.",
+      "fixture": {
+        "base": "amanda_target",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Cancela Amanda Souza amanhã às 10h por pedido dela, coloca Fábio Santos nesse horário para Corte Completo, altera a Massagem para R$80 e me fala quanto faturei ontem.",
+          "expected_status": "SAFE_BLOCKED",
+          "required_observations": [
+            "Exatamente quatro ações: cancel→create, alteração de serviço e Financial independente.",
+            "Preservar Corte Completo em a2 e priceCents=8000 em a3.",
+            "Financial service_revenue/yesterday é leitura separada; grafo misto não é publicado, portanto bloquear com explicação."
+          ],
+          "forbidden": [
+            "Truncar qualquer item.",
+            "Propor o grafo misto como transação publicada.",
+            "Executar qualquer mutation."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "appointment.cancel",
+          "fields": {
+            "customer_name": "Amanda Souza",
+            "day_offset": 1,
+            "time": "10:00",
+            "reason": "pedido dela"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        },
+        {
+          "item_key": "a2",
+          "operation": "appointment.create",
+          "fields": {
+            "customer_name": "Fábio Santos",
+            "service_name": "Corte Completo",
+            "released_slot_of": "a1"
+          },
+          "missing": [],
+          "expected_state": "BLOCKED",
+          "depends_on": [
+            "a1"
+          ]
+        },
+        {
+          "item_key": "a3",
+          "operation": "service.change",
+          "fields": {
+            "target_name": "Massagem",
+            "priceCents": 8000
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        },
+        {
+          "item_key": "a4",
+          "operation": "financial.report",
+          "fields": {
+            "metric": "service_revenue",
+            "period": "yesterday"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        }
+      ],
+      "minimum_clarification": [],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "FUNCTIONAL_FAILURE_SAFE",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "83013f84c85da30ef4ebeb8bc7dfa50ad3796631469ee2f499ea35c4b64790a8"
+    },
+    {
+      "case_id": "u03",
+      "focus": "Cliente e serviço ambíguos",
+      "capability": "CURRENT_RUNTIME",
+      "capability_reason": "Busca tenant-scoped expõe as duas Amandas e os três serviços de corte como candidatos; seleção explícita é suportada.",
+      "fixture": {
+        "base": "two_amandas",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Marca a Amanda amanhã às 16h para corte.",
+          "expected_status": "NEEDS_INPUT",
+          "required_observations": [
+            "appointment.create com data e hora preservadas.",
+            "Duas Amandas e três serviços de corte; pedir seleção, talvez sequencial se uma escolha alterar a próxima busca.",
+            "Não pedir duração ou profissional antes de resolver o serviço."
+          ],
+          "forbidden": [
+            "Selecionar a primeira Amanda.",
+            "Tratar corte como Corte Completo exato.",
+            "Propor agendamento antes das seleções."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "appointment.create",
+          "fields": {
+            "customer_name": "Amanda",
+            "day_offset": 1,
+            "time": "16:00",
+            "service_name": "corte"
+          },
+          "missing": [
+            "customer_selection",
+            "service_selection"
+          ],
+          "expected_state": "AMBIGUOUS",
+          "depends_on": []
+        }
+      ],
+      "minimum_clarification": [
+        "a1.customer_selection",
+        "a1.service_selection"
+      ],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "PASS",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "2d026b474535e9d2925c035fb2540177ccf118828812f568b4a93eccaa25f293"
+    },
+    {
+      "case_id": "u04",
+      "focus": "Conflito por duração, não só início",
+      "capability": "CURRENT_RUNTIME",
+      "capability_reason": "A disponibilidade publicada usa o intervalo completo do serviço e alternativas do backend.",
+      "fixture": {
+        "base": "insufficient_gap",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Agenda Alisson amanhã às 10h para Corte Completo com Tatiana; se não couber, me mostra opções.",
+          "expected_status": "NEEDS_INPUT",
+          "required_observations": [
+            "Corte Completo dura 45 minutos no catálogo.",
+            "10h–10h45 conflita com o atendimento das 10h30; não há proposta às 10h.",
+            "Alternativas somente do backend: 11h, 11h15 ou 13h; pedir escolha."
+          ],
+          "forbidden": [
+            "Reduzir a duração.",
+            "Inventar slot.",
+            "Mover o atendimento das 10h30."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "appointment.create",
+          "fields": {
+            "customer_name": "Alisson",
+            "day_offset": 1,
+            "time": "10:00",
+            "service_name": "Corte Completo",
+            "professional_name": "Tatiana"
+          },
+          "missing": [
+            "alternative_selection"
+          ],
+          "expected_state": "CONFLICT",
+          "depends_on": []
+        }
+      ],
+      "minimum_clarification": [
+        "a1.alternative_selection"
+      ],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "PASS",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "4973a6169306f6384a537e18f40c99b832396a3b405adfd85e2b5a170340b076"
+    },
+    {
+      "case_id": "u05",
+      "focus": "Duas ações incompletas",
+      "capability": "CURRENT_RUNTIME",
+      "capability_reason": "service.create e schedule.block independentes são publicados com drafts e campos obrigatórios próprios.",
+      "fixture": {
+        "base": "free",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Cadastre Banho de Brilho por R$50 e bloqueie a Tatiana amanhã a partir das 14h.",
+          "expected_status": "NEEDS_INPUT",
+          "required_observations": [
+            "Dois drafts independentes; preço de Banho de Brilho=5000 centavos e início do bloqueio=14h preservados.",
+            "Perguntar duração do serviço e horário final do bloqueio, identificando a qual item pertence cada pergunta.",
+            "Não pedir profissional para service.create; não inventar término do bloqueio."
+          ],
+          "forbidden": [
+            "Criar serviço.",
+            "Bloquear agenda.",
+            "Usar duração de serviço parecido ou término padrão."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "service.create",
+          "fields": {
+            "name": "Banho de Brilho",
+            "priceCents": 5000
+          },
+          "missing": [
+            "durationMin"
+          ],
+          "expected_state": "NEEDS_INPUT",
+          "depends_on": []
+        },
+        {
+          "item_key": "a2",
+          "operation": "schedule.block",
+          "fields": {
+            "professional_name": "Tatiana",
+            "day_offset": 1,
+            "time": "14:00"
+          },
+          "missing": [
+            "end_time"
+          ],
+          "expected_state": "NEEDS_INPUT",
+          "depends_on": []
+        }
+      ],
+      "minimum_clarification": [
+        "a1.durationMin",
+        "a2.end_time"
+      ],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "PASS",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "9446c66f37f082f1aa6c3fa7b50957b98885826b5ab0d17b965c7297e235bc1d"
+    },
+    {
+      "case_id": "u06",
+      "focus": "Correção dupla no mesmo draft",
+      "capability": "DESIGN_TARGET",
+      "capability_reason": "Correção simultânea de cliente e horário com revogação do preview antigo ainda não foi comprovada no runtime.",
+      "fixture": {
+        "base": "two_amandas",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Agenda Amanda Souza amanhã às 15h para Corte Completo.",
+          "expected_status": "PROPOSAL_READY",
+          "required_observations": [
+            "Draft/proposta de appointment.create para Amanda Souza, amanhã 15h, Corte Completo.",
+            "Guardar conversation_ref, draft_ref e revisão do preview."
+          ],
+          "forbidden": [
+            "Confirmar ou executar."
+          ]
+        },
+        {
+          "turn_index": 2,
+          "message": "Não, é Amanda Ribeiro e coloca 16h.",
+          "expected_status": "PROPOSAL_READY",
+          "required_observations": [
+            "Mesmo draft e mesma operação; cliente=Amanda Ribeiro e hora=16h, serviço e data preservados.",
+            "Invalidar referência de cliente, disponibilidade e preview anterior; revalidar o novo intervalo antes de repropor."
+          ],
+          "forbidden": [
+            "Criar segundo agendamento.",
+            "Manter preview das 15h válido.",
+            "Usar Amanda Souza na proposta nova."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "appointment.create",
+          "fields": {
+            "customer_name": "Amanda Ribeiro",
+            "day_offset": 1,
+            "time": "16:00",
+            "service_name": "Corte Completo"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        }
+      ],
+      "minimum_clarification": [],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "FUNCTIONAL_FAILURE_SAFE",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "ef67a988c3682f82aefd5c1bc5e2a771ebee0039c382df54721c58022fc9dcbe"
+    },
+    {
+      "case_id": "u07",
+      "focus": "Dependência real com cancelamento impossível",
+      "capability": "CURRENT_RUNTIME",
+      "capability_reason": "Par cancel→create é o grafo dependente publicado; a origem inexistente deve bloquear o slot liberado.",
+      "fixture": {
+        "base": "amanda_target",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Cancela Amanda Souza amanhã às 11h por pedido dela e coloca Fábio Santos nesse horário para Corte Completo.",
+          "expected_status": "SAFE_BLOCKED",
+          "required_observations": [
+            "Reconhecer cancel→create com serviço Corte Completo preservado.",
+            "Não existe agendamento de Amanda Souza às 11h; A não é proposável e B não recebe slot liberado.",
+            "Pedir correção do agendamento de origem ou explicar que não foi encontrado."
+          ],
+          "forbidden": [
+            "Propor B como independente.",
+            "Tratar 11h livre como slot liberado.",
+            "Confirmar qualquer item."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "appointment.cancel",
+          "fields": {
+            "customer_name": "Amanda Souza",
+            "day_offset": 1,
+            "time": "11:00",
+            "reason": "pedido dela"
+          },
+          "missing": [
+            "source_appointment"
+          ],
+          "expected_state": "CONFLICT",
+          "depends_on": []
+        },
+        {
+          "item_key": "a2",
+          "operation": "appointment.create",
+          "fields": {
+            "customer_name": "Fábio Santos",
+            "service_name": "Corte Completo",
+            "released_slot_of": "a1"
+          },
+          "missing": [],
+          "expected_state": "BLOCKED",
+          "depends_on": [
+            "a1"
+          ]
+        }
+      ],
+      "minimum_clarification": [
+        "a1.source_appointment"
+      ],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "PASS",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "7df40a90fa91a0c1c8d574bcf7fe8a9bbfe9788f39751f1740d30c917d6b4be5"
+    },
+    {
+      "case_id": "u08",
+      "focus": "Uma ação inválida entre quatro independentes",
+      "capability": "DESIGN_TARGET",
+      "capability_reason": "Coordenação de sucesso parcial por item e correção seletiva não são contrato implementado; o runtime pode cancelar todo o pai em falha de preparação.",
+      "fixture": {
+        "base": "free",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Quanto faturei ontem, consulta o saldo do Shampoo X, dá baixa em 10 unidades dele e altera a Massagem para R$80.",
+          "expected_status": "SAFE_BLOCKED",
+          "required_observations": [
+            "Quatro itens independentes preservados; Financial=12000 centavos e saldo Shampoo X=4 vêm do backend sintético.",
+            "Baixa de 10 excede saldo 4 e fica inválida; alteração de Massagem para 8000 centavos não é ignorada.",
+            "Explicar o estado de cada item sem executar os válidos e pedir correção do item de estoque."
+          ],
+          "forbidden": [
+            "Reduzir 10 para 4 automaticamente.",
+            "Omitir a baixa inválida.",
+            "Executar os itens válidos."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "financial.report",
+          "fields": {
+            "metric": "service_revenue",
+            "period": "yesterday"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        },
+        {
+          "item_key": "a2",
+          "operation": "stock.balance",
+          "fields": {
+            "product_name": "Shampoo X"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        },
+        {
+          "item_key": "a3",
+          "operation": "stock.movement",
+          "fields": {
+            "product_name": "Shampoo X",
+            "mode": "OUT",
+            "quantity": 10
+          },
+          "missing": [
+            "valid_quantity"
+          ],
+          "expected_state": "CONFLICT",
+          "depends_on": []
+        },
+        {
+          "item_key": "a4",
+          "operation": "service.change",
+          "fields": {
+            "target_name": "Massagem",
+            "priceCents": 8000
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        }
+      ],
+      "minimum_clarification": [
+        "a3.valid_quantity"
+      ],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "FUNCTIONAL_FAILURE_SAFE",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "79a7b28847dfec6ad14e4cd18d6c2355e3a4064f6cae4d5825fbe0ed945897f6"
+    },
+    {
+      "case_id": "u09",
+      "focus": "Leitura mais cancelamento mais mensagem dependente",
+      "capability": "DESIGN_TARGET",
+      "capability_reason": "cancel→message existe como par de dois itens; Financial independente no mesmo grafo não é publicado.",
+      "fixture": {
+        "base": "amanda_target",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Quanto faturei ontem, cancela Amanda Souza amanhã às 10h por pedido dela e mande para ela pelo WhatsApp exatamente: “Seu horário foi cancelado.”",
+          "expected_status": "SAFE_BLOCKED",
+          "required_observations": [
+            "financial.report independente; cancelamento de Amanda Souza; customer.message EXACT com bytes literais entre aspas.",
+            "A mensagem depende do cancelamento, não de Financial; grafo de três itens deve bloquear com segurança no runtime atual."
+          ],
+          "forbidden": [
+            "Enviar mensagem.",
+            "Criar Outbox.",
+            "Propor mensagem sem garantir a dependência."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "financial.report",
+          "fields": {
+            "metric": "service_revenue",
+            "period": "yesterday"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        },
+        {
+          "item_key": "a2",
+          "operation": "appointment.cancel",
+          "fields": {
+            "customer_name": "Amanda Souza",
+            "day_offset": 1,
+            "time": "10:00",
+            "reason": "pedido dela"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        },
+        {
+          "item_key": "a3",
+          "operation": "customer.message",
+          "fields": {
+            "recipient_name": "Amanda Souza",
+            "channel": "WHATSAPP",
+            "message_mode": "EXACT",
+            "content": "Seu horário foi cancelado."
+          },
+          "missing": [],
+          "expected_state": "BLOCKED",
+          "depends_on": [
+            "a2"
+          ]
+        }
+      ],
+      "minimum_clarification": [],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "FUNCTIONAL_FAILURE_SAFE",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "d94838122e2b76727945be5f0cff61823a29a72da8cff74cf8e7778db1872809"
+    },
+    {
+      "case_id": "u10",
+      "focus": "Stress quatro ações com dependência, leitura e lacuna",
+      "capability": "DESIGN_TARGET",
+      "capability_reason": "Mistura de par dependente com leitura e bloqueio incompleto ultrapassa os grafos publicados, embora permaneça dentro do limite de quatro ações.",
+      "fixture": {
+        "base": "amanda_target",
+        "overlay": "NONE"
+      },
+      "turns": [
+        {
+          "turn_index": 1,
+          "message": "Cancela Amanda Souza amanhã às 10h por pedido dela, põe Fábio Santos nesse horário para Corte Completo, vê o saldo do Shampoo X e bloqueia a Tatiana depois de amanhã a partir das 14h.",
+          "expected_status": "SAFE_BLOCKED",
+          "required_observations": [
+            "Quatro ações: cancel→create, stock.balance independente e schedule.block independente.",
+            "Preservar Corte Completo no item dependente, saldo de Shampoo X pelo backend e início 14h do bloqueio.",
+            "Pedir somente horário final do bloqueio; explicar que o grafo misto não pode ser proposto como uma unidade atual."
+          ],
+          "forbidden": [
+            "Inventar horário final.",
+            "Perder Corte Completo.",
+            "Propor B antes de A.",
+            "Executar qualquer item."
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "item_key": "a1",
+          "operation": "appointment.cancel",
+          "fields": {
+            "customer_name": "Amanda Souza",
+            "day_offset": 1,
+            "time": "10:00",
+            "reason": "pedido dela"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        },
+        {
+          "item_key": "a2",
+          "operation": "appointment.create",
+          "fields": {
+            "customer_name": "Fábio Santos",
+            "service_name": "Corte Completo",
+            "released_slot_of": "a1"
+          },
+          "missing": [],
+          "expected_state": "BLOCKED",
+          "depends_on": [
+            "a1"
+          ]
+        },
+        {
+          "item_key": "a3",
+          "operation": "stock.balance",
+          "fields": {
+            "product_name": "Shampoo X"
+          },
+          "missing": [],
+          "expected_state": "READY",
+          "depends_on": []
+        },
+        {
+          "item_key": "a4",
+          "operation": "schedule.block",
+          "fields": {
+            "professional_name": "Tatiana",
+            "day_offset": 2,
+            "time": "14:00"
+          },
+          "missing": [
+            "end_time"
+          ],
+          "expected_state": "NEEDS_INPUT",
+          "depends_on": []
+        }
+      ],
+      "minimum_clarification": [
+        "a4.end_time"
+      ],
+      "expected_design_classification": "PASS",
+      "current_safe_baseline": "FUNCTIONAL_FAILURE_SAFE",
+      "confirmation_allowed": false,
+      "operational_effects": 0,
+      "fixture_sha256": "fd5416ae861a8d1e77518f59e222072024d59f1166fa1bb3969b37b8dbc103fd"
+    }
+  ]
+}

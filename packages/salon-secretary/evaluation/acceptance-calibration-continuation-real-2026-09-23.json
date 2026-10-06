@@ -1,0 +1,2176 @@
+{
+  "version": "jev-calibration-continuation-real-v1",
+  "priorReportSha256": "c114a7fe1220503ab86bf6913c68056cc7834930b59486e1b9f86843baf19616",
+  "cases": [
+    {
+      "sequence": 18,
+      "trialId": "compound-financial-services:18",
+      "caseId": "compound-financial-services",
+      "message": "Quanto faturei ontem e altere a massagem para R$80?",
+      "expected": {
+        "skill": "multiple",
+        "operation": "multiple",
+        "shape": "independent",
+        "period": "yesterday",
+        "metric": "service_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "predicted": null,
+      "answers": {
+        "skill": {
+          "choice": "multiple",
+          "probabilities": {
+            "unclear": 0,
+            "services": 0.01,
+            "multiple": 0.95,
+            "out_of_catalog": 0,
+            "inventory": 0,
+            "scheduling": 0,
+            "financial": 0.04,
+            "customers": 0,
+            "communication": 0
+          },
+          "confidence": 0.93
+        },
+        "shape": {
+          "choice": "independent",
+          "probabilities": {
+            "unclear": 0.02,
+            "out_of_catalog": 0.04,
+            "dependent": 0.03,
+            "independent": 0.9,
+            "single": 0.01
+          },
+          "confidence": 0.87
+        }
+      },
+      "derivations": [],
+      "providerStatus": "NO_MATCH",
+      "providerFallbackReasons": [
+        "MULTI_OPERATION_REQUIRES_LUNA"
+      ],
+      "policy": {
+        "policyVersion": "jev-acceptance-v1",
+        "decision": "FALLBACK_REQUIRED",
+        "reason": "COMPOUND_REQUEST",
+        "enrollmentId": null,
+        "riskClasses": [],
+        "requiredDecisions": [],
+        "interpretation": null,
+        "provenance": {},
+        "backendOnly": [
+          "customer_ref",
+          "service_ref",
+          "professional_ref",
+          "appointment_ref",
+          "product_ref",
+          "recipient_ref",
+          "financial_values",
+          "stock",
+          "availability",
+          "authorization",
+          "tenant"
+        ],
+        "confidenceData": [],
+        "executable": false
+      },
+      "classification": "CORRECT_FALLBACK",
+      "rounds": [
+        {
+          "label": "discovery",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto faturei ontem e altere a massagem para R$80?",
+              "context": {}
+            },
+            "questions": {
+              "skill": {
+                "type": "choice",
+                "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                "criteria": {
+                  "services": null,
+                  "customers": null,
+                  "scheduling": null,
+                  "financial": null,
+                  "inventory": null,
+                  "communication": null,
+                  "multiple": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              },
+              "shape": {
+                "type": "choice",
+                "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                "criteria": {
+                  "single": null,
+                  "independent": null,
+                  "dependent": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 381.76699999999994,
+          "totalStageMs": 387.417,
+          "sentBytes": 990,
+          "requestId": null,
+          "modelRequested": "jev-1.13.0",
+          "modelReturned": "jev-1.13.0",
+          "status": "OK",
+          "error": null,
+          "answers": {
+            "skill": {
+              "choice": "multiple",
+              "probabilities": {
+                "unclear": 0,
+                "services": 0.01,
+                "multiple": 0.95,
+                "out_of_catalog": 0,
+                "inventory": 0,
+                "scheduling": 0,
+                "financial": 0.04,
+                "customers": 0,
+                "communication": 0
+              },
+              "confidence": 0.93
+            },
+            "shape": {
+              "choice": "independent",
+              "probabilities": {
+                "unclear": 0.02,
+                "out_of_catalog": 0.04,
+                "dependent": 0.03,
+                "independent": 0.9,
+                "single": 0.01
+              },
+              "confidence": 0.87
+            }
+          },
+          "usage": {
+            "inputTokens": 513,
+            "outputTokens": 140
+          },
+          "estimatedCostUsd": 0.000021546000000000003,
+          "invalidResponseDiagnostic": null
+        }
+      ],
+      "derivedResult": {
+        "provider": "JEV",
+        "status": "NO_MATCH",
+        "decision": null,
+        "dependencies": null,
+        "answers": {
+          "skill": {
+            "choice": "multiple",
+            "probabilities": {
+              "unclear": 0,
+              "services": 0.01,
+              "multiple": 0.95,
+              "out_of_catalog": 0,
+              "inventory": 0,
+              "scheduling": 0,
+              "financial": 0.04,
+              "customers": 0,
+              "communication": 0
+            },
+            "confidence": 0.93
+          },
+          "shape": {
+            "choice": "independent",
+            "probabilities": {
+              "unclear": 0.02,
+              "out_of_catalog": 0.04,
+              "dependent": 0.03,
+              "independent": 0.9,
+              "single": 0.01
+            },
+            "confidence": 0.87
+          }
+        },
+        "latencyMs": 389.36850000000004,
+        "usage": {
+          "inputTokens": 513,
+          "outputTokens": 140
+        },
+        "estimatedCostUsd": 0.000021546000000000003,
+        "actualCostUsd": null,
+        "modelRequested": "jev-1.13.0",
+        "modelReturned": "jev-1.13.0",
+        "requestId": null,
+        "error": null,
+        "fallbackReasons": [
+          "MULTI_OPERATION_REQUIRES_LUNA"
+        ],
+        "executable": false,
+        "planVersion": "derived-v3",
+        "stages": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Quanto faturei ontem e altere a massagem para R$80?",
+                "context": {}
+              },
+              "questions": {
+                "skill": {
+                  "type": "choice",
+                  "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                  "criteria": {
+                    "services": null,
+                    "customers": null,
+                    "scheduling": null,
+                    "financial": null,
+                    "inventory": null,
+                    "communication": null,
+                    "multiple": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                },
+                "shape": {
+                  "type": "choice",
+                  "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                  "criteria": {
+                    "single": null,
+                    "independent": null,
+                    "dependent": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "OK",
+              "decision": null,
+              "dependencies": null,
+              "answers": {
+                "skill": {
+                  "choice": "multiple",
+                  "probabilities": {
+                    "unclear": 0,
+                    "services": 0.01,
+                    "multiple": 0.95,
+                    "out_of_catalog": 0,
+                    "inventory": 0,
+                    "scheduling": 0,
+                    "financial": 0.04,
+                    "customers": 0,
+                    "communication": 0
+                  },
+                  "confidence": 0.93
+                },
+                "shape": {
+                  "choice": "independent",
+                  "probabilities": {
+                    "unclear": 0.02,
+                    "out_of_catalog": 0.04,
+                    "dependent": 0.03,
+                    "independent": 0.9,
+                    "single": 0.01
+                  },
+                  "confidence": 0.87
+                }
+              },
+              "latencyMs": 387.417,
+              "usage": {
+                "inputTokens": 513,
+                "outputTokens": 140
+              },
+              "estimatedCostUsd": 0.000021546000000000003,
+              "actualCostUsd": null,
+              "modelRequested": "jev-1.13.0",
+              "modelReturned": "jev-1.13.0",
+              "requestId": null,
+              "error": null,
+              "fallbackReasons": [],
+              "executable": false
+            }
+          }
+        ],
+        "dimensionSources": {
+          "skill": "ASKED",
+          "operation": "NOT_RESOLVED",
+          "shape": "ASKED",
+          "period": "NOT_RESOLVED",
+          "metric": "NOT_RESOLVED",
+          "inventory": "NOT_RESOLVED",
+          "communication": "NOT_RESOLVED"
+        },
+        "closedCoverage": false,
+        "requiresLuna": true,
+        "accepted": false,
+        "derivations": []
+      },
+      "httpCalls": 1,
+      "totalJevMs": 387.417,
+      "policyMs": 0.545099999999934,
+      "totalEvaluationMs": 389.9955,
+      "usage": {
+        "inputTokens": 513,
+        "outputTokens": 140
+      },
+      "estimatedCostUsd": 0.000021546000000000003,
+      "wouldAvoidLuna": false,
+      "fallbackWouldBeGpt6Luna": true
+    },
+    {
+      "sequence": 19,
+      "trialId": "outside-financial-write:19",
+      "caseId": "outside-financial-write",
+      "message": "Estorne o pagamento da Amanda.",
+      "expected": {
+        "skill": "out_of_catalog",
+        "operation": "out_of_catalog",
+        "shape": "out_of_catalog",
+        "period": "none",
+        "metric": "unclear",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "predicted": null,
+      "answers": {
+        "skill": {
+          "choice": "financial",
+          "probabilities": {
+            "inventory": 0,
+            "unclear": 0.03,
+            "out_of_catalog": 0.02,
+            "financial": 0.75,
+            "services": 0,
+            "scheduling": 0,
+            "customers": 0.01,
+            "communication": 0.16,
+            "multiple": 0.03
+          },
+          "confidence": 0.71
+        },
+        "shape": {
+          "choice": "single",
+          "probabilities": {
+            "dependent": 0.01,
+            "unclear": 0.06,
+            "independent": 0.02,
+            "out_of_catalog": 0.07,
+            "single": 0.84
+          },
+          "confidence": 0.8
+        }
+      },
+      "derivations": [],
+      "providerStatus": "NO_MATCH",
+      "providerFallbackReasons": [
+        "DETAIL_NOT_IN_FROZEN_PLAN"
+      ],
+      "policy": {
+        "policyVersion": "jev-acceptance-v1",
+        "decision": "FALLBACK_REQUIRED",
+        "reason": "INVALID_PROVIDER_RESPONSE",
+        "enrollmentId": null,
+        "riskClasses": [],
+        "requiredDecisions": [],
+        "interpretation": null,
+        "provenance": {},
+        "backendOnly": [
+          "customer_ref",
+          "service_ref",
+          "professional_ref",
+          "appointment_ref",
+          "product_ref",
+          "recipient_ref",
+          "financial_values",
+          "stock",
+          "availability",
+          "authorization",
+          "tenant"
+        ],
+        "confidenceData": [],
+        "executable": false
+      },
+      "classification": "CORRECT_FALLBACK",
+      "rounds": [
+        {
+          "label": "discovery",
+          "request": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Estorne o pagamento da Amanda.",
+              "context": {}
+            },
+            "questions": {
+              "skill": {
+                "type": "choice",
+                "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                "criteria": {
+                  "services": null,
+                  "customers": null,
+                  "scheduling": null,
+                  "financial": null,
+                  "inventory": null,
+                  "communication": null,
+                  "multiple": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              },
+              "shape": {
+                "type": "choice",
+                "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                "criteria": {
+                  "single": null,
+                  "independent": null,
+                  "dependent": null,
+                  "unclear": null,
+                  "out_of_catalog": null
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "httpLatencyMs": 266.04190000000006,
+          "totalStageMs": 268.24119999999994,
+          "sentBytes": 969,
+          "requestId": null,
+          "modelRequested": "jev-1.13.0",
+          "modelReturned": "jev-1.13.0",
+          "status": "OK",
+          "error": null,
+          "answers": {
+            "skill": {
+              "choice": "financial",
+              "probabilities": {
+                "inventory": 0,
+                "unclear": 0.03,
+                "out_of_catalog": 0.02,
+                "financial": 0.75,
+                "services": 0,
+                "scheduling": 0,
+                "customers": 0.01,
+                "communication": 0.16,
+                "multiple": 0.03
+              },
+              "confidence": 0.71
+            },
+            "shape": {
+              "choice": "single",
+              "probabilities": {
+                "dependent": 0.01,
+                "unclear": 0.06,
+                "independent": 0.02,
+                "out_of_catalog": 0.07,
+                "single": 0.84
+              },
+              "confidence": 0.8
+            }
+          },
+          "usage": {
+            "inputTokens": 502,
+            "outputTokens": 138
+          },
+          "estimatedCostUsd": 0.000021084,
+          "invalidResponseDiagnostic": null
+        }
+      ],
+      "derivedResult": {
+        "provider": "JEV",
+        "status": "NO_MATCH",
+        "decision": null,
+        "dependencies": null,
+        "answers": {
+          "skill": {
+            "choice": "financial",
+            "probabilities": {
+              "inventory": 0,
+              "unclear": 0.03,
+              "out_of_catalog": 0.02,
+              "financial": 0.75,
+              "services": 0,
+              "scheduling": 0,
+              "customers": 0.01,
+              "communication": 0.16,
+              "multiple": 0.03
+            },
+            "confidence": 0.71
+          },
+          "shape": {
+            "choice": "single",
+            "probabilities": {
+              "dependent": 0.01,
+              "unclear": 0.06,
+              "independent": 0.02,
+              "out_of_catalog": 0.07,
+              "single": 0.84
+            },
+            "confidence": 0.8
+          }
+        },
+        "latencyMs": 270.1826,
+        "usage": {
+          "inputTokens": 502,
+          "outputTokens": 138
+        },
+        "estimatedCostUsd": 0.000021084,
+        "actualCostUsd": null,
+        "modelRequested": "jev-1.13.0",
+        "modelReturned": "jev-1.13.0",
+        "requestId": null,
+        "error": null,
+        "fallbackReasons": [
+          "DETAIL_NOT_IN_FROZEN_PLAN"
+        ],
+        "executable": false,
+        "planVersion": "derived-v3",
+        "stages": [
+          {
+            "stage": {
+              "kind": "discovery"
+            },
+            "request": {
+              "model": "jev-1.13.0",
+              "state": {
+                "message": "Estorne o pagamento da Amanda.",
+                "context": {}
+              },
+              "questions": {
+                "skill": {
+                  "type": "choice",
+                  "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+                  "criteria": {
+                    "services": null,
+                    "customers": null,
+                    "scheduling": null,
+                    "financial": null,
+                    "inventory": null,
+                    "communication": null,
+                    "multiple": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                },
+                "shape": {
+                  "type": "choice",
+                  "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+                  "criteria": {
+                    "single": null,
+                    "independent": null,
+                    "dependent": null,
+                    "unclear": null,
+                    "out_of_catalog": null
+                  }
+                }
+              }
+            },
+            "result": {
+              "provider": "JEV",
+              "status": "OK",
+              "decision": null,
+              "dependencies": null,
+              "answers": {
+                "skill": {
+                  "choice": "financial",
+                  "probabilities": {
+                    "inventory": 0,
+                    "unclear": 0.03,
+                    "out_of_catalog": 0.02,
+                    "financial": 0.75,
+                    "services": 0,
+                    "scheduling": 0,
+                    "customers": 0.01,
+                    "communication": 0.16,
+                    "multiple": 0.03
+                  },
+                  "confidence": 0.71
+                },
+                "shape": {
+                  "choice": "single",
+                  "probabilities": {
+                    "dependent": 0.01,
+                    "unclear": 0.06,
+                    "independent": 0.02,
+                    "out_of_catalog": 0.07,
+                    "single": 0.84
+                  },
+                  "confidence": 0.8
+                }
+              },
+              "latencyMs": 268.24119999999994,
+              "usage": {
+                "inputTokens": 502,
+                "outputTokens": 138
+              },
+              "estimatedCostUsd": 0.000021084,
+              "actualCostUsd": null,
+              "modelRequested": "jev-1.13.0",
+              "modelReturned": "jev-1.13.0",
+              "requestId": null,
+              "error": null,
+              "fallbackReasons": [],
+              "executable": false
+            }
+          }
+        ],
+        "dimensionSources": {
+          "skill": "ASKED",
+          "operation": "NOT_RESOLVED",
+          "shape": "ASKED",
+          "period": "NOT_RESOLVED",
+          "metric": "NOT_RESOLVED",
+          "inventory": "NOT_RESOLVED",
+          "communication": "NOT_RESOLVED"
+        },
+        "closedCoverage": false,
+        "requiresLuna": true,
+        "accepted": false,
+        "derivations": []
+      },
+      "httpCalls": 1,
+      "totalJevMs": 268.24119999999994,
+      "policyMs": 0.062200000000075306,
+      "totalEvaluationMs": 270.26570000000004,
+      "usage": {
+        "inputTokens": 502,
+        "outputTokens": 138
+      },
+      "estimatedCostUsd": 0.000021084,
+      "wouldAvoidLuna": false,
+      "fallbackWouldBeGpt6Luna": true
+    }
+  ],
+  "activeCase": {
+    "sequence": 20,
+    "caseId": "outside-roles",
+    "message": "Mude meu papel para OWNER.",
+    "expected": {
+      "skill": "out_of_catalog",
+      "operation": "out_of_catalog",
+      "shape": "out_of_catalog",
+      "period": "none",
+      "metric": "none",
+      "inventory": "none",
+      "communication": "none"
+    },
+    "rounds": [
+      {
+        "label": "discovery",
+        "request": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Mude meu papel para OWNER.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "httpStatus": 200,
+        "httpLatencyMs": 307.76649999999995,
+        "totalStageMs": 309.8474000000001,
+        "sentBytes": 965,
+        "requestId": null,
+        "modelRequested": null,
+        "modelReturned": null,
+        "status": "ERROR",
+        "error": "INVALID_RESPONSE",
+        "answers": {},
+        "usage": {
+          "inputTokens": null,
+          "outputTokens": null
+        },
+        "estimatedCostUsd": null,
+        "invalidResponseDiagnostic": {
+          "reason": "PROBABILITY_SCHEMA_INVALID",
+          "path": "answers.shape.probabilities",
+          "httpStatus": 200,
+          "requestId": null,
+          "sanitizedInvalidResponse": {
+            "observedType": "object",
+            "presentTopLevelFields": [
+              "model",
+              "answers",
+              "usage"
+            ],
+            "unexpectedTopLevelFieldCount": 0,
+            "modelType": "string",
+            "publishedModel": "jev-1.13.0",
+            "answersType": "object",
+            "answerCount": 2,
+            "returnedQuestions": [
+              "skill",
+              "shape"
+            ],
+            "unexpectedQuestionCount": 0,
+            "answers": {
+              "skill": {
+                "observedType": "object",
+                "presentFields": [
+                  "type",
+                  "choice",
+                  "probabilities",
+                  "confidence"
+                ],
+                "unexpectedFieldCount": 0,
+                "choiceType": "string",
+                "publishedChoice": "out_of_catalog",
+                "probabilitiesType": "object",
+                "publishedProbabilityKeys": [
+                  "services",
+                  "customers",
+                  "scheduling",
+                  "financial",
+                  "inventory",
+                  "communication",
+                  "multiple",
+                  "unclear",
+                  "out_of_catalog"
+                ],
+                "unexpectedProbabilityKeyCount": 0,
+                "publishedProbabilities": {
+                  "services": 0,
+                  "customers": 0,
+                  "scheduling": 0,
+                  "financial": 0,
+                  "inventory": 0,
+                  "communication": 0.19,
+                  "multiple": 0.02,
+                  "unclear": 0.21,
+                  "out_of_catalog": 0.58
+                },
+                "confidenceType": "number",
+                "confidence": 0.52
+              },
+              "shape": {
+                "observedType": "object",
+                "presentFields": [
+                  "type",
+                  "choice",
+                  "probabilities",
+                  "confidence"
+                ],
+                "unexpectedFieldCount": 0,
+                "choiceType": "string",
+                "publishedChoice": "single",
+                "probabilitiesType": "object",
+                "publishedProbabilityKeys": [
+                  "single",
+                  "independent",
+                  "dependent",
+                  "unclear",
+                  "out_of_catalog"
+                ],
+                "unexpectedProbabilityKeyCount": 0,
+                "publishedProbabilities": {
+                  "single": 0.8,
+                  "independent": 0.01,
+                  "dependent": 0,
+                  "unclear": 0.01,
+                  "out_of_catalog": 0.17
+                },
+                "confidenceType": "number",
+                "confidence": 0.75
+              }
+            },
+            "usageType": "object",
+            "usage": {
+              "inputTokens": 502,
+              "outputTokens": 140
+            }
+          }
+        }
+      }
+    ]
+  },
+  "executedEvaluations": 2,
+  "executedHttp": 3,
+  "estimatedCostUsdKnown": 0.000042630000000000004,
+  "reservedCostUsd": 0.00273063,
+  "sourceHashes": {
+    "packages/salon-secretary/evaluation/acceptance-policy.ts": "ba2223442b203b6c0a055662b7a6f861e648bdfe06bb0fc680da7da7eca0958c",
+    "packages/salon-secretary/evaluation/acceptance-calibration-plan.ts": "e919a7100d1487dc5c93cb96e14ac313c5c6f2c000c433f18e5034678356e70d",
+    "packages/salon-secretary/evaluation/dataset.ts": "af7ca3a568dbc6bfe96452cc92e0f36bbe65ce3a6b0c046de7f665fa08be5300",
+    "packages/salon-secretary/evaluation/derivation-catalog.ts": "93c145a85ad25f32e813a08a61e068f5d7590ef148abc36422a6959c32a9a6b1",
+    "packages/salon-secretary/evaluation/derived-plan.ts": "9212fd428464f692d49e9d44db240fe64fa3de20b4e4a76d24e7cba282aba52f",
+    "packages/salon-secretary/evaluation/conditional-plan.ts": "836ef27063f0a191d409b9103b5d4f6fce8db86b1d85dfa03e74ff03585f0761",
+    "packages/salon-secretary/evaluation/jev-provider.ts": "44449d30c852e36fe277ef7572d8de7ed0bf86d6e61f7535894303c065024960",
+    "packages/salon-secretary/evaluation/invalid-response-diagnostic.ts": "eab6420e45795d56ff314a0f53d34ebb5369c6b191fea7109d773e005d493267",
+    "packages/salon-secretary/evaluation/acceptance-calibration-continuation.ts": "48d310cfaaaafe7eb617cf13ec7facf53eb55f97144ae10a264edf47dd6b640e"
+  },
+  "stopReason": "INVALID_RESPONSE",
+  "zeroOpenAI": true,
+  "zeroTools": true,
+  "zeroDatabase": true,
+  "zeroEverflairEffects": true,
+  "scoring": {
+    "evaluated": 19,
+    "totalGoldenCases": 40,
+    "candidateCoverage": 0.05,
+    "acceptedCoverage": 0.3157894736842105,
+    "fallbackRate": 0.6842105263157895,
+    "correctAccepted": 6,
+    "incorrectAccepted": 0,
+    "unsafeFalsePositives": 0,
+    "unsafeFalsePositiveRate": 0,
+    "falseFallback": 0,
+    "accuracyAmongAccepted": 1,
+    "coverageBySkill": {
+      "services": {
+        "cases": 0,
+        "accepted": 0
+      },
+      "customers": {
+        "cases": 0,
+        "accepted": 0
+      },
+      "scheduling": {
+        "cases": 2,
+        "accepted": 0
+      },
+      "financial": {
+        "cases": 7,
+        "accepted": 3
+      },
+      "inventory": {
+        "cases": 6,
+        "accepted": 3
+      },
+      "communication": {
+        "cases": 1,
+        "accepted": 0
+      },
+      "out_of_catalog": {
+        "cases": 1,
+        "accepted": 0
+      }
+    },
+    "coverageByRiskClass": {
+      "READ_ONLY": {
+        "cases": 12,
+        "accepted": 6
+      },
+      "MUTATION": {
+        "cases": 6,
+        "accepted": 0
+      },
+      "COMPOUND_MUTATION": {
+        "cases": 3,
+        "accepted": 0
+      },
+      "COMMUNICATION": {
+        "cases": 2,
+        "accepted": 0
+      },
+      "OUT_OF_CATALOG": {
+        "cases": 1,
+        "accepted": 0
+      },
+      "OPEN_EXTRACTION_REQUIRED": {
+        "cases": 10,
+        "accepted": 0
+      }
+    },
+    "confidenceDistribution": [
+      {
+        "trialId": "financial-revenue:1",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "skill",
+        "selected": "financial",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:1",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.68,
+        "runnerUpProbability": 0.23,
+        "margin": 0.45000000000000007,
+        "confidence": 0.6,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:1",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "period",
+        "selected": "yesterday",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:1",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "metric",
+        "selected": "service_revenue",
+        "selectedProbability": 0.99,
+        "runnerUpProbability": 0.01,
+        "margin": 0.98,
+        "confidence": 0.97,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:2",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "skill",
+        "selected": "inventory",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:2",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.78,
+        "runnerUpProbability": 0.1,
+        "margin": 0.68,
+        "confidence": 0.73,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:2",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "inventory",
+        "selected": "low_stock",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:3",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "skill",
+        "selected": "financial",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:3",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.65,
+        "runnerUpProbability": 0.28,
+        "margin": 0.37,
+        "confidence": 0.55,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:3",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "period",
+        "selected": "yesterday",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:3",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "metric",
+        "selected": "service_revenue",
+        "selectedProbability": 0.98,
+        "runnerUpProbability": 0.01,
+        "margin": 0.97,
+        "confidence": 0.97,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:4",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "skill",
+        "selected": "inventory",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:4",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.78,
+        "runnerUpProbability": 0.12,
+        "margin": 0.66,
+        "confidence": 0.72,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:4",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "inventory",
+        "selected": "low_stock",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:5",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "skill",
+        "selected": "financial",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:5",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.71,
+        "runnerUpProbability": 0.22,
+        "margin": 0.49,
+        "confidence": 0.63,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:5",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "period",
+        "selected": "yesterday",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "financial-revenue:5",
+        "caseId": "financial-revenue",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "metric",
+        "selected": "service_revenue",
+        "selectedProbability": 0.97,
+        "runnerUpProbability": 0.02,
+        "margin": 0.95,
+        "confidence": 0.96,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:6",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "skill",
+        "selected": "inventory",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:6",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.8200000000000001,
+        "runnerUpProbability": 0.09,
+        "margin": 0.7300000000000001,
+        "confidence": 0.76,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-low:6",
+        "caseId": "inventory-low",
+        "accepted": true,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "inventory",
+        "selected": "low_stock",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "financial-received:7",
+        "caseId": "financial-received",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "skill",
+        "selected": "financial",
+        "selectedProbability": 0.96,
+        "runnerUpProbability": 0.02,
+        "margin": 0.94,
+        "confidence": 0.95,
+        "correct": true
+      },
+      {
+        "trialId": "financial-received:7",
+        "caseId": "financial-received",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.56,
+        "runnerUpProbability": 0.3,
+        "margin": 0.26000000000000006,
+        "confidence": 0.44,
+        "correct": true
+      },
+      {
+        "trialId": "financial-received:7",
+        "caseId": "financial-received",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "period",
+        "selected": "yesterday",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "financial-received:7",
+        "caseId": "financial-received",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "metric",
+        "selected": "received_revenue",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "financial-outstanding:8",
+        "caseId": "financial-outstanding",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "skill",
+        "selected": "financial",
+        "selectedProbability": 0.85,
+        "runnerUpProbability": 0.11,
+        "margin": 0.74,
+        "confidence": 0.83,
+        "correct": true
+      },
+      {
+        "trialId": "financial-outstanding:8",
+        "caseId": "financial-outstanding",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.4,
+        "runnerUpProbability": 0.37,
+        "margin": 0.030000000000000027,
+        "confidence": 0.25,
+        "correct": true
+      },
+      {
+        "trialId": "financial-outstanding:8",
+        "caseId": "financial-outstanding",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "period",
+        "selected": "none",
+        "selectedProbability": 0.91,
+        "runnerUpProbability": 0.09,
+        "margin": 0.8200000000000001,
+        "confidence": 0.9,
+        "correct": true
+      },
+      {
+        "trialId": "financial-outstanding:8",
+        "caseId": "financial-outstanding",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "dimension": "metric",
+        "selected": "outstanding_receivables",
+        "selectedProbability": 0.99,
+        "runnerUpProbability": 0.01,
+        "margin": 0.98,
+        "confidence": 0.97,
+        "correct": true
+      },
+      {
+        "trialId": "financial-comparison:9",
+        "caseId": "financial-comparison",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "unclear",
+        "selectedProbability": 0.51,
+        "runnerUpProbability": 0.28,
+        "margin": 0.22999999999999998,
+        "confidence": 0.45,
+        "correct": false
+      },
+      {
+        "trialId": "financial-comparison:9",
+        "caseId": "financial-comparison",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.37,
+        "runnerUpProbability": 0.34,
+        "margin": 0.02999999999999997,
+        "confidence": 0.21,
+        "correct": true
+      },
+      {
+        "trialId": "financial-multiple:10",
+        "caseId": "financial-multiple",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "financial",
+        "selectedProbability": 0.94,
+        "runnerUpProbability": 0.06,
+        "margin": 0.8799999999999999,
+        "confidence": 0.93,
+        "correct": true
+      },
+      {
+        "trialId": "financial-multiple:10",
+        "caseId": "financial-multiple",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "independent",
+        "selectedProbability": 0.72,
+        "runnerUpProbability": 0.13,
+        "margin": 0.59,
+        "confidence": 0.66,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-balance:11",
+        "caseId": "inventory-balance",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "inventory",
+        "selectedProbability": 0.97,
+        "runnerUpProbability": 0.02,
+        "margin": 0.95,
+        "confidence": 0.96,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-balance:11",
+        "caseId": "inventory-balance",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.66,
+        "runnerUpProbability": 0.15,
+        "margin": 0.51,
+        "confidence": 0.58,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-balance:11",
+        "caseId": "inventory-balance",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "inventory",
+        "selected": "balance",
+        "selectedProbability": 0.99,
+        "runnerUpProbability": 0.01,
+        "margin": 0.98,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-in:12",
+        "caseId": "inventory-in",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "inventory",
+        "selectedProbability": 0.97,
+        "runnerUpProbability": 0.02,
+        "margin": 0.95,
+        "confidence": 0.97,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-in:12",
+        "caseId": "inventory-in",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.91,
+        "runnerUpProbability": 0.03,
+        "margin": 0.88,
+        "confidence": 0.9,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-in:12",
+        "caseId": "inventory-in",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "inventory",
+        "selected": "IN",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-out-missing:13",
+        "caseId": "inventory-out-missing",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "inventory",
+        "selectedProbability": 0.98,
+        "runnerUpProbability": 0.01,
+        "margin": 0.97,
+        "confidence": 0.97,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-out-missing:13",
+        "caseId": "inventory-out-missing",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.92,
+        "runnerUpProbability": 0.05,
+        "margin": 0.87,
+        "confidence": 0.9,
+        "correct": true
+      },
+      {
+        "trialId": "inventory-out-missing:13",
+        "caseId": "inventory-out-missing",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "inventory",
+        "selected": "OUT",
+        "selectedProbability": 0.99,
+        "runnerUpProbability": 0.01,
+        "margin": 0.98,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "scheduling-cancel:14",
+        "caseId": "scheduling-cancel",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "scheduling",
+        "selectedProbability": 0.87,
+        "runnerUpProbability": 0.11,
+        "margin": 0.76,
+        "confidence": 0.85,
+        "correct": true
+      },
+      {
+        "trialId": "scheduling-cancel:14",
+        "caseId": "scheduling-cancel",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "operation",
+        "selected": "appointment.cancel",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 0.99,
+        "correct": true
+      },
+      {
+        "trialId": "scheduling-cancel:14",
+        "caseId": "scheduling-cancel",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.97,
+        "runnerUpProbability": 0.01,
+        "margin": 0.96,
+        "confidence": 0.97,
+        "correct": true
+      },
+      {
+        "trialId": "scheduling-batch:15",
+        "caseId": "scheduling-batch",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "COMPOUND_MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "scheduling",
+        "selectedProbability": 0.89,
+        "runnerUpProbability": 0.11,
+        "margin": 0.78,
+        "confidence": 0.88,
+        "correct": true
+      },
+      {
+        "trialId": "scheduling-batch:15",
+        "caseId": "scheduling-batch",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "COMPOUND_MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "dependent",
+        "selectedProbability": 0.93,
+        "runnerUpProbability": 0.05,
+        "margin": 0.88,
+        "confidence": 0.91,
+        "correct": true
+      },
+      {
+        "trialId": "communication-exact:16",
+        "caseId": "communication-exact",
+        "accepted": false,
+        "riskClasses": [
+          "COMMUNICATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "communication",
+        "selectedProbability": 0.98,
+        "runnerUpProbability": 0.01,
+        "margin": 0.97,
+        "confidence": 0.97,
+        "correct": true
+      },
+      {
+        "trialId": "communication-exact:16",
+        "caseId": "communication-exact",
+        "accepted": false,
+        "riskClasses": [
+          "COMMUNICATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.87,
+        "runnerUpProbability": 0.11,
+        "margin": 0.76,
+        "confidence": 0.83,
+        "correct": true
+      },
+      {
+        "trialId": "communication-exact:16",
+        "caseId": "communication-exact",
+        "accepted": false,
+        "riskClasses": [
+          "COMMUNICATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "communication",
+        "selected": "EXACT",
+        "selectedProbability": 1,
+        "runnerUpProbability": 0,
+        "margin": 1,
+        "confidence": 1,
+        "correct": true
+      },
+      {
+        "trialId": "communication-dependent-name:17",
+        "caseId": "communication-dependent-name",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "COMPOUND_MUTATION",
+          "COMMUNICATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "multiple",
+        "selectedProbability": 0.87,
+        "runnerUpProbability": 0.08,
+        "margin": 0.79,
+        "confidence": 0.85,
+        "correct": true
+      },
+      {
+        "trialId": "communication-dependent-name:17",
+        "caseId": "communication-dependent-name",
+        "accepted": false,
+        "riskClasses": [
+          "MUTATION",
+          "COMPOUND_MUTATION",
+          "COMMUNICATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "dependent",
+        "selectedProbability": 0.8,
+        "runnerUpProbability": 0.07,
+        "margin": 0.73,
+        "confidence": 0.76,
+        "correct": true
+      },
+      {
+        "trialId": "compound-financial-services:18",
+        "caseId": "compound-financial-services",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "MUTATION",
+          "COMPOUND_MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "skill",
+        "selected": "multiple",
+        "selectedProbability": 0.95,
+        "runnerUpProbability": 0.04,
+        "margin": 0.9099999999999999,
+        "confidence": 0.93,
+        "correct": true
+      },
+      {
+        "trialId": "compound-financial-services:18",
+        "caseId": "compound-financial-services",
+        "accepted": false,
+        "riskClasses": [
+          "READ_ONLY",
+          "MUTATION",
+          "COMPOUND_MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "dimension": "shape",
+        "selected": "independent",
+        "selectedProbability": 0.9,
+        "runnerUpProbability": 0.04,
+        "margin": 0.86,
+        "confidence": 0.87,
+        "correct": true
+      },
+      {
+        "trialId": "outside-financial-write:19",
+        "caseId": "outside-financial-write",
+        "accepted": false,
+        "riskClasses": [
+          "OUT_OF_CATALOG"
+        ],
+        "dimension": "skill",
+        "selected": "financial",
+        "selectedProbability": 0.75,
+        "runnerUpProbability": 0.16,
+        "margin": 0.59,
+        "confidence": 0.71,
+        "correct": false
+      },
+      {
+        "trialId": "outside-financial-write:19",
+        "caseId": "outside-financial-write",
+        "accepted": false,
+        "riskClasses": [
+          "OUT_OF_CATALOG"
+        ],
+        "dimension": "shape",
+        "selected": "single",
+        "selectedProbability": 0.84,
+        "runnerUpProbability": 0.07,
+        "margin": 0.77,
+        "confidence": 0.8,
+        "correct": false
+      }
+    ],
+    "marginDistribution": [
+      {
+        "trialId": "financial-revenue:1",
+        "caseId": "financial-revenue",
+        "dimension": "skill",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:1",
+        "caseId": "financial-revenue",
+        "dimension": "shape",
+        "margin": 0.45000000000000007,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:1",
+        "caseId": "financial-revenue",
+        "dimension": "period",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:1",
+        "caseId": "financial-revenue",
+        "dimension": "metric",
+        "margin": 0.98,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:2",
+        "caseId": "inventory-low",
+        "dimension": "skill",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:2",
+        "caseId": "inventory-low",
+        "dimension": "shape",
+        "margin": 0.68,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:2",
+        "caseId": "inventory-low",
+        "dimension": "inventory",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:3",
+        "caseId": "financial-revenue",
+        "dimension": "skill",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:3",
+        "caseId": "financial-revenue",
+        "dimension": "shape",
+        "margin": 0.37,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:3",
+        "caseId": "financial-revenue",
+        "dimension": "period",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:3",
+        "caseId": "financial-revenue",
+        "dimension": "metric",
+        "margin": 0.97,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:4",
+        "caseId": "inventory-low",
+        "dimension": "skill",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:4",
+        "caseId": "inventory-low",
+        "dimension": "shape",
+        "margin": 0.66,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:4",
+        "caseId": "inventory-low",
+        "dimension": "inventory",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:5",
+        "caseId": "financial-revenue",
+        "dimension": "skill",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:5",
+        "caseId": "financial-revenue",
+        "dimension": "shape",
+        "margin": 0.49,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:5",
+        "caseId": "financial-revenue",
+        "dimension": "period",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-revenue:5",
+        "caseId": "financial-revenue",
+        "dimension": "metric",
+        "margin": 0.95,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:6",
+        "caseId": "inventory-low",
+        "dimension": "skill",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:6",
+        "caseId": "inventory-low",
+        "dimension": "shape",
+        "margin": 0.7300000000000001,
+        "accepted": true
+      },
+      {
+        "trialId": "inventory-low:6",
+        "caseId": "inventory-low",
+        "dimension": "inventory",
+        "margin": 1,
+        "accepted": true
+      },
+      {
+        "trialId": "financial-received:7",
+        "caseId": "financial-received",
+        "dimension": "skill",
+        "margin": 0.94,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-received:7",
+        "caseId": "financial-received",
+        "dimension": "shape",
+        "margin": 0.26000000000000006,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-received:7",
+        "caseId": "financial-received",
+        "dimension": "period",
+        "margin": 1,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-received:7",
+        "caseId": "financial-received",
+        "dimension": "metric",
+        "margin": 1,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-outstanding:8",
+        "caseId": "financial-outstanding",
+        "dimension": "skill",
+        "margin": 0.74,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-outstanding:8",
+        "caseId": "financial-outstanding",
+        "dimension": "shape",
+        "margin": 0.030000000000000027,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-outstanding:8",
+        "caseId": "financial-outstanding",
+        "dimension": "period",
+        "margin": 0.8200000000000001,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-outstanding:8",
+        "caseId": "financial-outstanding",
+        "dimension": "metric",
+        "margin": 0.98,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-comparison:9",
+        "caseId": "financial-comparison",
+        "dimension": "skill",
+        "margin": 0.22999999999999998,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-comparison:9",
+        "caseId": "financial-comparison",
+        "dimension": "shape",
+        "margin": 0.02999999999999997,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-multiple:10",
+        "caseId": "financial-multiple",
+        "dimension": "skill",
+        "margin": 0.8799999999999999,
+        "accepted": false
+      },
+      {
+        "trialId": "financial-multiple:10",
+        "caseId": "financial-multiple",
+        "dimension": "shape",
+        "margin": 0.59,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-balance:11",
+        "caseId": "inventory-balance",
+        "dimension": "skill",
+        "margin": 0.95,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-balance:11",
+        "caseId": "inventory-balance",
+        "dimension": "shape",
+        "margin": 0.51,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-balance:11",
+        "caseId": "inventory-balance",
+        "dimension": "inventory",
+        "margin": 0.98,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-in:12",
+        "caseId": "inventory-in",
+        "dimension": "skill",
+        "margin": 0.95,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-in:12",
+        "caseId": "inventory-in",
+        "dimension": "shape",
+        "margin": 0.88,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-in:12",
+        "caseId": "inventory-in",
+        "dimension": "inventory",
+        "margin": 1,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-out-missing:13",
+        "caseId": "inventory-out-missing",
+        "dimension": "skill",
+        "margin": 0.97,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-out-missing:13",
+        "caseId": "inventory-out-missing",
+        "dimension": "shape",
+        "margin": 0.87,
+        "accepted": false
+      },
+      {
+        "trialId": "inventory-out-missing:13",
+        "caseId": "inventory-out-missing",
+        "dimension": "inventory",
+        "margin": 0.98,
+        "accepted": false
+      },
+      {
+        "trialId": "scheduling-cancel:14",
+        "caseId": "scheduling-cancel",
+        "dimension": "skill",
+        "margin": 0.76,
+        "accepted": false
+      },
+      {
+        "trialId": "scheduling-cancel:14",
+        "caseId": "scheduling-cancel",
+        "dimension": "operation",
+        "margin": 1,
+        "accepted": false
+      },
+      {
+        "trialId": "scheduling-cancel:14",
+        "caseId": "scheduling-cancel",
+        "dimension": "shape",
+        "margin": 0.96,
+        "accepted": false
+      },
+      {
+        "trialId": "scheduling-batch:15",
+        "caseId": "scheduling-batch",
+        "dimension": "skill",
+        "margin": 0.78,
+        "accepted": false
+      },
+      {
+        "trialId": "scheduling-batch:15",
+        "caseId": "scheduling-batch",
+        "dimension": "shape",
+        "margin": 0.88,
+        "accepted": false
+      },
+      {
+        "trialId": "communication-exact:16",
+        "caseId": "communication-exact",
+        "dimension": "skill",
+        "margin": 0.97,
+        "accepted": false
+      },
+      {
+        "trialId": "communication-exact:16",
+        "caseId": "communication-exact",
+        "dimension": "shape",
+        "margin": 0.76,
+        "accepted": false
+      },
+      {
+        "trialId": "communication-exact:16",
+        "caseId": "communication-exact",
+        "dimension": "communication",
+        "margin": 1,
+        "accepted": false
+      },
+      {
+        "trialId": "communication-dependent-name:17",
+        "caseId": "communication-dependent-name",
+        "dimension": "skill",
+        "margin": 0.79,
+        "accepted": false
+      },
+      {
+        "trialId": "communication-dependent-name:17",
+        "caseId": "communication-dependent-name",
+        "dimension": "shape",
+        "margin": 0.73,
+        "accepted": false
+      },
+      {
+        "trialId": "compound-financial-services:18",
+        "caseId": "compound-financial-services",
+        "dimension": "skill",
+        "margin": 0.9099999999999999,
+        "accepted": false
+      },
+      {
+        "trialId": "compound-financial-services:18",
+        "caseId": "compound-financial-services",
+        "dimension": "shape",
+        "margin": 0.86,
+        "accepted": false
+      },
+      {
+        "trialId": "outside-financial-write:19",
+        "caseId": "outside-financial-write",
+        "dimension": "skill",
+        "margin": 0.59,
+        "accepted": false
+      },
+      {
+        "trialId": "outside-financial-write:19",
+        "caseId": "outside-financial-write",
+        "dimension": "shape",
+        "margin": 0.77,
+        "accepted": false
+      }
+    ]
+  }
+}

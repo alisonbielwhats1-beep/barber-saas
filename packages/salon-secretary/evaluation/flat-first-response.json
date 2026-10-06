@@ -1,0 +1,246 @@
+{
+  "source": "Gate 3.1A first real run, 2026-09-22",
+  "caseId": "financial-revenue",
+  "payload": {
+    "model": "jev-1.13.0",
+    "state": {
+      "message": "Quanto faturei ontem?",
+      "context": {}
+    },
+    "questions": {
+      "skill": {
+        "type": "choice",
+        "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+        "criteria": {
+          "services": null,
+          "customers": null,
+          "scheduling": null,
+          "financial": null,
+          "inventory": null,
+          "communication": null,
+          "multiple": null,
+          "unclear": null,
+          "out_of_catalog": null
+        }
+      },
+      "operation": {
+        "type": "choice",
+        "instructions": "Qual operação é pedida? Escolha somente a operação publicada; multiple se há mais de uma; unclear se não é possível determinar; out_of_catalog se não suportada. Use context.operation para continuação, sem inventar nova operação.",
+        "criteria": {
+          "service.create": null,
+          "service.change": null,
+          "customer.search": null,
+          "customer.read": null,
+          "customer.create": null,
+          "customer.change": null,
+          "appointment.create": null,
+          "appointment.list": null,
+          "appointment.read": null,
+          "availability.get": null,
+          "appointment.change": null,
+          "appointment.cancel": null,
+          "schedule.block": null,
+          "financial.report": null,
+          "product.search": null,
+          "stock.balance": null,
+          "stock.movement": null,
+          "customer.message": null,
+          "multiple": null,
+          "unclear": null,
+          "out_of_catalog": null
+        }
+      },
+      "shape": {
+        "type": "choice",
+        "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+        "criteria": {
+          "single": null,
+          "independent": null,
+          "dependent": null,
+          "unclear": null,
+          "out_of_catalog": null
+        }
+      },
+      "period": {
+        "type": "choice",
+        "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+        "criteria": {
+          "today": null,
+          "yesterday": null,
+          "this_week": null,
+          "last_week": null,
+          "this_month": null,
+          "last_month": null,
+          "comparison": null,
+          "none": null,
+          "unclear": null
+        }
+      },
+      "metric": {
+        "type": "choice",
+        "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+        "criteria": {
+          "service_revenue": null,
+          "realized_revenue": null,
+          "received_revenue": null,
+          "outstanding_receivables": null,
+          "completed_count": null,
+          "average_ticket": null,
+          "multiple": null,
+          "none": null,
+          "unclear": null
+        }
+      },
+      "inventory": {
+        "type": "choice",
+        "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+        "criteria": {
+          "balance": null,
+          "low_stock": null,
+          "IN": null,
+          "OUT": null,
+          "search": null,
+          "none": null,
+          "unclear": null
+        }
+      },
+      "communication": {
+        "type": "choice",
+        "instructions": "EXACT quando há texto literal para enviar sem reescrita; GENERATED somente se explicitamente solicitado redigir/educadamente; unspecified quando pede aviso sem texto literal nem geração explícita; none sem mensagem; unclear se ambíguo. Não gerar texto.",
+        "criteria": {
+          "EXACT": null,
+          "GENERATED": null,
+          "unspecified": null,
+          "none": null,
+          "unclear": null
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "skill": {
+        "type": "choice",
+        "choice": "financial",
+        "confidence": 0.98,
+        "probabilities": {
+          "financial": 0.99,
+          "out_of_catalog": 0,
+          "unclear": 0,
+          "communication": 0,
+          "multiple": 0.01,
+          "inventory": 0,
+          "services": 0,
+          "customers": 0,
+          "scheduling": 0
+        }
+      },
+      "operation": {
+        "type": "choice",
+        "choice": "financial.report",
+        "confidence": 0.74,
+        "probabilities": {
+          "availability.get": 0,
+          "out_of_catalog": 0.1,
+          "customer.change": 0,
+          "appointment.list": 0,
+          "customer.read": 0,
+          "multiple": 0,
+          "customer.message": 0,
+          "schedule.block": 0,
+          "customer.create": 0,
+          "appointment.read": 0,
+          "stock.balance": 0,
+          "service.change": 0,
+          "product.search": 0,
+          "appointment.cancel": 0,
+          "appointment.create": 0,
+          "unclear": 0.14,
+          "stock.movement": 0,
+          "appointment.change": 0,
+          "service.create": 0,
+          "customer.search": 0,
+          "financial.report": 0.76
+        }
+      },
+      "shape": {
+        "type": "choice",
+        "choice": "single",
+        "confidence": 0.6,
+        "probabilities": {
+          "dependent": 0,
+          "out_of_catalog": 0.25,
+          "independent": 0.05,
+          "unclear": 0.02,
+          "single": 0.68
+        }
+      },
+      "period": {
+        "type": "choice",
+        "choice": "yesterday",
+        "confidence": 1,
+        "probabilities": {
+          "today": 0,
+          "this_month": 0,
+          "this_week": 0,
+          "unclear": 0,
+          "last_week": 0,
+          "yesterday": 1,
+          "comparison": 0,
+          "none": 0,
+          "last_month": 0
+        }
+      },
+      "metric": {
+        "type": "choice",
+        "choice": "service_revenue",
+        "confidence": 0.95,
+        "probabilities": {
+          "realized_revenue": 0.01,
+          "completed_count": 0,
+          "unclear": 0.02,
+          "received_revenue": 0,
+          "none": 0.01,
+          "multiple": 0,
+          "service_revenue": 0.96,
+          "outstanding_receivables": 0,
+          "average_ticket": 0
+        }
+      },
+      "inventory": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.95,
+        "probabilities": {
+          "low_stock": 0,
+          "OUT": 0,
+          "none": 0.95,
+          "IN": 0,
+          "balance": 0.01,
+          "unclear": 0.04,
+          "search": 0
+        }
+      },
+      "communication": {
+        "type": "choice",
+        "choice": "unspecified",
+        "confidence": 0.15,
+        "probabilities": {
+          "none": 0.3,
+          "unspecified": 0.31,
+          "EXACT": 0.25,
+          "unclear": 0.1,
+          "GENERATED": 0.04
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1236,
+      "output_tokens": 624
+    }
+  },
+  "adapterError": "INVALID_RESPONSE",
+  "httpLatencyMs": 860.0047999999999,
+  "totalEvaluationMs": 873.8308999999999
+}

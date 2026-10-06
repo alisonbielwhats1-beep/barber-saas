@@ -1,0 +1,353 @@
+[
+  {
+    "caseId": "financial-revenue",
+    "inputFingerprint": "48655e1c91dd1780f902a602784182fbae7203709080370a4b97a47325b9f966",
+    "source": "everflair-gate25-plan-real/result.json#network",
+    "comparability": "decision_only",
+    "provenance": {
+      "arguments_sha256": "c50157bd4f607ea01f0963dc5a38a4e777c3c8fb9be993096c82c4bb674b679a",
+      "source_status": "backend_verified_success",
+      "reason": "Same synthetic user message and task; prompts/catalog/context differ. Historical wall time is not a paired JEV speedup.",
+      "usageDetails": {
+        "input_tokens": 2084,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 1954
+        },
+        "output_tokens": 212,
+        "output_tokens_details": {
+          "reasoning_tokens": 28
+        },
+        "total_tokens": 2296
+      }
+    },
+    "result": {
+      "provider": "LUNA_ARCHIVE",
+      "status": "OK",
+      "decision": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "yesterday",
+        "metric": "service_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "resolvedSkills": [
+        "financial"
+      ],
+      "interpretedOperations": [
+        "financial.report"
+      ],
+      "dependencies": [],
+      "answers": {},
+      "latencyMs": 4055.349399999999,
+      "usage": {
+        "inputTokens": 2084,
+        "outputTokens": 212
+      },
+      "estimatedCostUsd": null,
+      "actualCostUsd": null,
+      "modelRequested": "gpt-5.6-luna",
+      "modelReturned": "gpt-5.6-luna",
+      "requestId": "req_b86c4e140d89411bab1204eb95ca2163",
+      "error": null,
+      "fallbackReasons": [],
+      "executable": false
+    }
+  },
+  {
+    "caseId": "financial-received",
+    "inputFingerprint": "6bc1ca1fcded42fb9cbd3b9ff453b7425533fb7abef181632a1f1a980fbb8665",
+    "source": "everflair-gate25-remaining-real/result.json#network_log[0]",
+    "comparability": "decision_only",
+    "provenance": {
+      "arguments_sha256": "7f7d13deb0db99c3ad5fb7069f1897e8f854aa9181d65e7ea71b18b629c6cd77",
+      "source_status": "backend_verified_success",
+      "reason": "Same synthetic user message and task; prompts/catalog/context differ. Historical wall time is not a paired JEV speedup.",
+      "usageDetails": {
+        "input_tokens": 2084,
+        "input_tokens_details": {
+          "cache_write_tokens": 29,
+          "cached_tokens": 1925
+        },
+        "output_tokens": 216,
+        "output_tokens_details": {
+          "reasoning_tokens": 33
+        },
+        "total_tokens": 2300
+      }
+    },
+    "result": {
+      "provider": "LUNA_ARCHIVE",
+      "status": "OK",
+      "decision": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "yesterday",
+        "metric": "received_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "resolvedSkills": [
+        "financial"
+      ],
+      "interpretedOperations": [
+        "financial.report"
+      ],
+      "dependencies": [],
+      "answers": {},
+      "latencyMs": 2994.493999999999,
+      "usage": {
+        "inputTokens": 2084,
+        "outputTokens": 216
+      },
+      "estimatedCostUsd": null,
+      "actualCostUsd": null,
+      "modelRequested": "gpt-5.6-luna",
+      "modelReturned": "gpt-5.6-luna",
+      "requestId": "req_aa5ce053e8f749079d7438a58c3dd9e9",
+      "error": null,
+      "fallbackReasons": [],
+      "executable": false
+    }
+  },
+  {
+    "caseId": "financial-outstanding",
+    "inputFingerprint": "10760b54d756eba72aa0438918402a3829bec6ad7a05a4812b3ee3a784dcbb21",
+    "source": "everflair-gate25-remaining-real/result.json#network_log[1]",
+    "comparability": "decision_only",
+    "provenance": {
+      "arguments_sha256": "0ff251e8a052189d0f1066569e10eee6b59e2600fb6462eff93f30e370c63ec9",
+      "source_status": "backend_verified_success",
+      "reason": "Same synthetic user message and task; prompts/catalog/context differ. Historical wall time is not a paired JEV speedup.",
+      "usageDetails": {
+        "input_tokens": 2083,
+        "input_tokens_details": {
+          "cache_write_tokens": 28,
+          "cached_tokens": 1925
+        },
+        "output_tokens": 225,
+        "output_tokens_details": {
+          "reasoning_tokens": 41
+        },
+        "total_tokens": 2308
+      }
+    },
+    "result": {
+      "provider": "LUNA_ARCHIVE",
+      "status": "OK",
+      "decision": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "none",
+        "metric": "outstanding_receivables",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "resolvedSkills": [
+        "financial"
+      ],
+      "interpretedOperations": [
+        "financial.report"
+      ],
+      "dependencies": [],
+      "answers": {},
+      "latencyMs": 3395.6952999999994,
+      "usage": {
+        "inputTokens": 2083,
+        "outputTokens": 225
+      },
+      "estimatedCostUsd": null,
+      "actualCostUsd": null,
+      "modelRequested": "gpt-5.6-luna",
+      "modelReturned": "gpt-5.6-luna",
+      "requestId": "req_536f043c555b4e349ccbdacae9507d49",
+      "error": null,
+      "fallbackReasons": [],
+      "executable": false
+    }
+  },
+  {
+    "caseId": "financial-comparison",
+    "inputFingerprint": "662309abadee34cc4f6cf79ff7fb79a8cfa83f7282e30041ffd01da222acf7e9",
+    "source": "everflair-gate25-remaining-real/result.json#network_log[2]",
+    "comparability": "decision_only",
+    "provenance": {
+      "arguments_sha256": "7c4688b5e52ff79b74cfecdc1989d249aa94a8b522c9568fdfea0f1af0e502d7",
+      "source_status": "backend_verified_success",
+      "reason": "Same synthetic user message and task; prompts/catalog/context differ. Historical wall time is not a paired JEV speedup.",
+      "usageDetails": {
+        "input_tokens": 2086,
+        "input_tokens_details": {
+          "cache_write_tokens": 31,
+          "cached_tokens": 1925
+        },
+        "output_tokens": 223,
+        "output_tokens_details": {
+          "reasoning_tokens": 39
+        },
+        "total_tokens": 2309
+      }
+    },
+    "result": {
+      "provider": "LUNA_ARCHIVE",
+      "status": "OK",
+      "decision": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "comparison",
+        "metric": "service_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "resolvedSkills": [
+        "financial"
+      ],
+      "interpretedOperations": [
+        "financial.report"
+      ],
+      "dependencies": [],
+      "answers": {},
+      "latencyMs": 2824.879000000001,
+      "usage": {
+        "inputTokens": 2086,
+        "outputTokens": 223
+      },
+      "estimatedCostUsd": null,
+      "actualCostUsd": null,
+      "modelRequested": "gpt-5.6-luna",
+      "modelReturned": "gpt-5.6-luna",
+      "requestId": "req_78a6ee3c69d44d7390a72bac578df7b1",
+      "error": null,
+      "fallbackReasons": [],
+      "executable": false
+    }
+  },
+  {
+    "caseId": "financial-multiple",
+    "inputFingerprint": "f4270a2edfa4ec6f356cf7150209d218e9fb85f874db404f6b77624b199edd29",
+    "source": "everflair-gate25-remaining-real/result.json#network_log[3]",
+    "comparability": "decision_only",
+    "provenance": {
+      "arguments_sha256": "0fa25eef0061c0a56a2d62941425ed5e2463e47138fb44625e240b7d9016b11a",
+      "source_status": "backend_verified_success",
+      "reason": "Same synthetic user message and task; prompts/catalog/context differ. Historical wall time is not a paired JEV speedup.",
+      "usageDetails": {
+        "input_tokens": 2098,
+        "input_tokens_details": {
+          "cache_write_tokens": 43,
+          "cached_tokens": 1925
+        },
+        "output_tokens": 622,
+        "output_tokens_details": {
+          "reasoning_tokens": 134
+        },
+        "total_tokens": 2720
+      }
+    },
+    "result": {
+      "provider": "LUNA_ARCHIVE",
+      "status": "OK",
+      "decision": {
+        "skill": "financial",
+        "operation": "multiple",
+        "shape": "independent",
+        "period": "this_month",
+        "metric": "multiple",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "resolvedSkills": [
+        "financial"
+      ],
+      "interpretedOperations": [
+        "financial.report",
+        "financial.report",
+        "financial.report"
+      ],
+      "dependencies": [],
+      "answers": {},
+      "latencyMs": 5255.6379000000015,
+      "usage": {
+        "inputTokens": 2098,
+        "outputTokens": 622
+      },
+      "estimatedCostUsd": null,
+      "actualCostUsd": null,
+      "modelRequested": "gpt-5.6-luna",
+      "modelReturned": "gpt-5.6-luna",
+      "requestId": "req_2cfaa80626894dcc869d4e0c94e68efb",
+      "error": null,
+      "fallbackReasons": [],
+      "executable": false
+    }
+  },
+  {
+    "caseId": "communication-dependent-name",
+    "inputFingerprint": "8a9301d389348848c53188160037483a8b5459a270ebcad03e395b54b75d265c",
+    "source": "everflair-gate27-test4-revalidation/result.json#network[0]",
+    "comparability": "decision_only",
+    "provenance": {
+      "arguments_sha256": "9b2e43fffbfa852fd21578a171c480ad30935ccc68af6cd14ef39ab360c1e22f",
+      "source_status": "backend_verified_success",
+      "reason": "Same synthetic user message and task; prompts/catalog/context differ. Historical wall time is not a paired JEV speedup.",
+      "usageDetails": {
+        "input_tokens": 2831,
+        "input_tokens_details": {
+          "cache_write_tokens": 2701,
+          "cached_tokens": 0
+        },
+        "output_tokens": 409,
+        "output_tokens_details": {
+          "reasoning_tokens": 57
+        },
+        "total_tokens": 3240
+      }
+    },
+    "result": {
+      "provider": "LUNA_ARCHIVE",
+      "status": "OK",
+      "decision": {
+        "skill": "multiple",
+        "operation": "multiple",
+        "shape": "dependent",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "EXACT"
+      },
+      "resolvedSkills": [
+        "scheduling",
+        "communication"
+      ],
+      "interpretedOperations": [
+        "appointment.cancel",
+        "customer.message"
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1
+        }
+      ],
+      "answers": {},
+      "latencyMs": 5706.3747,
+      "usage": {
+        "inputTokens": 2831,
+        "outputTokens": 409
+      },
+      "estimatedCostUsd": null,
+      "actualCostUsd": null,
+      "modelRequested": "gpt-5.6-luna",
+      "modelReturned": "gpt-5.6-luna",
+      "requestId": "req_557ef8f53b604049b27d46d7eca48873",
+      "error": null,
+      "fallbackReasons": [],
+      "executable": false
+    }
+  }
+]

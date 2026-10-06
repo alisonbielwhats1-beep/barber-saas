@@ -11,8 +11,6 @@ import {
   ArrowLeft,
   CalendarPlus,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Search,
   ShoppingBag,
   Star,
@@ -27,18 +25,7 @@ import { useCart } from "@/lib/cart";
 import { friendlyError } from "@/lib/booking-errors";
 import { effectivePublicBookingLeadDays } from "@/lib/pricing";
 import type { ClientSession } from "@/lib/client-auth";
-import {
-  addMonths,
-  addDays,
-  eachDayOfInterval,
-  endOfMonth,
-  format,
-  isSameDay,
-  isSameMonth,
-  startOfMonth,
-  startOfWeek,
-  endOfWeek,
-} from "date-fns";
+import { addDays, format, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import {
@@ -51,10 +38,12 @@ import {
   AvailabilityRequestError,
   availabilityErrorMessage,
   requestAvailability,
+  requestBookableDays,
 } from "@/lib/availability-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { SalonLocationLink } from "../salon-location-link";
+import { BookingCalendar } from "./booking-calendar";
 import { clientBookingReturnTo } from "@/lib/client-routes";
 import { isDateKey } from "@/lib/time";
 
@@ -176,6 +165,10 @@ export function BookingFlow({
       : null;
   });
   const [date, setDate] = useState<Date>(() => new Date(`${initialDate}T12:00:00`));
+  // Data escolhida pelo cliente (clique, link ou retorno do login), e não o
+  // "hoje" padrão. Uma data assim pode ficar num dia lotado para a fila.
+  const dateChosenRef = useRef(initialDate === initialDateKey);
+  const dateKeyRef = useRef(initialDate);
   const [viewMonth, setViewMonth] = useState<Date>(() =>
     startOfMonth(new Date(`${initialDate}T12:00:00`)),
   );
@@ -193,6 +186,13 @@ export function BookingFlow({
   const [retryUntilMs, setRetryUntilMs] = useState<number | null>(null);
   const [retryClockMs, setRetryClockMs] = useState(0);
   const [occupied, setOccupied] = useState<{ appointmentId: string; time: string }[]>([]);
+  // `free: null` = consulta dos dias falhou; o calendário fica como antes.
+  const [bookableDays, setBookableDays] = useState<{
+    key: string;
+    free: Set<string> | null;
+    waitlist: Set<string>;
+  } | null>(null);
+  const [daysVersion, setDaysVersion] = useState(0);
   const [waitlistTarget, setWaitlistTarget] = useState<{ appointmentId: string; time: string } | null>(null);
   const [waitlistJoined, setWaitlistJoined] = useState<{
     appointmentId: string;
@@ -309,6 +309,7 @@ export function BookingFlow({
       }
       if (s.date && s.date >= todayDate && s.date <= maxBookingDateKey) {
         const d = new Date(`${s.date}T12:00:00`);
+        dateChosenRef.current = true;
         setDate(d);
         setViewMonth(startOfMonth(d));
       }
@@ -375,6 +376,45 @@ export function BookingFlow({
   const retrySecondsRemaining = retryUntilMs === null
     ? 0
     : Math.max(0, Math.ceil((retryUntilMs - retryClockMs) / 1_000));
+
+  const selectedDateKey = format(date, "yyyy-MM-dd");
+  useEffect(() => {
+    dateKeyRef.current = selectedDateKey;
+  }, [selectedDateKey]);
+
+  // Dias com horário livre (e dias lotados que só aceitam fila) da janela
+  // inteira. Ao trocar serviço/profissional, o calendário vai para o primeiro
+  // dia com horário livre, salvo se o cliente já escolheu um dia válido.
+  const daysKey = selectedServices.length > 0 && proId && (rescheduleId || selectedServices.length === 1)
+    ? [salonId, proId, serviceIds.join(","), rescheduleId ?? ""].join("|")
+    : null;
+  useEffect(() => {
+    if (!bookingStateReady || !daysKey || !proId) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ salonId, professionalId: proId, serviceId: serviceIds.join(",") });
+    if (rescheduleId) params.set("rescheduleId", rescheduleId);
+    requestBookableDays(`/api/availability/days?${params}`, { signal: controller.signal })
+      .then((result) => {
+        const free = new Set(result.freeDays);
+        const waitlist = new Set(result.waitlistDays);
+        setBookableDays({ key: daysKey, free, waitlist });
+        const current = dateKeyRef.current;
+        if (free.has(current) || (waitlist.has(current) && dateChosenRef.current)) return;
+        const target = result.freeDays[0] ?? (waitlist.has(current) ? undefined : result.waitlistDays[0]);
+        if (!target || target === current) return;
+        const next = new Date(`${target}T12:00:00`);
+        setDate(next);
+        setViewMonth(startOfMonth(next));
+      })
+      .catch((requestError: unknown) => {
+        if (requestError instanceof AvailabilityRequestError && requestError.code === "aborted") return;
+        setBookableDays({ key: daysKey, free: null, waitlist: new Set() });
+      });
+    return () => controller.abort();
+  }, [bookingStateReady, daysKey, daysVersion, salonId, proId, serviceIds, rescheduleId]);
+  const dayAvailability = bookableDays && bookableDays.key === daysKey ? bookableDays : null;
+  const daysLoading = !!daysKey && !dayAvailability;
+  const freeDays = dayAvailability?.free ?? null;
 
   // Disponibilidade real: working hours + time-offs + agendamentos existentes
   useEffect(() => {
@@ -503,12 +543,6 @@ export function BookingFlow({
     idempotencyKeyRef.current = null;
   }, [serviceIds, proId, slot, date, rescheduleId]);
 
-  const calendarDays = useMemo(() => {
-    const first = startOfWeek(startOfMonth(viewMonth), { weekStartsOn: 1 });
-    const last = endOfWeek(endOfMonth(viewMonth), { weekStartsOn: 1 });
-    return eachDayOfInterval({ start: first, end: last });
-  }, [viewMonth]);
-
   function handleConfirmClick() {
     if (
       selectedServices.length === 0 ||
@@ -590,12 +624,14 @@ export function BookingFlow({
           idempotencyKeyRef.current = null;
           setSlot(null);
           setSlotsVersion((version) => version + 1);
+          setDaysVersion((version) => version + 1);
           cart.clear();
         }
         if (responseBody.error === "SLOT_TAKEN") {
           idempotencyKeyRef.current = null;
           setSlot(null);
           setSlotsVersion((version) => version + 1);
+          setDaysVersion((version) => version + 1);
         }
       }
     } catch {
@@ -964,94 +1000,44 @@ export function BookingFlow({
       {/* Data e hora */}
       <div>
         <h3 className="mb-3 text-sm font-semibold">Data e hora</h3>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setViewMonth((m) => addMonths(m, -1))}
-              disabled={format(viewMonth, "yyyy-MM") <= todayDate.slice(0, 7)}
-              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-30"
-              aria-label="Mês anterior"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <p className="text-sm font-medium">
-              <span className="text-muted-foreground">{format(viewMonth, "yyyy")}</span>{" "}
-              <span className="text-primary">
-                {format(viewMonth, "MMMM", { locale: ptBR })}
-              </span>
+        <BookingCalendar
+          todayDate={todayDate}
+          maxDateKey={maxBookingDateKey}
+          selected={date}
+          viewMonth={viewMonth}
+          onViewMonthChange={setViewMonth}
+          dayState={(dateKey) =>
+            !freeDays || freeDays.has(dateKey)
+              ? "available"
+              : dayAvailability?.waitlist.has(dateKey) ? "waitlist" : "closed"}
+          onSelect={(d) => {
+            invalidatePendingSlot();
+            dateChosenRef.current = true;
+            setSlot(null);
+            setDate(d);
+          }}
+        >
+          {dayAvailability?.waitlist && [...dayAvailability.waitlist].some(key => key.startsWith(format(viewMonth, "yyyy-MM"))) && freeDays && (
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-warning" />
+              Dia lotado: dá para entrar na fila de espera.
             </p>
-            <button
-              type="button"
-              onClick={() => setViewMonth((m) => addMonths(m, 1))}
-              disabled={format(addMonths(viewMonth, 1), "yyyy-MM-dd") > maxBookingDateKey}
-              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-30"
-              aria-label="Próximo mês"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground">
-            {[
-              ["S", "segunda-feira"],
-              ["T", "terça-feira"],
-              ["Q", "quarta-feira"],
-              ["Q", "quinta-feira"],
-              ["S", "sexta-feira"],
-              ["S", "sábado"],
-              ["D", "domingo"],
-            ].map(([shortLabel, fullLabel]) => (
-              <span key={fullLabel} className="py-1">
-                <span aria-hidden="true">{shortLabel}</span>
-                <span className="sr-only">{fullLabel}</span>
-              </span>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((d) => {
-              const inMonth = isSameMonth(d, viewMonth);
-              const dateKey = format(d, "yyyy-MM-dd");
-              const past = dateKey < todayDate;
-              const beyondWindow = dateKey > maxBookingDateKey;
-              const selected = isSameDay(d, date);
-              const disabled = past || beyondWindow || !inMonth;
-              return (
-                <button
-                  type="button"
-                  key={d.toISOString()}
-                  disabled={disabled}
-                  onClick={() => {
-                    invalidatePendingSlot();
-                    setSlot(null);
-                    setDate(d);
-                  }}
-                  aria-label={format(d, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  aria-pressed={selected}
-                  aria-current={format(d, "yyyy-MM-dd") === todayDate ? "date" : undefined}
-                  className={`grid h-11 place-items-center rounded-full text-sm transition ${
-                    selected
-                      ? "bg-primary font-semibold text-primary-foreground"
-                      : disabled
-                        ? "text-muted-foreground/30"
-                        : "text-foreground hover:bg-muted"
-                  }`}
-                >
-                  {format(d, "d")}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-3 text-center text-[11px] text-muted-foreground">
-            Agendamento online disponível até {format(maxBookingDate, "dd/MM/yyyy")}.
-          </p>
+          )}
+          {freeDays && freeDays.size === 0 ? (
+            <p className="mt-3 text-center text-[11px] font-medium text-foreground">
+              Sem horários livres até {format(maxBookingDate, "dd/MM/yyyy")}.
+            </p>
+          ) : (
+            <p className="mt-3 text-center text-[11px] text-muted-foreground">
+              Agendamento online disponível até {format(maxBookingDate, "dd/MM/yyyy")}.
+            </p>
+          )}
           {pricingLabel && (
             <p className="mt-2 rounded-lg bg-warning/10 px-3 py-2 text-center text-[11px] font-medium text-warning">
               {pricingLabel}: o valor especial aparece no resumo da reserva.
             </p>
           )}
-        </div>
+        </BookingCalendar>
       </div>
 
       {/* Horários — disponibilidade real do profissional */}
@@ -1104,9 +1090,17 @@ export function BookingFlow({
                 : "Tentar novamente"}
             </button>
           </div>
+        ) : slots.length === 0 && daysLoading ? (
+          <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="h-9 animate-pulse rounded-full bg-muted" />
+            ))}
+          </div>
         ) : slots.length === 0 ? (
           <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
-            Sem horários livres neste dia. Tente outra data.
+            {occupied.length > 0
+              ? "Dia lotado. Entre na fila de um horário ocupado abaixo ou escolha outro dia."
+              : "Sem horários livres neste dia. Tente outra data."}
           </p>
         ) : (
           <>{slotMode === "FIT" && <div className="mb-3 rounded-xl border border-success/30 bg-success/5 p-3"><p className="mb-2 text-xs font-medium">Sugestões de encaixe</p><div className="flex flex-wrap gap-2">{bestFitSlots(slots).map(s => <button key={s} type="button" onClick={() => setSlot(s)} aria-pressed={slot === s} className="min-h-11 rounded-lg border border-success/40 px-3 text-sm">{s}</button>)}</div><p className="mt-2 text-xs text-muted-foreground">Horários que aproveitam intervalos menores da agenda. Você também pode escolher abaixo.</p></div>}<div className="grid grid-cols-4 gap-2">
@@ -1149,7 +1143,7 @@ export function BookingFlow({
       </div>
 
       {/* Horários ocupados — entrar na fila de espera */}
-      {!slotsLoading && proId && occupied.length > 0 && (
+      {!slotsLoading && !(daysLoading && slots.length === 0) && proId && occupied.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
             Ocupados — entre na fila

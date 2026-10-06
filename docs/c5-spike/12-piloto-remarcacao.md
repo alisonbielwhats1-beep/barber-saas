@@ -1,0 +1,443 @@
+# Piloto da remarcação: especificação da E1
+
+Base: decisões 25–31 do dono, Adendo 9 do protocolo e o resultado da E0. Esta é a fonte única para os testes, que são escritos antes do código, e para a implementação.
+
+## 0. Princípio e proibições
+
+**A Luna interpreta a linguagem. O código depois dela não reinterpreta o português.**
+
+| No caminho do piloto é proibido | No caminho do piloto é permitido |
+|---|---|
+| Usar maiúscula, minúscula ou pontuação como prova de identidade ou de intenção. | Normalizar as **menções que a Luna extraiu** (minúsculas, sem acento, partículas de nome do `nameTokens` já existente) para buscar registros reais. |
+| Usar listas de palavras (glue, classes fechadas, verbos, negadores). | Consultar registros reais do salão, sempre pelo tenant da sessão. |
+| Usar citação literal como prova de identidade ou de valor. | Calcular data e hora a partir de operadores tipados e do `received_at` congelado. |
+| Ler limites de cláusula, ler negação ou aplicar a gramática temporal sobre o texto do dono. | Detectar ambiguidade real: mais de um registro compatível, ou duas leituras de tempo válidas nos dados. |
+| Usar o validador de fatos do Agent (`secretary-agent-validator.ts`) e o fallback para a C4. | Localizar o atendimento **uma única vez**. |
+| | Verificar disponibilidade e regras pelas operações reais da agenda. |
+| | **Verificação estreita de proveniência:** uma pista de origem só pode escolher entre **2 ou mais atendimentos reais** se a menção dela aparecer na mensagem (busca normalizada). Se não aparecer, a pista é ignorada e a Secretária pergunta. Essa verificação nunca descarta a ação nem muda um valor. |
+
+## 1. Escopo e flag
+
+- **Flag:** `SALON_SECRETARY_PILOT_RESCHEDULE=true`, desligada por padrão. Com ela desligada, o comportamento é byte a byte o atual.
+  - Com ela ligada, o caminho do piloto atende **todas** as mensagens da sessão.
+  - Não há loop de agente, validador do Agent, nem fallback para a C4.
+  - Os portões de ambiente, papel e tenant continuam como estão.
+- **Dentro do escopo:** `appointment.change` de **um** atendimento existente: dia e/ou hora e/ou profissional. O serviço é sempre mantido.
+- **Fora do escopo:** cancelar, bloquear, trocar serviço, combo, recorrência, agendar, consultar, multi-ação e mensagem ao cliente.
+  - **Tudo fora do escopo:** resposta clara, sem efeito.
+  - **Parte fora do escopo:** a Secretária pergunta antes de propor só a parte possível.
+- **Tempo:** até 15 s por chamada, 45 s no total. Uma chamada à Luna por mensagem, e no máximo um reparo de formato dentro do prazo.
+
+## 2. Contrato da Luna: ferramenta `interpretar_remarcacao`
+
+Esquema estrito. Toda `mencao` copia as palavras do dono como ele escreveu.
+
+```jsonc
+{
+  "tipo": "remarcar" | "fora_do_escopo" | "misto" | "conversa" | "resposta",
+  "resposta_a": "<questionId>" | null,          // continuação de uma pergunta aberta
+  "desistir": false,                            // retirar o rascunho aberto (não é cancelar atendimento)
+  "cliente": { "mencao": "<palavras do dono>" | null },
+  "origem": {                                   // pistas do atendimento EXISTENTE, só as que o dono deu
+    "dia": TempoDia | null, "hora": TempoHora | null,
+    "profissional_mencao": string | null, "servico_mencao": string | null,
+    "posicao": { "valor": "primeiro" | "ultimo", "mencao": string } | null   // revisão E1: com menção, passa pela verificação de proveniência
+  },
+  "aceita_parcial": true | false | null,        // só vale quando resposta_a é a pergunta de escopo; o código nunca deduz "sim"
+  "destino": {
+    "dia": TempoDia | null, "hora": TempoHora | null,
+    "profissional": { "modo": "manter" | "nomeado" | "qualquer" | null, "mencao": string | null }
+  },
+  "fora_do_escopo": [ { "tipo": "cancelar"|"bloquear"|"trocar_servico"|"agendar"|"consultar"|"outra_acao"|"recorrencia"|"mensagem", "mencao": string } ]
+}
+TempoDia  = { "tipo": "data", "dia": 1-31, "mes": 1-12 | null, "mencao": string }
+          | { "tipo": "dia_semana", "dia_semana": 1-7, "qualificador": "este" | "proximo" | null, "mencao": string }
+          | { "tipo": "relativo_hoje", "dias": int, "mencao": string }
+          | { "tipo": "mesmo_da_origem", "mencao": string }
+          | { "tipo": "origem_mais_dias", "dias": int, "mencao": string }      // "uma semana pra frente" = 7
+TempoHora = { "tipo": "relogio", "hora": 0-23, "minuto": 0-59, "periodo": "manha" | "tarde" | "noite" | null, "mencao": string }
+          | { "tipo": "mesmo_da_origem", "mencao": string }
+          | { "tipo": "origem_mais_minutos", "minutos": int, "mencao": string } // "duas horas e meia pra frente" = 150
+          | { "tipo": "a_definir", "mencao": string }
+```
+
+- **O que a Luna recebe:**
+  - a data local e o dia da semana do `received_at`;
+  - o fuso do salão;
+  - **os nomes da equipe e do catálogo de serviços**;
+  - na continuação, o resumo do plano aberto e a pergunta pendente (`questionId`, ação, campo).
+- **O que a Luna não recebe:** a lista de clientes (decisão 22).
+- **O que a Luna nunca decide:** identidade final, atendimento, data calculada, disponibilidade ou aprovação.
+
+## 3. Resolvedor determinístico
+
+1. **Cliente:** normaliza a menção e busca no salão. Estados:
+
+   | Estado | Quando | Resultado |
+   |---|---|---|
+   | **exato** | os tokens da menção são iguais aos do cadastro, e é único | vincula (`explicit`) |
+   | **parcial compatível** | os tokens da menção estão contidos num cadastro único | vincula e mostra o nome completo na proposta (`explicit`) |
+   | **ambíguo** | 2 ou mais compatíveis | pergunta com as opções reais |
+   | **contraditório** | o candidato único não tem algum token da menção | pergunta «Encontrei X, mas você escreveu Y. É essa cliente ou outra pessoa?». **Nunca substitui** |
+   | **não encontrado** | nenhum compatível | pergunta, com sugestões tolerantes reais quando existirem |
+   | **busca indisponível** | a busca falhou | erro seguro, nunca "não existe" |
+
+2. **Atendimento:** considera os atendimentos futuros (a partir do `received_at`, status PENDING ou CONFIRMED) da cliente resolvida, e filtra pelas pistas de origem (dia e hora pelo normalizador, profissional e serviço resolvidos, posição no dia).
+
+   | Atendimentos restantes | Resultado |
+   |---|---|
+   | 0 | pergunta, mostrando os próximos atendimentos dela |
+   | 1 | vincula (`derived`, mostrado na proposta) |
+   | 2 ou mais | pergunta com as opções reais |
+
+   Uma pista que escolhe entre 2 ou mais atendimentos passa pela verificação estreita de proveniência (§0).
+
+3. **Data de destino**, sempre a partir do `received_at` congelado e no fuso do salão:
+
+   | Operador | Regra |
+   |---|---|
+   | `data` | Sem mês: a próxima ocorrência a partir de hoje. |
+   | `relativo_hoje` | hoje + n. |
+   | `mesmo_da_origem` | dia do atendimento original (`inherited`). |
+   | `origem_mais_dias` | dia original + n (`derived`). |
+   | `dia_semana` sem qualificador | Leituras: (i) a 1ª ocorrência depois de hoje; (ii) a 1ª ocorrência depois do dia original. Se (i) ≠ (ii), a Secretária **pergunta** com as duas datas (decisão 27). |
+   | `dia_semana` com "este" | A leitura (i). |
+   | `dia_semana` com "proximo" | Pergunta se as duas leituras divergirem. |
+   | Dia da semana igual ao de hoje (sem qualificador ou "este") | Hoje também é uma leitura, desde que a hora de destino (se já conhecida) ainda esteja depois do `received_at`. Se as leituras divergirem, pergunta. Em pistas de origem, "este" conta a partir de hoje, inclusive. |
+
+   Revisão E1: na resposta à pergunta de escopo, `aceita_parcial` true segue só com a remarcação; false retira a ação sem efeito; null pergunta de novo.
+
+4. **Hora de destino:**
+   - **`relogio` com hora de 12 a 23, ou com período:** a hora como foi dita.
+   - **`relogio` com hora de 1 a 11 e sem período:** as leituras h e h+12 são filtradas pelo expediente do profissional ou do salão naquele dia (decisão 18).
+     - Sobra 1: usa (`derived`, mostrada na proposta).
+     - Sobram 2: pergunta.
+     - Sobra 0: pergunta.
+   - **`mesmo_da_origem`:** a hora original (`inherited`).
+   - **`origem_mais_minutos`:** a hora original + n (`derived`).
+   - **`a_definir`:** pergunta a hora.
+
+5. **Profissional:**
+
+   | Modo | Resultado |
+   |---|---|
+   | `manter` ou não informado | o profissional atual (`inherited`) |
+   | `nomeado` | resolvido na equipe, com os mesmos estados do cliente (`explicit`) |
+   | `qualquer` | regra da decisão 15 (`derived`, mostrado); se ninguém estiver livre, pergunta |
+
+6. **Serviço:** sempre o atual (`inherited`).
+
+7. **Regras da agenda** (conflito, expediente, se o profissional faz o serviço, duração, preço): só pelas operações reais, ao montar a proposta. Se uma regra for violada, não há proposta; a Secretária explica e pergunta outro horário ou outro profissional, e mantém o que já foi resolvido.
+
+## 4. Estado do plano (redutor)
+
+```
+plan { planId, revision, action: { actionId: "a1", status, fields, questions[], proposal? }, turns[] }
+status: draft | pending | proposal_ready | approved | executing | done | withdrawn | needs_review
+fields.{customer, appointment, date, time, professional, service} = { value, display, provenance: explicit|inherited|derived|unresolved, mencao? }
+question = { questionId, actionId, field, options?, revision, open }
+```
+
+- **Uma resposta** (`resposta_a` igual a uma pergunta aberta) só preenche **aquele campo** daquela ação.
+- **Uma correção** independente vira um patch com os campos dela.
+- **Pergunta já fechada ou de outra revisão:** nada muda e a Secretária pergunta de novo.
+- **Aceitação de patch:** só com `baseRevision` igual à revisão atual (comparação de versão). Toda mudança aceita gera revision+1 e invalida a proposta e a aprovação anteriores.
+- **`desistir`:** a ação vira `withdrawn`, sem efeito na agenda. Se vier junto com uma correção, vale o rascunho corrigido, com nova revisão; o valor antigo nunca é gravado.
+- **`received_at`:** é congelado por turno e guardado no turno.
+- **Turno idempotente:** o mesmo `clientTurnId` devolve o resultado guardado, sem nova chamada à Luna (coluna `clientTurnId` da 027, só no banco local).
+
+## 5. Proposta, Confirmar e gravação
+
+- **Proposta:** pelas operações reais da agenda (`requestStaffReschedule` / `prepare` de alteração), com o **atendimento já resolvido**. A preparação não localiza de novo: atrás da flag, ela mantém o `appointment_ref` do piloto, hoje descartado em `prepareResolvedScheduling`.
+- **Texto da proposta:**
+  - identidade completa;
+  - serviço e profissional;
+  - ANTES e DEPOIS;
+  - duração e preço inalterados;
+  - suposições derivadas;
+  - «O cliente será avisado da remarcação.» (decisão 31).
+- **Confirmar:** `proposal_ref` + `draft_revision` + revisão do plano, como já existe. Antes de gravar, a Secretária confere o horário de novo, com trava e snapshot. A gravação gera recibo no journal e é idempotente.
+- **Confirmar repetido depois de tempo esgotado:** consulta primeiro o recibo do `proposal_ref`, e só depois aplica as regras de expiração.
+- **Falha da Luna** (tempo esgotado ou formato inválido depois do reparo): «Não consegui entender com segurança; nada foi alterado.» Os campos já resolvidos são preservados. Não há C4.
+
+## 6. Telemetria (só códigos)
+
+`turnId`, `planId`/revisão, `questionId`, `proposal_ref`, recibo, proveniência por campo, latência, custo e o motivo de cada pergunta.
+
+## 7. Testes, escritos antes da implementação
+
+**Unidade** (funções puras, leitor em memória):
+- resolvedor de cliente, nos 6 estados;
+- atendimento (0, 1 ou vários; posição; proveniência estreita);
+- normalizador de data e hora, todos os operadores, decisão 27 e decisão 18;
+- profissional (manter, nomeado, qualquer);
+- redutor (resposta presa à pergunta, correção, pergunta velha, comparação de versão, desistir mais corrigir, revisão invalida proposta);
+- mudar maiúsculas, acentos ou palavras de contexto na menção não muda a identidade, a não ser que a menção mude de verdade;
+- todo campo tem proveniência.
+
+**Integração** (SalonSecretary com modelo stub que devolve o contrato tipado, banco local 55441):
+- o fluxo «Remarque a Ana com Carlos para sexta às 15h»: localiza, mostra antes e depois, confirma e altera **exatamente** o registro certo; as outras linhas e os outros tenants ficam intactos;
+- duas Anas;
+- sobrenome incompatível;
+- horário ocupado (antes da proposta, e depois dela, na confirmação);
+- correção para 16h;
+- troca de profissional;
+- desistir e corrigir na mesma mensagem;
+- resposta atrasada ou de outra pergunta;
+- Confirmar velho;
+- mensagem repetida (mesmo `clientTurnId`);
+- Confirmar repetido;
+- tempo esgotado depois da gravação, resolvido pelo recibo;
+- pedido em parte fora do escopo, que pergunta;
+- pedido todo fora do escopo, com resposta clara;
+- aviso ao cliente presente na proposta;
+- com a flag desligada, tudo idêntico ao atual.
+
+## 8. Fora da E1
+
+Consultar, agendar, multi-ação, cancelar, bloquear, trocar serviço, voz, novo desenho da interface e produção.
+
+## 9. Revisão final da E1 (correções, ainda atrás da flag)
+
+- **Proveniência por turno:** cada pista de origem é conferida uma vez, contra a mensagem que a trouxe. Uma pista sem prova nunca substitui uma pista provada do mesmo campo. Um atendimento já vinculado só é localizado de novo quando uma pista provada muda de valor; outras palavras para o mesmo valor não contam. Se o vinculado continua entre os que sobram, ele fica.
+- **Dia do turno:** cada operador de dia guarda o `received_at` do turno em que foi dito. Um turno posterior não o desloca; se o dia já passou, a Secretária pergunta.
+- **O que a mensagem muda:** uma correção, uma desistência com correção e uma mensagem sem mudança são decididas pelos operadores da própria mensagem, nunca por uma nova resolução. Uma mensagem que não muda nada mantém a revisão e a proposta.
+- **Fora do escopo:** a parte fora do escopo nunca some em silêncio. Ela vira a pergunta de escopo, inclusive numa desistência com correção, ou um aviso na resposta. Depois do sim à pergunta de escopo, ela não é perguntada de novo.
+- **Contrato:** a mensagem tem uma única remarcação; uma segunda vai em `fora_do_escopo` como `outra_acao` (`misto`). As menções de nome levam só o nome. Há um novo operador de dia: `{ "tipo": "mes_relativo", "dia": 1-31, "meses": 0-12, "mencao": string }`.
+- **Recibo primeiro:** antes de expirar, retirar ou preparar de novo a proposta do plano, e antes da revisão e da impressão digital do Confirmar, a Secretária consulta o recibo do `proposal_ref` do plano. Uma gravação já feita é informada como feita. Se o journal não pode ser lido, nada é retirado.
+- **Mensagem repetida:** o mesmo `clientTurnId` devolve a resposta guardada só enquanto o plano é o mesmo. Se o plano mudou, devolve o estado atual.
+- **Toque:** cada toque nomeia a pergunta (`<questionId>/<id da opção>`). Um toque num profissional vincula esse registro. Um toque recusado não muda nada e conta como turno da sessão.
+- **Execução paga:** `--run-cap-usd` limita o gasto da própria execução antes de cada chamada (`AGENDA_RUN_SPEND_CAP`). O braço do piloto registra o progresso do plano e as opções reais da pergunta e pode tocar nelas.
+
+## 10. E2-A (Adendo 10): as três causas do gate, sem capacidade nova
+
+Ao §2 e ao §3, nesta ordem de precedência:
+
+1. **Semântica de `fora_do_escopo`.**
+   - Um item de `fora_do_escopo` só existe quando o dono **pede uma ação separada**, com efeito próprio, que ele quer que a Secretária faça **além** desta remarcação. Pode ser na agenda (cancelar, bloquear, agendar, trocar serviço, repetir), numa comunicação (recado ao cliente) ou uma consulta pedida **por si**.
+   - **Fica dentro da remarcação**, e nunca vai para `fora_do_escopo`:
+     - o motivo, o contexto e as cortesias;
+     - as correções da própria remarcação ("às 10, não, às 11");
+     - as referências ao atendimento (quem, qual, de quando, com quem, qual serviço);
+     - as condições da remarcação ("se tiver vaga", "vê se cabe", "mantém o mesmo profissional");
+     - as informações sobre a cliente;
+     - uma verificação de disponibilidade que serve à própria remarcação.
+   - O contrato ganha **`observacoes: string[]`** (até 6 itens de até 120 caracteres, cada um copiado da mensagem). É um lugar explícito para motivo e contexto.
+     - O código **nunca** lê nem interpreta `observacoes`; elas entram só na telemetria, como contagem.
+     - `fora_do_escopo` passa a exigir, por item, `pedido` com as palavras do pedido separado (no lugar de `mencao`).
+   - A semântica fica na descrição do esquema e no prompt, com **exemplos inventados** e contraexemplos adversariais:
+     - contexto que parece ação, mas não é;
+     - ação real que parece contexto.
+   - O código continua sem ler o português. A detecção de ação real fora do escopo continua obrigatória, e a pergunta de escopo continua igual.
+2. **Dia da semana.** `dia_semana` passa a ser o enum `"segunda"|"terca"|"quarta"|"quinta"|"sexta"|"sabado"|"domingo"`, em origem e destino, sem número.
+   - O código converte o valor tipado do enum no dia da semana. Isso é tabela de dados, não leitura do português.
+   - Calcula a data a partir do `received_at` congelado, no fuso do salão.
+   - As regras da decisão 27 e da "este"/"proximo"/hoje (§3) não mudam.
+3. **Serviço como pista do atendimento.** `origem.servico_mencao` vira `origem.servico: { "mencao": string, "catalogo": string[] } | null`.
+   - `catalogo` traz os nomes **exatos** do catálogo enviado à Luna que a menção pode designar: um ou mais, ou vazio se nenhum couber. A Luna interpreta; o código só confere fatos.
+   - **Nomes:** valem só os de `catalogo` que existem exatamente no catálogo do salão (comparação normalizada de caixa e acento, nome contra nome). Um nome desconhecido é descartado.
+   - **Menção:** a verificação estreita de proveniência vale para `mencao`.
+   - **Filtragem:** os atendimentos futuros da cliente são filtrados pelos ids desses serviços.
+
+   | Resultado | Ação |
+   |---|---|
+   | Um atendimento compatível | Resolve (`derived`, mostrado). |
+   | Dois ou mais compatíveis | Pergunta, com as opções reais. |
+   | Nenhum compatível, ou o serviço contradiz o atendimento indicado pelas outras pistas | Pergunta, mostrando os atendimentos dela. |
+   | Lista vazia ou só nomes desconhecidos | A pista não decide nada: se ela era necessária para escolher, pergunta. |
+
+   - A antiga comparação por tokens do nome do serviço sai.
+   - Não há similaridade textual em nenhum ponto.
+
+### 10.4 Revisão adversarial da E2-A (antes da bateria, ainda atrás da flag)
+
+Emendas ao §10, cada uma com teste de regressão escrito antes do código. Nenhuma lê o português do dono depois da Luna.
+
+- **Serviço sem nome do catálogo (PRINCIPLE-1; substitui a última linha da tabela do §10.3):** com a menção provada na mensagem, uma lista vazia ou só de nomes desconhecidos não casa com atendimento nenhum. A Secretária pergunta, mostrando os atendimentos dela, mesmo quando ela tem um só. Uma menção sem prova continua ignorada.
+- **Atendimento com vários serviços (SERVICE-1):** a pista de serviço confere todos os serviços do atendimento (o principal e o de cada item), sempre por id exato.
+- **Resposta a uma pergunta de atendimento (FLOW-1):** é resolvida só entre as opções daquela pergunta, pelas pistas da própria resposta, provadas nela. Essas pistas substituem as pendentes.
+  - Uma opção compatível: vincula.
+  - Várias: pergunta entre elas.
+  - Nenhuma: pergunta de novo.
+  - Resposta sem pista provada nunca escolhe: pergunta de novo.
+- **observacoes (OBS-1; substitui o limite do §10.1):** até 20 itens, cada um até o limite da própria mensagem (1000 caracteres). Um campo que o código não lê nunca derruba o turno.
+- **Limites ditos no prompt (CONTRACT-1):** no máximo 20 trechos em observacoes e 10 nomes em catalogo. Se mais de 10 couberem, catalogo vem vazio e a Secretária pergunta.
+- **Reparo de formato (REPAIR-1):** cada código de regra tem uma frase fixa, escrita pelos desenvolvedores, com as saídas possíveis. Para misto: um pedido separado em fora_do_escopo, ou tipo remarcar com o contexto em observacoes. A nota nunca traz texto do modelo, e as frases entram na versão do contrato.
+- **Semântica de fora_do_escopo (SEMANTICS-1/2/3):** no prompt e na descrição do esquema, com três exemplos inventados novos.
+  - O sistema já avisa o cliente de toda remarcação (decisão 31). Avisar este cliente desta mudança é parte dela; um recado com outro conteúdo, ou para outra pessoa, é pedido separado.
+  - Tirar o atendimento da mesma cliente de um horário para pôr em outro, com quaisquer palavras, é esta remarcação (decisão 4). Cancelar só é pedido separado quando o atendimento sai sem novo horário, ou quando é outro atendimento.
+  - Um desejo do cliente repassado pelo dono, para o salão fazer algo além do dia, do horário ou do profissional deste atendimento, é pedido separado. Uma preferência ou informação que não pede nada fica em observacoes. Não há regra de desempate a favor de fora_do_escopo.
+- **Catálogo enviado à Luna (CATALOG-1):** todos os nomes que o leitor devolve (até 400), cortados só acima de um orçamento de bytes da requisição. O corte é contado na telemetria.
+- **Bateria DEV (REGRESSION-2):** não compartilha nome, nome de catálogo, 3-grama de conteúdo nem par de palavras de conteúdo com os exemplos do prompt. Um teste confere.
+
+## 11. E2-B (Adendo 11): âncora temporal explícita e delegação de profissional
+
+1. **Deslocamento com âncora** (substitui `relativo_hoje`, `origem_mais_dias` e `origem_mais_minutos`; `data`, `dia_semana` (enum), `mes_relativo`, `mesmo_da_origem`, `relogio` e `a_definir` não mudam):
+   - **Dia:**
+     ```
+     { "tipo": "deslocamento", "quantidade": int, "unidade": "dias"|"semanas",
+       "ancoras": ("origem"|"hoje"|"data_citada")[1..2], "data_citada": { "dia": 1-31, "mes": 1-12|null, "mencao": string } | null,
+       "mencao": string }
+     ```
+   - **Hora:**
+     ```
+     { "tipo": "deslocamento", "minutos": int, "ancoras": ("origem"|"agora")[1..2], "mencao": string }
+     ```
+   - **Cálculo:** a Luna diz a operação e a(s) âncora(s) plausível(is); não calcula. O código calcula cada leitura:
+     - **origem:** a data ou hora do atendimento;
+     - **hoje/agora:** o `received_at` congelado no fuso do salão;
+     - **data_citada:** a data literal, calculada como o operador `data`.
+   - **Uma âncora:** usa (`derived`, mostrada na proposta).
+   - **Duas âncoras:** se as leituras coincidem, usa. Se divergem, **pergunta** com as duas datas ou horas reais, presa ao campo `date` ou `time` (motivo `ANCHOR_TWO_READINGS`).
+   - **Âncora `data_citada` sem `data_citada`, ou o contrário:** o contrato é inválido, e cabe um único reparo.
+   - **Limites:** os mesmos de antes (±366 dias, ±1440 min). Uma data passada continua sendo perguntada.
+   - **Estado antigo** (só no banco local): o carregador converte `relativo_hoje → hoje`, `origem_mais_dias → origem`, `origem_mais_minutos → origem`.
+2. **Delegação de profissional:** `profissional.modo` ganha `"outro"`. A Luna marca a intenção ("qualquer" = quem estiver livre, inclusive o atual; "outro" = alguém diferente do atual). O código aplica a decisão 15:
+   - **Candidatos:** quem faz o serviço e está livre durante toda a duração no horário de destino (o próprio atendimento é afastado).
+   - **Exclusão do atual:** o profissional atual sai se o modo for `outro`, ou se o destino tiver o mesmo dia e hora da origem (senão não haveria mudança; é um fato, não leitura).
+   - **Desempate:** menos atendimentos no dia, depois a ordem do nome. Deixa de existir a preferência pelo profissional atual. A proposta diz quem foi escolhido.
+   - **Ninguém livre:** pergunta (`PROFESSIONAL_NOBODY_FREE`), mantendo o resto do plano.
+   - **"manter" e "nomeado":** não mudam.
+
+### 11.3 Revisão adversarial da E2-B (emendas ao pré-registro, antes da bateria, ainda atrás da flag)
+
+Emendas ao §11, cada uma com teste de regressão escrito antes do código (`secretary-pilot-e2b-fixes.test.ts`, com gêmeos). Nenhuma lê o português do dono depois da Luna: só operadores tipados, as âncoras listadas pela Luna, o `received_at` congelado, registros reais e o toque ou a resposta do dono.
+
+- **Dia dado pelo relógio (PRINCIPLE-1).** Sem dia dito, quando um deslocamento de hora contado de "agora" define o dia (inclusive o dia que a pergunta TIME_INVALID nomeia), esse dia fica no plano como o "hoje" do turno que disse a hora.
+  - Uma correção ou resposta só de hora mantém esse dia.
+  - Um novo deslocamento de hora sem dia volta a dizer o seu.
+  - Um horário de destino que já passou no seu dia é perguntado (TIME_INVALID), nunca proposto.
+- **Pergunta do dia de um relógio com duas âncoras (PRINCIPLE-2, RESOLVER-2, REGRESSION-1).** A resposta do dono (texto ou toque) fica só com a âncora cujo dia é o escolhido: "agora" é o dia do turno que disse a hora; "origem", o dia do atendimento.
+  - Não há segunda pergunta, nem horário que nenhuma âncora dá naquele dia.
+  - Um dia dito pelo próprio dono continua perguntando as duas horas.
+- **"outro" com nome (PRINCIPLE-3, PROFESSIONAL-3, REGRESSION-2).** Em "outro", a menção é quem não deve atender, como o prompt já ensina.
+  - Os membros que ela nomeia saem dos candidatos junto com o atual. Um nome ambíguo tira todos os que ele pode ser.
+  - Nunca há pergunta de conflito oferecendo essa pessoa.
+  - "manter" e "qualquer" com o nome de outro membro continuam perguntando.
+  - Ninguém livre: pergunta (PROFESSIONAL_NOBODY_FREE) dizendo quem ficou de fora.
+- **Leituras descartadas e âncora na proposta (PRINCIPLE-4, PROPOSAL-6).** Fica ratificada, como regra de fato no molde da decisão 18, a filtragem das leituras: uma leitura que não pode ser destino não é leitura, e a que sobra é usada (`derived`).
+  - Não pode ser destino a leitura que já passou, que não existe, que sai do dia, ou que conta de "agora" em outro dia.
+  - A proposta diz a âncora usada: contando de hoje, do dia do atendimento, do dia citado, de agora ou do horário do atendimento.
+  - A proposta nomeia a leitura descartada por já ter passado ou por sair do dia. Nada é escolhido em silêncio.
+- **Data citada (SEMANTICS-1; substitui "calculada como o operador `data`" do §11.1).**
+  - Número do dia sem mês: o dia deste mês; se ele já passou, o próximo que existe também é uma leitura da âncora.
+  - Com mês: a ocorrência mais próxima de hoje (as outras ficam a um ano).
+  - Cada leitura recebe o deslocamento. As que já passaram não contam; duas ou mais diferentes são perguntadas (ANCHOR_TWO_READINGS), cada opção com o dia de que conta.
+  - A data citada nunca é empurrada um mês ou um ano em silêncio.
+- **Referência citada (CONTRACT-4; cobre a "outra referência explícita" do pedido do dono).** `data_citada` aceita, além do número do dia `{ dia, mes, mencao }`:
+  - `{ "tipo": "dia_semana", "dia_semana", "qualificador", "mencao" }`, com as leituras da decisão 27: o primeiro depois de hoje e o primeiro depois do atendimento; "este", só o primeiro; hoje também, se for esse dia, salvo "proximo";
+  - `{ "tipo": "mes_relativo", "dia", "meses", "mencao" }`, com uma leitura.
+  - A Luna nunca converte a referência em data; o prompt diz como cada forma vai.
+- **Pista de origem com "origem" e outra âncora (RESOLVER-5).** "origem" não dá leitura da própria origem: filtram as outras âncoras. Só "origem" sozinha não filtra.
+- **Tamanho da requisição (REGRESSION-3).** O orçamento dos nomes do catálogo (CATALOG-1) cai de 20 KB para 10,5 KB. O pior caso (pergunta aberta com 8 opções no limite do rótulo, uma linha por campo no limite e a nota de reparo completa) cabe no teto com cerca de 2 KB de folga. Um teste confere esse formato.
+- **Bateria DEV (REGRESSION-4).** O teste de pares de palavras descarta os marcadores (nomes, números, dias) antes de formar os pares. O PB09 foi reescrito. PB18 a PB20 entram para exercitar a referência por dia da semana (uma leitura e duas) e "outro" com nome.
+
+### 11.4 Conclusão da E2-B: modelo temporal geral (exigências do dono; emendas ao §3, ao §11 e ao §11.3, antes da bateria, ainda atrás da flag)
+
+Toda transformação de tempo é operação + âncora explícita + valor. A Luna diz a relação; o código calcula. Cada emenda tem teste escrito antes do código (`secretary-pilot-e2b2-time.test.ts`, com gêmeos). Nenhuma lê o português do dono depois da Luna.
+
+- **Âncora ausente (GAP 1.a).** `ancoras` aceita `[]` (dia e hora): o dono deu a operação, mas nenhuma âncora que o contrato tem. A Secretária pergunta o campo (`date` ou `time`, motivo `ANCHOR_MISSING`) e nunca calcula a partir de uma âncora que ninguém disse. O dia já resolvido continua no plano enquanto a hora é perguntada. `data_citada` sem a âncora `data_citada` continua sendo regra violada (reparo).
+- **Dia em aberto (GAP 1.b).** Novo operador de dia `{ "tipo": "a_definir", "mencao" }`, como o da hora: o dono deixou o dia em aberto, ou retirou o dia dito antes sem dizer outro. A Secretária pergunta o dia (`DATE_MISSING`); o dia anterior nunca é mantido.
+- **`data` segue as regras de `data_citada` (GAP 1.c; substitui "`data`: sem mês, a próxima ocorrência a partir de hoje" do §3.3).** O dia dito por extenso tem as mesmas leituras da mesma referência usada como âncora (§11.3, SEMANTICS-1): sem mês, o dia deste mês e, se ele já passou, o próximo que existe; com mês, a ocorrência mais próxima de hoje. As que já passaram não contam; duas ou mais são perguntadas; nenhuma é `DATE_PAST`. A leitura literal é `explicit`; a que sobra depois de descartar outra é `derived`, e a proposta nomeia a descartada ("…: seg, 03/03 já passou"). Nunca um mês ou um ano à frente em silêncio. As pistas de origem com `data` filtram pelas mesmas leituras.
+
+### 11.5 Dia dado pelo relógio persiste (GAP 1.d; substitui, no §11.3 PRINCIPLE-1, "Um novo deslocamento de hora sem dia volta a dizer o seu")
+
+- O dia que um deslocamento de hora contado de "agora" definiu fica no plano quando a hora muda depois, qualquer que seja a forma: um relógio, o horário de sempre, uma hora a definir ou um deslocamento contado do horário do atendimento. Uma correção só de hora nunca apaga um dia resolvido, e o dia do atendimento nunca volta em silêncio.
+- Só um novo deslocamento contado de "agora" diz de novo o seu dia (o dia do turno que o disse), porque essa âncora só existe no próprio dia.
+
+### 11.6 Correção posterior incompatível: uma pergunta (GAP 1.e e exigência 3)
+
+- Um deslocamento de hora com a âncora "agora", dito numa mensagem **posterior** à do dia, só dá horário no dia do turno que o disse. Se esse dia não é o dia de destino, a informação anterior ficou incompatível: a Secretária pergunta o dia uma única vez (`DATE_CLOCK_CONFLICT`, campo `date`), oferecendo o dia que a hora nova dá (com o horário calculado) e o dia pedido antes.
+- A resposta (texto ou toque) resolve também a âncora: o dia de "agora" fica só com "agora"; o dia pedido antes fica com as outras âncoras (sem nenhuma, a hora é perguntada nesse dia, `TIME_INVALID`).
+- A ordem das mensagens é um fato do plano (`clockAfterDay`), nunca leitura das palavras. Dia e hora na mesma mensagem, ou o dia dito depois da hora, continuam como no §11.3: a hora é perguntada no dia dito.
+
+### 11.7 Delegação e exclusões (exigência 2; emendas ao §11.2 e ao §11.3 PRINCIPLE-3)
+
+- **Lista tipada.** `destino.profissional` ganha `excluidos: string[]` (até 10 nomes, cada um com as palavras do dono): quem não deve atender. Só com `qualquer` ou `outro`; com outro modo, ou sem modo, é `[]` (regra `RULE:excluidos_sem_delegacao`, com frase fixa de reparo). A menção de `outro` mantém o papel do §11.3 (mais uma exclusão), para estados salvos antes da lista; uma menção que não se relaciona com nenhum membro continua sendo palavras do próprio modo (M9).
+- **Resolução por fatos.** Cada exclusão é buscada na equipe real pela menção normalizada (os estados de identidade): exata ou parcial, aquele membro sai; ambígua, todos os que ela pode ser saem; contraditória ou não encontrada, a Secretária **pergunta** (`PROFESSIONAL_CONTRADICTORY` ou `PROFESSIONAL_NOT_FOUND`, campo `professional`, com as palavras do dono e **sem opção de toque**, porque um toque tornaria essa pessoa quem atende). Uma exclusão nunca é ignorada. `qualquer` com exclusão não é mais conflito.
+- **Desempate (substitui "depois a ordem do nome" do §11.2).** Decisão 15: o único com menos atendimentos no dia. Se dois ou mais ficam empatados, a regra do produto não decide: a Secretária pergunta (`PROFESSIONAL_TIE`, campo `professional`), com os empatados como opções. Nunca a ordem do nome.
+- **O atual nunca é mantido contra a delegação (GAP 2.c).** Enquanto um modo delegado espera o dia e a hora, o profissional fica `unresolved` no plano; nunca o atual mostrado como mantido.
+- **Ninguém livre** continua `PROFESSIONAL_NOBODY_FREE`, dizendo quem ficou de fora: o atual (por `outro` ou pelo horário de origem) e todos os nomeados nas exclusões, inclusive o atual quando `qualquer` o excluiu.
+
+### 11.8 Contexto e tamanho da requisição (exigência 4; substitui o orçamento do CATALOG-1 do §10.4 e o corte do REGRESSION-3 do §11.3)
+
+- **Nada é cortado em silêncio.** O catálogo e a equipe vão inteiros para a Luna. O leitor do banco lê até 2000 serviços e 500 profissionais ativos (inclusive na união do expediente do salão) e recusa acima disso (`PILOT_CATALOG_TOO_LARGE`, `PILOT_TEAM_TOO_LARGE`); nunca devolve só os primeiros.
+- **A pergunta aberta** mostra à Luna até 8 opções e diz quantas ficaram de fora ("e mais N"). **A nota de reparo** põe os códigos de regra primeiro, nomeia até 8 códigos, conta os outros ("e mais N") e traz a frase fixa de **todas** as regras violadas.
+- **Medir antes de enviar.** Cada requisição é medida antes de ir; se a medição falha, ela não é enviada (`PILOT_BUDGET_UNMEASURED`). Acima do teto (bytes + 8192 > 64000), não é enviada (`PILOT_BUDGET`).
+- **Falha segura e observável.** Sem chamada ao modelo, nada é alterado, a resposta diz que o problema é de tamanho (`PILOT_TOO_LARGE_REPLY`, com "nada foi alterado"), e a telemetria registra o código, os bytes medidos, `catalog_names` e `team_names`.
+- **Medidas** (offline, pelo construtor de corpo do SDK; teto útil de 55.808 B):
+
+  | Requisição | Bytes | Folga |
+  |---|---|---|
+  | Base (sem equipe e catálogo, mensagem curta) | 33.450 | |
+  | Pior parte fixa: pergunta aberta no limite (8 rótulos e a contagem), linhas no limite, 1000 caracteres de controle, reparo completo | 46.746 | 9.062 para equipe e catálogo |
+  | Salão grande real: 300 serviços de 20 caracteres e 40 nomes de equipe, pior caso com texto real (1000 caracteres acentuados) | 52.577 | 3.231 |
+  | O mesmo com 400 serviços | 55.177 | 631 |
+  | Salão típico (100 × 60 e 10 × 120), pior caso com texto acentuado / com 1000 caracteres de controle | 50.159 / 54.494 | 5.649 / 1.314 |
+
+  Acima disso, o turno falha com segurança (`PILOT_BUDGET`). Um teste fixa o salão grande real com pelo menos 2 KB de folga.
+
+### 11.9 Pendências para o dono (registradas; nenhuma muda comportamento agora)
+
+- Não há âncora para o horário novo do próprio plano, nem para um horário que o dono cita: esse deslocamento vem com `ancoras: []` e é perguntado (`ANCHOR_MISSING`, pedindo o horário).
+- Um dia da semana de destino dito no próprio dia, sem hora conhecida, não lê hoje; o mesmo dia da semana como referência citada lê hoje. Inconsistência pequena, sem teste, mantida.
+- "Com mês, a ocorrência mais próxima" pergunta como passada uma data distante ainda futura (por exemplo, "20/12" dito em março).
+- Um empate respondido com "tanto faz" volta a ser perguntado, porque a regra do produto não decide.
+- Só a sonda paga de desenvolvimento, depois da reverificação, pode provar que a retirada de exemplos do prompt não causou regressão. Esta conclusão não remove nem acrescenta exemplos: só acrescenta `excluidos` aos 13 exemplos existentes.
+- As pistas de origem com data e mês filtram pela ocorrência mais próxima: um atendimento a mais de cerca de seis meses não é achado pela pista (a pista `de 20/10` dita em março) e é perguntado, com ele entre as opções (R1-TEMPORAL-3; um dia oferecido e escolhido nunca segue essa regra, §11.10).
+
+### 11.10 Rodada 2 da E2-B: toda resposta fica vinculada à pergunta (regra central do dono; emendas ao §4, ao §9, Toque,, ao §11.6, ao §11.7 e ao §11.8)
+
+Toda resposta fica vinculada à pergunta, à ação, ao campo pendente e à revisão do plano que a originaram. Ela só altera o campo pendente; não apaga o que já foi resolvido (dia, âncora, proveniência) nem exclusões anteriores; só escolhe uma opção quando nomeia inequivocamente uma das oferecidas; não é reaproveitada por outra pergunta ou ação; insuficiente ou ambígua, a mesma pergunta é repetida e nada muda. Qual resposta cada pergunta aceita é um fato da pergunta (campo e motivo), nunca das palavras do dono: um só mecanismo, sem regra para frase nenhuma. Cada emenda tem teste escrito antes do código, com gêmeos (`secretary-pilot-e2b2-binding.test.ts`).
+
+- **Perguntas de escolha.** Quando as opções são todas as escolhas, a resposta só vale se nomear exatamente uma delas, e então é aplicada como o toque nela:
+  - DATE_TWO_READINGS, ANCHOR_TWO_READINGS (dia) e DATE_CLOCK_CONFLICT: por fatos de calendário do operador tipado (número do dia, e o mês se dito; dia da semana, `este` só o primeiro a partir de hoje, `proximo` nunca hoje; mês relativo; o dia do atendimento; as leituras de um deslocamento);
+  - PROFESSIONAL_TIE: um nome que identifique exatamente uma das opções (estados de identidade entre os nomes das opções, nunca a equipe inteira).
+  - Sem dia, um dia que nomeia nenhuma ou várias opções, um nome fora das opções ou um modo delegado sem nome: a mesma pergunta é repetida (ANSWER_NOT_AN_OPTION). Uma exclusão nova dita ao responder o empate estreita a delegação e a decisão 15 decide de novo.
+  - Substitui, no §11.6, a frase sobre a resposta em texto ou toque resolver também a âncora: só a resposta com um dia escolhido resolve a âncora; sem dia, nunca.
+- **Pergunta de exclusão separada da escolha de quem atende** (substitui, no §11.7, os motivos PROFESSIONAL_CONTRADICTORY e PROFESSIONAL_NOT_FOUND da pergunta de exclusão):
+  - motivos próprios: EXCLUSION_NOT_FOUND e EXCLUSION_CONTRADICTORY (campo `professional`, sem opção de toque); a Luna vê o campo como `quem não deve atender`;
+  - estado próprio: `pending.exclusion`, as palavras perguntadas, presas ao id da pergunta (a pergunta de escolha guarda o seu nas opções);
+  - resposta própria: só um modo delegado (qualquer ou outro) com nomes em excluidos. Esses nomes substituem as palavras perguntadas; as outras exclusões ficam, e `outro` fica. Um nome dado como quem atende (nomeado, ou nome sem modo) é perguntado de novo (ANSWER_NOT_EXCLUSION) e nunca vira quem atende.
+- **Exclusões nunca são apagadas.** Um valor delegado dito sobre uma delegação pendente, em resposta ou correção, une as exclusões (a lista só cresce) e mantém `outro` (a exclusão do atual). Só um valor não delegado (quem atende, dito pelo dono, ou manter) a substitui. Mais de 10 exclusões: o turno falha com segurança (EXCLUSIONS_FULL), sem descartar nenhuma.
+- **Um reparo nunca descarta uma exclusão** (R1-PROFESSIONAL-5). A frase fixa de RULE:excluidos_sem_delegacao passa a dizer que os nomes ficam em excluidos, com modo qualquer ou outro, e que excluidos é [] só quando ninguém foi excluído. Se a chamada reparada perde um nome que a primeira pôs em excluidos (valores tipados comparados), o turno é PILOT_SCHEMA (telemetria REPAIR_DROPPED_EXCLUSION), salvo quando a chamada reparada nomeia quem atende e esse nome não é um dos perdidos.
+- **Conflito M9 depois das exclusões** (R1-PROFESSIONAL-3). As exclusões são resolvidas antes: palavras ao lado de `qualquer` que nomeiam um excluído continuam sendo palavras do modo, e um excluído nunca é opção de conflito.
+- **O dia resolvido não é reaberto por uma resposta só de hora** (R1-TEMPORAL-6). A resposta a uma pergunta de horário sem dia mantém o dia que o plano já mostrava; um dia que já passou é lido de novo. O dia da semana dito no próprio dia continua sem ler hoje (§11.9).
+- **GAP 2.c completo** (R1-PROFESSIONAL-4). Enquanto um modo delegado espera, o profissional fica `unresolved` também em toda pergunta sobre o dia.
+- **O dia oferecido é exato** (R1-TIME-3, regressão do §11.4). Um dia tocado, ou nomeado numa resposta, é guardado como esse dia exato (o dia de um mês contado do turno que o escolheu; ou, além de 12 meses, um deslocamento em dias contado de hoje), nunca relido pela ocorrência mais próxima.
+- **ANCHOR_MISSING pede o valor final** (R1-TIME-2, R1-TEMPORAL-4). A pergunta pede o dia final ou o horário final, nunca `a partir de quando`. Numa pergunta sem opções, o contexto da Luna mostra, ao lado do campo perguntado, as palavras do dono ainda sem valor, entre parênteses, depois de `não definido`.
+- **Delegação pendente visível** (R1-PROFESSIONAL-2 e 3). Enquanto o profissional não tem valor, a linha dele mostra o modo e até 3 exclusões, com as palavras do dono, e conta as outras (`e mais N`).
+- **Regra 6 do prompt**, uma frase geral a mais: entre parênteses, o pedido em aberto mostra o que o dono já disse e ainda não tem valor; quando o campo pedido é quem não deve atender, os nomes vão em excluidos, com o modo do pedido em aberto. Nenhum exemplo acrescentado ou retirado.
+- **Operador relativo dito de novo** (R1-TEMPORAL-5). O mesmo operador tipado contado de hoje (ou de uma referência lida a partir de hoje), dito num turno de outro dia local, é mudança e passa a contar do novo turno; o mesmo vale para um deslocamento contado de agora dito noutro minuto local.
+- **Dia que o mês não tem** (R1-TEMPORAL-7). A proposta diz `DD/MM não existe` ao lado do dia usado.
+- **Contagem real** (R1-PAYLOAD-2). A pergunta guarda `total` quando tinha mais escolhas que as 20 opções mantidas; o `e mais N` mostrado à Luna conta a partir dele. A pergunta de empate lista 8 nomes e conta os outros.
+- **Tamanho** (exigência 4; medido offline como no §11.8). O formato do REGRESSION-3 com a linha da delegação no limite (3 exclusões de 120 caracteres acentuados e a contagem) dá 53.714 B, folga de 2.094 B. Sem a delegação, o mesmo formato dá 52.950 B (o prompt e a frase de reparo somaram 373 B). As palavras ao lado de um campo só aparecem em pergunta sem opções, por isso nunca se somam ao pior formato. Um teste fixa os dois piores formatos com pelo menos 2 KB de folga.
+- **Migrações de contrato** (cópias em `.demo/agenda-core/contract-migration/*.before-e2b2.ts`): o motivo da pergunta de exclusão nos testes do §11.7 (`secretary-pilot-e2b2-impl` e `secretary-pilot-e2b2-professional`) e a contagem do GAP 4.c (`secretary-pilot-e2b2-payload`), agora contra o total real (24).
+
+### 11.11 Rodada 2 da E2-B, achados verificados (R2-*): um só mecanismo de vínculo da resposta (emendas ao §11.7 e ao §11.10)
+
+A regra central do §11.10 continua: toda resposta fica vinculada à pergunta, à ação, ao campo pendente e à revisão do plano que a originaram. As emendas abaixo a completam com um só mecanismo: qual resposta uma pergunta aceita é um fato do **papel** dela (motivo e opções), nunca das palavras do dono, sem regra para frase nenhuma. Cada emenda tem teste escrito antes do código, com gêmeos (`secretary-pilot-e2b2-binding.test.ts`, bloco §11.11). "tanto faz", "pode ser" e afins são só entradas de teste do mecanismo.
+
+- **Escolher quem atende** (toda pergunta de profissional com opções: PROFESSIONAL_TIE, PROFESSIONAL_AMBIGUOUS, PROFESSIONAL_CONTRADICTORY, inclusive os conflitos de `manter` e `qualquer`, e PROFESSIONAL_NOT_FOUND com sugestões; substitui, no §11.10, a lista das perguntas de escolha de profissional, que só tinha PROFESSIONAL_TIE):
+  - um nome vincula só quando identifica exatamente uma das escolhas (estados de identidade entre os nomes das escolhas), aplicado como o toque nela;
+  - um modo delegado sem nome e sem exclusão nova não escolhe nada: a mesma pergunta é repetida (ANSWER_NOT_AN_OPTION) e nada muda (R2-PROFESSIONAL-1). Uma exclusão nova estreita a delegação e a decisão 15 decide de novo;
+  - no empate as escolhas são todas as que há: um nome fora delas é perguntado de novo. Nas outras, um nome de ninguém oferecido é o novo quem atende, resolvido na equipe.
+- **Escolhas cortadas** (R2-PROFESSIONAL-4). Quando a pergunta que escolhe quem atende tem mais escolhas que as 20 opções mantidas, todas ficam no estado pendente (`pending.choices`), presas ao id da pergunta, e a resposta por nome é conferida contra todas. Um nome de duas escolhas (uma mantida, outra cortada) é ambíguo e é perguntado de novo; a ordem do nome nunca decide.
+- **Esclarecer uma exclusão** (EXCLUSION_*, estado próprio `pending.exclusion`):
+  - só vale um modo delegado com um nome que o plano ainda não exclui. Repetir as exclusões pendentes, ou só as outras, é perguntado de novo (ANSWER_NOT_EXCLUSION) e nada muda (R2-PROFESSIONAL-1);
+  - o nome novo substitui só as palavras perguntadas. O modo e as palavras ao lado de `qualquer` ficam como estavam, então o conflito M9 continua perguntado depois (R2-PROFESSIONAL-2). Um `outro` na resposta exclui também o atual.
+- **Campo publicado** (R2-RUNNER-1). A pergunta de exclusão publica no ActionPlan o campo `excluded_professional`, nunca o `target_professional_ref` das perguntas de quem atende: uma resposta preparada para uma nunca é entregue à outra.
+- **Exclusões nunca são apagadas, e cada menção mantém o papel** (substitui, no §11.10, a frase pela qual só um valor não delegado substitui a delegação):
+  - um valor não delegado (quem atende, tocado, nomeado ou dito; ou manter) passa a ser o valor, e todas as exclusões anteriores, inclusive `outro`, ficam guardadas à parte (`pending.held`). Uma delegação posterior aplica todas: nunca volta o excluído, nem o atual depois de `outro` (R2-BINDING-1);
+  - as palavras ao lado de `outro` continuam palavras do modo em qualquer turno (M9 quando não nomeiam ninguém): nunca viram um nome de `excluidos` que se pergunta (R2-PROFESSIONAL-3);
+  - palavras ao lado de `qualquer` que nomeiam um membro, ditas sobre um `outro` pendente, ficam com o seu papel: o modo fica `qualquer` com elas, `outro` fica guardado à parte (o atual continua fora) e o conflito é perguntado (R2-PROFESSIONAL-1, M9). Um excluído, ou o atual fora, nunca é opção do conflito;
+  - um reparo de formato compara também as palavras ao lado de `outro` nas duas chamadas: perder um nome de lá também é PILOT_SCHEMA (REPAIR_DROPPED_EXCLUSION); mudar o nome de um lugar para o outro, não (R2-PROFESSIONAL-3).
+- **Serviço** (R2-PROFESSIONAL-4). Num atendimento com vários serviços, só é candidato (decisão 15, empate e ninguém livre) quem faz todos eles, por id exato.
+- **O dia resolvido nunca é reaberto pelo que não diz dia** (R2-TEMPORAL-1; completa o R1-TEMPORAL-6). Uma mensagem sem operador de dia mantém o dia que o plano já mostrava: resposta a qualquer pergunta, toque em outro campo, correção só da hora ou só de quem atende. Vale enquanto o operador de dia pendente é o que deu esse dia (um novo relógio contado de agora o retira; outro atendimento desfaz o dia) e o dia não passou. Um dia dito de novo é relido, e perguntado se tiver duas leituras.
+- **Desistir** (R2-TEMPORAL-2). A desistência decide se há correção só por diferenças tipadas: o mesmo operador dito em outro minuto ou outro dia é o pedido aberto dito de novo e retira o rascunho (revisão S1). O R1-TEMPORAL-5 vale só para pedidos.
+- **Dia oferecido além de 12 meses** (R2-TIME-1; substitui, no §11.10, o deslocamento contado de hoje além de 12 meses): um deslocamento de até 366 dias contado do dia do atendimento, quando ele está nesse alcance; senão, contado de um dia de mês a no máximo 12 meses (`data_citada` `mes_relativo`). Cada forma dá uma leitura só, dentro dos limites do contrato, e o estado é salvo. Um dia que nenhuma delas carrega é perguntado (dia em aberto), nunca outro dia.
+- **Dia da semana que já passou** (R2-TEMPORAL-2). Como nos outros operadores, uma leitura que já passou no dia do turno não é leitura. Sem nenhuma, o dia é perguntado (DATE_INVALID), nunca um horário recusado num dia que já foi.
+- **Mês sem o dia** (R2-TEMPORAL-2, completa o R1-TEMPORAL-7). A proposta nomeia cada mês, do mês do turno até o do dia usado, que não tem o número do dia (`DD/MM não existe`).
+- **Regra 6 do prompt** (R2-PROMPT-1). A frase do §11.10 sobre o campo de quem não deve atender ganha, no fim, o outro papel: quem atende vai em nomeado (os nomes de quem não deve atender continuam em excluidos, com o modo do pedido em aberto). Nenhum exemplo acrescentado ou retirado.
+- **Tamanho** (exigência 4, medido offline como no §11.8). O prompt cresceu 28 B. O formato do REGRESSION-3 com a delegação no limite dá 53.742 B, folga de 2.066 B; o da pergunta de exclusão sem opções, 49.084 B. O teste do §11.10 continua fixando os dois com pelo menos 2 KB de folga.
+- **Migrações de contrato:** nenhuma. Nenhum teste existente mudou de expectativa.

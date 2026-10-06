@@ -22,8 +22,20 @@ import {
   Sprout,
 } from "lucide-react";
 import { buildManualPixMessage, buildReferralMessage } from "@/lib/growth-tools";
+import { toast } from "@/components/ui/toast";
 
 type Salon = { name: string; slug: string; plan: string; phone: string | null };
+
+/** A cópia pode falhar (permissão negada, iOS, página sem HTTPS): avisa em vez de falhar em silêncio. */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    toast("Não foi possível copiar automaticamente. Selecione o texto na tela e copie manualmente.", "error");
+    return false;
+  }
+}
 
 export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: string }) {
   const [copied, setCopied] = useState(false);
@@ -53,28 +65,32 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
     : "";
 
   async function copyLink() {
-    await navigator.clipboard.writeText(bookingUrl);
+    if (!(await copyToClipboard(bookingUrl))) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   async function copyMsg() {
-    await navigator.clipboard.writeText(waMessage);
+    if (!(await copyToClipboard(waMessage))) return;
     setMsgCopied(true);
     setTimeout(() => setMsgCopied(false), 2000);
   }
 
   async function copyReferral() {
-    await navigator.clipboard.writeText(referralMessage);
+    if (!(await copyToClipboard(referralMessage))) return;
     setReferralCopied(true);
     setTimeout(() => setReferralCopied(false), 2000);
   }
 
   async function copyPix() {
     if (!pixMessage) return;
-    localStorage.setItem(`salonsaas:pix-key:${salon.slug}`, pixKey.trim());
-    localStorage.setItem(`salonsaas:pix-value:${salon.slug}`, signalValue);
-    await navigator.clipboard.writeText(pixMessage);
+    try {
+      localStorage.setItem(`salonsaas:pix-key:${salon.slug}`, pixKey.trim());
+      localStorage.setItem(`salonsaas:pix-value:${salon.slug}`, signalValue);
+    } catch {
+      // Armazenamento bloqueado (ex.: aba privada): a mensagem ainda pode ser copiada.
+    }
+    if (!(await copyToClipboard(pixMessage))) return;
     setPixCopied(true);
     setTimeout(() => setPixCopied(false), 2000);
   }

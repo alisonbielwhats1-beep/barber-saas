@@ -1,5 +1,6 @@
 import { assertBillingReservation, effectiveEntitlement } from "./billing/entitlements";
 import { priceSnapshot } from "./service-price";
+import { canOverrideSlot, validOverbookReason, type SlotConflict } from "./appointment-overlap-policy";
 import { createHash, randomUUID } from "node:crypto";
 import { addMinutes } from "date-fns";
 import type {
@@ -371,6 +372,7 @@ async function availabilityViolation(
     skipSchedule?: boolean;
     skipAfterHours?: boolean;
     now?: Date;
+    conflicts?: SlotConflict[];
   },
 ): Promise<AvailabilityViolation | null> {
   if (input.enforceBookingWindow) {
@@ -459,8 +461,9 @@ async function availabilityViolation(
       startAt: { lt: buffered.to },
       endAt: { gt: buffered.from },
     },
-    select: { id: true },
+    select: { id: true, startAt: true, endAt: true },
   });
+  if (conflict) input.conflicts?.push({ kind: "APPOINTMENT", startAt: conflict.startAt, endAt: conflict.endAt });
   return conflict ? "SLOT_TAKEN" : null;
 }
 
@@ -485,6 +488,7 @@ export async function inspectAppointmentAvailability(
   endAt: Date;
   timezone: string;
   services: ServiceSnapshot[];
+  conflicts: SlotConflict[];
 }> {
   try {
     const services = await loadServiceSnapshots(
@@ -513,6 +517,8 @@ export async function inspectAppointmentAvailabilityWithServiceSnapshots(
     serviceSnapshots: ServiceSnapshot[];
     skipSchedule?: boolean;
     skipAfterHours?: boolean;
+    skipTimeOff?: boolean;
+    skipWorkingHoursBreak?: boolean;
     startLocal: string;
     excludeAppointmentId?: string;
     enforceBookingWindow: boolean;
@@ -535,6 +541,8 @@ export async function inspectAppointmentAvailabilityWithServiceSnapshots(
     applyPricing: false,
     skipAfterHours: input.skipAfterHours,
     skipSchedule: input.skipSchedule,
+    skipTimeOff: input.skipTimeOff,
+    skipWorkingHoursBreak: input.skipWorkingHoursBreak,
   }, input.serviceSnapshots);
 }
 
@@ -560,6 +568,7 @@ async function inspectAvailabilityUsingServices(
   endAt: Date;
   timezone: string;
   services: ServiceSnapshot[];
+  conflicts: SlotConflict[];
 }> {
   try {
     const salon = await loadSalon(tx, input.salonId);
@@ -573,16 +582,21 @@ async function inspectAvailabilityUsingServices(
         });
     const durationMin = services.reduce((sum, service) => sum + service.durationMin, 0);
     const endAt = addMinutes(startAt, durationMin);
+    const conflicts: SlotConflict[] = [];
     let violation = await availabilityViolation(tx, {
       ...input,
       salon,
       startAt,
       endAt,
+      conflicts,
     });
     const resourceIds = services.flatMap(s => s.physicalResourceId ? [s.physicalResourceId] : []);
-    if (!violation && resourceIds.length && await tx.resourceBooking.findFirst({ where: { salonId: input.salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: endAt }, endAt: { gt: startAt }, ...(input.excludeAppointmentId ? { appointmentId: { not: input.excludeAppointmentId } } : {}) }, select: { appointmentId: true } })) violation = "SLOT_TAKEN";
-    if (!violation && await tx.waitlistOffer.findFirst({ where: { salonId: input.salonId, status: "OFFERED", expiresAt: { gt: input.now ?? new Date() }, OR: [{ professionalId: input.professionalId, startAt: { lt: addMinutes(endAt, salon.bufferMinutes) }, endAt: { gt: addMinutes(startAt, -salon.bufferMinutes) } }, { resourceIds: { hasSome: resourceIds }, startAt: { lt: endAt }, endAt: { gt: startAt } }] }, select: { id: true } })) violation = "SLOT_TAKEN";
-    return { violation, startAt, endAt, timezone: salon.timezone, services: priced.services };
+    // Classify hard causes even when a professional overlap was found first.
+    // These are already prohibited by resource_no_overlap / booking_offer_guard.
+    if (resourceIds.length && await tx.resourceBooking.findFirst({ where: { salonId: input.salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: endAt }, endAt: { gt: startAt }, ...(input.excludeAppointmentId ? { appointmentId: { not: input.excludeAppointmentId } } : {}) }, select: { appointmentId: true } })) conflicts.push({ kind: "RESOURCE" });
+    if (await tx.waitlistOffer.findFirst({ where: { salonId: input.salonId, status: "OFFERED", expiresAt: { gt: input.now ?? new Date() }, OR: [{ professionalId: input.professionalId, startAt: { lt: addMinutes(endAt, salon.bufferMinutes) }, endAt: { gt: addMinutes(startAt, -salon.bufferMinutes) } }, { resourceIds: { hasSome: resourceIds }, startAt: { lt: endAt }, endAt: { gt: startAt } }] }, select: { id: true } })) conflicts.push({ kind: "WAITLIST" });
+    if (!violation && conflicts.length) violation = "SLOT_TAKEN";
+    return { violation, startAt, endAt, timezone: salon.timezone, services: priced.services, conflicts };
   } catch (error) {
     return toAppointmentError(error);
   }
@@ -594,6 +608,7 @@ function requireOverrideReason(input: {
   canOverrideWorkingHoursBreak?: boolean;
   overrideReason?: string | null;
   overrideConfirmed?: boolean;
+  conflicts: readonly SlotConflict[];
 }): { overridden: boolean; reason: string | null } {
   if (!input.violation) return { overridden: false, reason: null };
   // As duas exceções são deliberadas e auditáveis, mas independentes:
@@ -615,9 +630,9 @@ function requireOverrideReason(input: {
     return { overridden: true, reason: input.overrideReason?.trim() || null };
   }
 
-  if (!input.canOverride) throw new AppointmentError(input.violation);
+  if (!canOverrideSlot(input.violation, input.conflicts, !!input.canOverride)) throw new AppointmentError(input.violation);
   const reason = input.overrideReason?.trim() ?? "";
-  if (reason.length < 3) throw new AppointmentError("REASON_REQUIRED");
+  if (!validOverbookReason(reason)) throw new AppointmentError("REASON_REQUIRED");
   return { overridden: true, reason };
 }
 
@@ -790,6 +805,7 @@ export async function createAppointment(
   }
   const override = requireOverrideReason({
     violation: inspected.violation,
+    conflicts: inspected.conflicts,
     canOverride: input.canOverride,
     canOverrideWorkingHoursBreak: input.canOverrideWorkingHoursBreak,
     overrideReason: input.overrideReason,
@@ -1207,6 +1223,7 @@ export async function rescheduleAppointment(
   }
   const override = requireOverrideReason({
     violation: inspected.violation,
+    conflicts: inspected.conflicts,
     canOverride: input.canOverride && !input.enforceClientPolicy && (input.actor.type === "STAFF" || Boolean(input.proposalId)),
     overrideReason: input.overrideReason,
   });
@@ -1395,7 +1412,7 @@ export async function cancelAppointmentReliably(
 ): Promise<AppointmentMutationResult> {
   const fingerprint = appointmentFingerprint({
     appointmentId: input.appointmentId,
-    reason: input.reason?.trim() ?? null,
+    reason: input.reason?.trim() || null,
     actor: { type: input.actor.type, id: input.actor.id ?? null },
     expectedVersion: input.expectedVersion ?? null,
   });
@@ -1434,10 +1451,8 @@ export async function cancelAppointmentReliably(
     throw new AppointmentError("ALREADY_STARTED");
   }
 
+  // Optional for every actor (decision of 03/10/2026): stored when given, NULL otherwise.
   const reason = input.reason?.trim() ?? "";
-  if (input.actor.type === "STAFF" && reason.length < 3) {
-    throw new AppointmentError("REASON_REQUIRED");
-  }
   const salon = await loadSalon(tx, input.salonId);
   if (input.enforceClientPolicy) {
     const policy = checkClientChangePolicy({

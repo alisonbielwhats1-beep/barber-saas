@@ -1,0 +1,13 @@
+# Fim de linha: LF no repositorio e no checkout, igual no Windows, Linux e Vercel.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.mp4 binary

@@ -31,6 +31,7 @@ import {
   Users,
   AlertTriangle,
   History,
+  CalendarClock,
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import { servicePriceLabel } from "@/lib/service-price";
@@ -46,6 +47,7 @@ import {
   getComandaData,
   removeWaitlistEntry,
   promoteWaitlist,
+  cancelAndPromoteWaitlist,
 } from "./actions";
 import {
   STATUS,
@@ -57,11 +59,13 @@ import {
 } from "./agenda-status";
 import { ComandaPanel } from "./comanda-panel";
 import type { ServiceOption } from "./appointment-form";
-import type { Appointment } from "./agenda-board";
+import type { Appointment, WaitlistEntryView } from "./agenda-board";
 import { SeriesEditor } from "./series-editor";
 import { CarePanel } from "./care-panel";
 
 const HISTORY_PREVIEW_COUNT = 3;
+/** Stable ref callback: focuses an element once, when it mounts (no keyboard pops up on phones). */
+const focusOnMount = (node: HTMLElement | null) => node?.focus();
 
 const ACTION_ICON: Record<string, typeof Check> = {
   CONFIRMED: Check,
@@ -70,11 +74,18 @@ const ACTION_ICON: Record<string, typeof Check> = {
   NO_SHOW: UserX,
 };
 
-function waLink(phone: string | null, clientName: string, salonName: string, when: string) {
+function waMessageLink(phone: string | null, msg: string) {
   const digits = (phone ?? "").replace(/\D/g, "");
   const full = digits.length <= 11 ? `55${digits}` : digits;
-  const msg = `Olá ${clientName.split(" ")[0]}! Passando para confirmar seu horário em ${salonName} ${when}. Podemos confirmar? 💈`;
   return `https://wa.me/${full}?text=${encodeURIComponent(msg)}`;
+}
+
+function waLink(phone: string | null, clientName: string, salonName: string, when: string) {
+  return waMessageLink(phone, `Olá ${clientName.split(" ")[0]}! Passando para confirmar seu horário em ${salonName} ${when}. Podemos confirmar? 💈`);
+}
+
+function waitlistWaLink(phone: string | null, clientName: string, salonName: string) {
+  return waMessageLink(phone, `Olá ${clientName.split(" ")[0]}! Aqui é do ${salonName}. Você está na nossa fila de espera e conseguimos outro horário para você. Qual fica melhor? 💈`);
 }
 
 function telLink(phone: string | null): string | null {
@@ -165,6 +176,7 @@ export function AppointmentDetail({
   canCancel,
   canOverrideSchedule = false,
   services = [],
+  onScheduleWaitlist,
   onClose,
 }: {
   appt: Appointment | null;
@@ -175,6 +187,8 @@ export function AppointmentDetail({
   canCancel: boolean;
   canOverrideSchedule?: boolean;
   services?: ServiceOption[];
+  /** Abre o agendamento pré-preenchido para atender a pessoa em outro horário. */
+  onScheduleWaitlist?: (entry: WaitlistEntryView) => void;
   onClose: () => void;
 }) {
   const [pending, setPending] = useState(false);
@@ -193,6 +207,7 @@ export function AppointmentDetail({
   const [editReview, setEditReview] = useState(false);
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [promoteOnCancel, setPromoteOnCancel] = useState(false);
   const [removeWaitlistId, setRemoveWaitlistId] = useState<string | null>(null);
   const [removeWaitlistReason, setRemoveWaitlistReason] = useState("");
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -561,50 +576,81 @@ export function AppointmentDetail({
                       Fila de espera · {appt.waitlistCount}
                     </p>
                     <ol className="mt-2 space-y-2">
-                      {appt.waitlist.map((entry) => (
-                        <li
-                          key={entry.id}
-                          className="flex min-h-11 items-center justify-between gap-3 rounded-lg bg-background/70 px-3 py-2"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-[12px] font-semibold">
-                              #{entry.position} · {entry.name}
-                            </p>
-                            {entry.phone && (
-                              <p className="text-[11px] text-muted-foreground">{entry.phone}</p>
-                            )}
-                            <p className="truncate text-[11px] text-muted-foreground">
-                              {entry.serviceName}
-                            </p>
-                          </div>
-                          {canCancel && (
-                            <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                              {appt.status === "CANCELLED" && entry.position === 1 && (
-                                <button
-                                  type="button"
-                                  disabled={pending}
-                                  onClick={() => run(() => promoteWaitlist(appt.id, entry.id))}
-                                  className="min-h-11 rounded-lg bg-primary px-3 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                                >
-                                  Promover
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                disabled={pending}
-                                onClick={() => {
-                                  setRemoveWaitlistId(entry.id);
-                                  setRemoveWaitlistReason("");
-                                }}
-                                className="min-h-11 rounded-lg px-3 text-[11px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
-                                aria-label={`Remover ${entry.name} da fila`}
-                              >
-                                Remover da fila
-                              </button>
+                      {appt.waitlist.map((entry) => {
+                        const entryTel = telLink(entry.phone);
+                        return (
+                          <li
+                            key={entry.id}
+                            className="space-y-2 rounded-lg bg-background/70 px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-[12px] font-semibold">
+                                #{entry.position} · {entry.name}
+                              </p>
+                              {entry.phone && (entryTel ? (
+                                <a href={entryTel} className="inline-flex min-h-6 items-center text-[11px] text-muted-foreground underline-offset-2 hover:underline">
+                                  {entry.phone}
+                                </a>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground">{entry.phone}</p>
+                              ))}
+                              <p className="truncate text-[11px] text-muted-foreground">
+                                {entry.serviceName}
+                              </p>
                             </div>
-                          )}
-                        </li>
-                      ))}
+                            {(canCancel || entryTel) && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {canCancel && onScheduleWaitlist && (
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() => onScheduleWaitlist(entry)}
+                                    className="inline-flex min-h-11 flex-1 basis-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                  >
+                                    <CalendarClock className="h-4 w-4" />
+                                    Agendar em outro horário
+                                  </button>
+                                )}
+                                {canCancel && appt.status === "CANCELLED" && entry.position === 1 && (
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() => run(() => promoteWaitlist(appt.id, entry.id))}
+                                    className="min-h-11 flex-1 rounded-lg bg-primary px-3 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                  >
+                                    Promover
+                                  </button>
+                                )}
+                                {entryTel && (
+                                  <a
+                                    href={waitlistWaLink(entry.phone, entry.name, salonName)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 text-[11px] font-medium text-success hover:bg-success/15"
+                                  >
+                                    <MessageCircle className="h-4 w-4" />
+                                    WhatsApp
+                                  </a>
+                                )}
+                                {canCancel && (
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() => {
+                                      setRemoveWaitlistId(entry.id);
+                                      setRemoveWaitlistReason("");
+                                    }}
+                                    className="min-h-11 flex-1 rounded-lg px-3 text-[11px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                                    aria-label={`Remover ${entry.name} da fila`}
+                                  >
+                                    Remover da fila
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ol>
                     {removeWaitlistId && (
                       <div className="mt-3 rounded-lg border border-border bg-background p-3">
@@ -797,9 +843,9 @@ export function AppointmentDetail({
               {/* Cancel */}
               {isMutable && canCancel && (cancelMode ? (
                 <div className="mt-3 space-y-2 rounded-lg border border-danger/40 bg-danger/5 p-3">
-                  <h3 className="text-base font-semibold">Cancelar este agendamento?</h3><p className="text-sm">{appt.clientName} · {whenLabel}<br />{professionalName} · {appt.serviceName}</p>{error && <p role="alert" className="text-sm text-danger">{error}</p>}
+                  <h3 ref={focusOnMount} tabIndex={-1} className="text-base font-semibold focus:outline-none">Cancelar este agendamento?</h3><p className="text-sm">{appt.clientName} · {whenLabel}<br />{professionalName} · {appt.serviceName}</p>{error && <p role="alert" className="text-sm text-danger">{error}</p>}
                   <label className="block text-[12px] font-medium text-danger" htmlFor="cancel-reason">
-                    Motivo do cancelamento
+                    Motivo do cancelamento (opcional)
                   </label>
                   <textarea
                     id="cancel-reason" disabled={pending}
@@ -810,42 +856,66 @@ export function AppointmentDetail({
                     }}
                     rows={3}
                     maxLength={500}
-                    autoFocus
                     className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Explique o motivo para o histórico e para o cliente"
+                    placeholder="Opcional: fica no histórico e aparece para o cliente"
                   />
                   <p className="text-[11px] text-muted-foreground">
                     O registro será preservado, o horário liberado e o cliente do agendamento notificado.
                   </p>
-                  {appt.waitlistCount > 0 && (
-                    <p className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2 text-[12px] font-medium text-warning">
-                      A fila permanecerá ativa. Depois de cancelar, use “Promover” na primeira posição para liberar o horário com segurança.
-                    </p>
+                  {appt.waitlist[0] && (
+                    <div className="space-y-1 rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2 text-[12px] text-warning">
+                      <label className="flex min-h-11 items-center gap-2 font-medium">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 shrink-0 accent-primary"
+                          checked={promoteOnCancel}
+                          disabled={pending}
+                          onChange={(event) => {
+                            mutationKeys.current.delete("cancel");
+                            setPromoteOnCancel(event.target.checked);
+                          }}
+                        />
+                        Passar este horário para {appt.waitlist[0].name} (#1 da fila)
+                      </label>
+                      <p>
+                        {promoteOnCancel
+                          ? "O horário é conferido para a fila antes de cancelar. Se não servir, nada é cancelado."
+                          : "Sem marcar esta opção, a fila continua e ninguém entra no horário sozinho."}
+                      </p>
+                    </div>
                   )}
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      disabled={pending} onClick={() => { setCancelMode(false); setCancelReason(""); }}
+                      disabled={pending} onClick={() => { setCancelMode(false); setCancelReason(""); setPromoteOnCancel(false); }}
                       className="min-h-11 flex-1 rounded-lg border border-border px-3 text-sm"
                     >
                       Voltar
                     </button>
                     <button
                       type="button"
-                      disabled={pending || cancelReason.trim().length < 3}
+                      disabled={pending}
                       onClick={() =>
                         run(() =>
-                          cancelAppointment(
-                            appt.id,
-                            cancelReason.trim(),
-                            mutationKey("cancel"),
-                            appt.version,
-                          ),
+                          promoteOnCancel && appt.waitlist[0]
+                            ? cancelAndPromoteWaitlist({
+                                appointmentId: appt.id,
+                                entryId: appt.waitlist[0].id,
+                                reason: cancelReason.trim(),
+                                idempotencyKey: mutationKey("cancel"),
+                                expectedVersion: appt.version,
+                              })
+                            : cancelAppointment(
+                                appt.id,
+                                cancelReason.trim() || undefined,
+                                mutationKey("cancel"),
+                                appt.version,
+                              ),
                         )
                       }
                       className="min-h-11 flex-1 rounded-lg bg-danger px-3 text-sm font-medium text-white disabled:opacity-40"
                     >
-                      Confirmar cancelamento
+                      {promoteOnCancel && appt.waitlist[0] ? "Cancelar e passar o horário" : "Confirmar cancelamento"}
                     </button>
                   </div>
                 </div>
@@ -855,7 +925,7 @@ export function AppointmentDetail({
                   onClick={() => setCancelMode(true)}
                   title={
                     appt.waitlistCount > 0
-                      ? "A fila permanecerá ativa e poderá ser promovida manualmente após o cancelamento"
+                      ? "Ao cancelar, você pode passar o horário para a primeira pessoa da fila"
                       : undefined
                   }
                   className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"

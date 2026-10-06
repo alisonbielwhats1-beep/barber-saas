@@ -72,13 +72,20 @@ async function sendOne(salonId: string, id: string, now: Date) {
       },
     });
     if (!row) return null;
-    const payload = payloadObject(row.payload);
+    // The Secretária (customer.message) may queue a notice with no appointment: a reminder always has one; anything else is not
+    // a reminder and is never sent by this job.
+    if (!row.appointment || !row.eventId || !row.appointmentId) {
+      await tx.notificationOutbox.updateMany({ where: { id, salonId, status: "PENDING" }, data: { status: "FAILED", lastError: "REMINDER_WITHOUT_APPOINTMENT" } });
+      return null;
+    }
+    const reminder = { ...row, eventId: row.eventId, appointmentId: row.appointmentId, appointment: row.appointment };
+    const payload = payloadObject(reminder.payload);
     if (!reminderIsCurrent({
-      status: row.appointment.status,
-      appointmentStartAt: row.appointment.startAt,
+      status: reminder.appointment.status,
+      appointmentStartAt: reminder.appointment.startAt,
       payloadStartAt: payload.startAt,
       now,
-      phase: row.template === "appointment.reminder.today" ? "today" : "tomorrow",
+      phase: reminder.template === "appointment.reminder.today" ? "today" : "tomorrow",
       timezone: typeof payload.timezone === "string" ? payload.timezone : undefined,
     })) {
       await tx.notificationOutbox.updateMany({ where: { id, salonId, status: "PENDING" },
@@ -86,29 +93,29 @@ async function sendOne(salonId: string, id: string, now: Date) {
       return null;
     }
     const claimed = await tx.notificationOutbox.updateMany({
-      where: { id, salonId, status: "PENDING", attempts: row.attempts,
+      where: { id, salonId, status: "PENDING", attempts: reminder.attempts,
         OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
       data: { attempts: { increment: 1 }, nextAttemptAt: new Date(now.getTime() + 10 * 60_000) },
     });
     if (!claimed.count) return null;
-    if (row.channel === "PUSH") {
+    if (reminder.channel === "PUSH") {
       const subscriptionId = payload.pushSubscriptionId;
       const subscription = typeof subscriptionId === "string"
         ? await tx.clientPushSubscription.findFirst({
-            where: { id: subscriptionId, salonId, clientId: row.recipientId ?? "", revokedAt: null },
+            where: { id: subscriptionId, salonId, clientId: reminder.recipientId ?? "", revokedAt: null },
             select: { id: true, endpoint: true, p256dh: true, auth: true },
           })
         : null;
       if (!subscription) {
         await tx.notificationOutbox.updateMany({ where: { id, salonId },
           data: { status: "FAILED", lastError: "PUSH_SUBSCRIPTION_REVOKED" } });
-        await fallbackEmail(tx, row);
+        await fallbackEmail(tx, reminder);
         return null;
       }
-      return { ...row, payload, subscription };
+      return { ...reminder, payload, subscription };
     }
-    const client = row.recipientId ? await tx.clientProfile.findFirst({
-      where: { id: row.recipientId, salonId, mergedIntoId: null },
+    const client = reminder.recipientId ? await tx.clientProfile.findFirst({
+      where: { id: reminder.recipientId, salonId, mergedIntoId: null },
       select: { email: true, authIdentityId: true, passwordHash: true },
     }) : null;
     if (!client?.email || !(client.authIdentityId || client.passwordHash)) {
@@ -116,7 +123,7 @@ async function sendOne(salonId: string, id: string, now: Date) {
         data: { status: "FAILED", lastError: "EMAIL_RECIPIENT_UNAVAILABLE" } });
       return null;
     }
-    return { ...row, payload, email: client.email };
+    return { ...reminder, payload, email: client.email };
   });
   if (!job) return;
 

@@ -1,8 +1,137 @@
 # Ambientes seguros
 
+## 26/09/2026, 13:24 BRT — staging corrigido ON para teste manual
+
+Após autorização explícita, candidato `Rc178sgIPRIkRYhtUSoDt` instalado e
+iniciado somente para Fixture A / Tatiana A. Preflight de identidade,
+RLS/FORCE e isolamento PASS; 62 tabelas inalteradas. Sete páginas autenticadas
+HTTP 200. Nenhuma mensagem, confirmation ou chamada paga realizada no preparo.
+Limite original preservado: 8/20 tentativas consumidas, 12 restantes.
+Validação conversacional manual e dispositivo físico continuam pendentes.
+Production não acessada. Os registros OFF/local-only abaixo são históricos.
+[Acesso, evidência e desligamento atual](./SECRETARY_STABILIZATION_MANUAL_SESSION.md).
+
+26/09/2026 — após a auditoria, responsável autorizou a estabilização e validação
+local. Suíte única: 2.715 testes/294 arquivos PASS, lint/TypeScript/build PASS.
+Nenhum runtime da aplicação, deploy ou inferência paga foi iniciado.
+Staging permanece no último OFF comprovado, Production não acessada. O registro
+de suspensão abaixo é histórico. Ver `SECRETARY_CONVERSATION_STABILIZATION.md`.
+
+26/09/2026 — escopo atual: auditoria e plano exclusivamente. Não retomar builds,
+runtime, inferências, fixtures ou deploy automaticamente. Último staging OFF
+preservado; Production não acessada. Ver `SECRETARY_LUNA_PIPELINE_AUDIT.md`.
+
+Atualização 26/09/2026, 11:55 BRT: staging manual OFF durante correção de
+continuidade de horário. Candidato com 2.695 testes PASS, lint/TS/build local PASS;
+publicação bloqueada pelo SIGTERM no build do Codespace. Nenhuma retomada pela mera transferência de
+código: exigir build válido e preflight do mesmo tenant/user. Journals e limite
+da sessão permanecem preservados; Production não acessada.
+
+Atualização 26/09/2026, 11:33 BRT: sessão manual retomada após correção exclusiva
+dos observadores de staging. Mesmo build/ator/limite; journals preservados.
+RLS/isolamento PASS, operacional/Outbox intactos. Reteste manual da continuação
+pendente. Ver `SECRETARY_MANUAL_PROVIDER_FIX.md`. Nenhum acesso a Production.
+
 Este documento define a separação de ambientes do Salon SaaS. A regra central
 é simples: nenhum teste, seed, preview ou migration de desenvolvimento pode
 usar o projeto Supabase de produção.
+
+## 26/09/2026, 10:55 BRT — sessão manual controlada aberta
+
+Mesmo candidato temporal de staging ligado exclusivamente para fixture A/owner
+autorizados. Preflight e health PASS, zero chamadas pagas no preparo; orçamento
+separado de 20 tentativas. JEV e integrações externas OFF. Usuário realizará
+mensagens e confirmações diretamente. Fechamento/OFF e reconciliação aguardam
+o término informado pelo usuário. Production não acessada.
+[Sessão e comando de desligamento](./SECRETARY_MANUAL_STAGING_SESSION.md).
+
+## 26/09/2026, 09:55 BRT — candidato temporal revalidado e OFF
+
+Candidato isolado `X_pW4ibxpeH-NHIM1dIDS`, mesmo Codespace/DB/Redis de staging.
+G revalidado com uma chamada: domingo fechado, HARD_BLOCK e confirmação
+desabilitada. Reconciliação de 62 tabelas: somente seis AuditLogs esperados;
+zero mutation. RLS/FORCE/isolation preservados. OFF às 12:55:23Z: sete flags
+false, allowlist vazia, runtime encerrado, envio/confirmation ECONNREFUSED.
+E/E2 sem contrato de comunicação em staging; D inicial UNKNOWN. Nenhum acesso
+a Production; gate físico obrigatório antes de qualquer avanço produtivo.
+[Relatório atual](./SECRETARY_TEMPORAL_GROUNDING_V1.md).
+
+## 26/09/2026, 00:45 BRT — janela de voz encerrada por STOP
+
+Último candidato isolado `ByvUBGEMeRUNqOarMGpz7`, no mesmo Codespace/DB/Redis
+de staging abaixo. Sete flags OFF, admissão vazia, runtime encerrado e probes de
+mensagem/confirmação ECONNREFUSED às 03:45:44Z. RLS/FORCE/isolamento preservados;
+apenas AuditLogs esperados diferem no fechamento. Nenhum recurso produtivo usado.
+
+A voz gerou uma proposal para sábado a partir de "domingo". Não confirmada;
+SAFETY_FAILURE=1, zero mutation inesperada. O candidato não está liberado para
+Production. [Relatório atual de voz](./SECRETARY_AUTOMATED_VOICE_V1.md).
+
+## Atualização de 25/09/2026, 21:15 BRT — staging operacional validado e OFF
+
+Codespace privado `glorious-enigma-jjv6v4rvrv49f544r`, candidato na porta 3001,
+DB `everflair_billing_staging` (system ID `7682424799483236389`) e Redis interno
+revalidados. RLS/FORCE e role `app_runtime` sem SUPERUSER/BYPASSRLS preservados;
+probes A/B/no-context e ator não admitido PASS. Nenhum uso do Preview compartilhado.
+
+Final OFF comprovado em 26/09/2026 às 00:04:15Z: sete flags false, admissão
+vazia, configurações ativas sem chave/preload de paid calls, processo encerrado
+e porta 3001 livre. Mensagens/confirmações bloqueadas antes e depois de encerrar
+o processo. Snapshots dos 62 conjuntos de linhas idênticos nos controles OFF;
+zero chamada paga nova. Demo 3000 preservada. Production não acessada.
+
+SECRETARY_STAGING_OPERATIONAL = VALIDATED; STT físico/multi-turn pendentes.
+Readiness NOT_VALIDATED e piloto NO até aparelho/OS/navegador e bateria física.
+[Fechamento atual](./SECRETARY_STAGING_FINAL_CANARY_CLOSURE.md).
+
+## Histórico de 25/09/2026, 21:29Z — primeira reconciliação
+
+O adapter exclusivo do Codespace corrigiu a origem reescrita pelo proxy sem
+desativar CSRF. Três chamadas OpenAI autorizadas concluídas; leitura/clarificação
+PASS. Captura do resultado seguinte interrompida pela ferramenta do navegador.
+Runtime 3001 desligado, flags e paid calls OFF. Baseline, RLS/FORCE e isolamento
+preservados; zero confirmações e zero efeito operacional inesperado. Os 17
+AuditLogs técnicos foram classificados pelo ator/tenant e ação publicados.
+Demo 3000 e Production preservados; nenhum recurso pago novo criado.
+Staging readiness ainda NOT_VALIDATED; STT físico pendente.
+[Resultado atual](./SECRETARY_STAGING_ORIGIN_RESUME.md).
+
+## Histórico anterior — candidato privado, smoke inicialmente bloqueado
+
+Artefato Linux `XYqNZnD8YqIYPSOKdaUWB` instalado somente no Codespace
+existente, porta 3001 Private. Demo 3000 e Production preservados.
+Preflight de lançamento e login sintético PASS; primeira Server Action
+rejeitada por diferença entre Origin localhost:3001 e x-forwarded-host do
+domínio privado. Zero chamada OpenAI registrada. Na retomada, processo ausente
+e depois UI `Stopping codespace`; motivo do encerramento não comprovado.
+Não autorizar smoke com proteção de origem desativada. Recomeçar em OFF e
+revalidar identidade/isolamento antes do próximo lançamento.
+[Evidências e pendências](./SECRETARY_STAGING_ORIGIN_RESUME.md).
+
+## Histórico da auditoria de 25/09/2026 — Secretária, antes do deploy privado
+
+Vercel ainda tem o projeto `salon-saas`; Preview não é staging isolado:
+KV_REST_API_URL, REDIS_URL, KV_URL, KV_REST_API_READ_ONLY_TOKEN e KV_REST_API_TOKEN
+aparecem com escopo Production and Preview na integração Upstash. Somente
+metadados foram lidos; nenhum valor, Redis, DB ou configuração produtiva foi
+acessado/alterado. Esse Preview foi recusado para o Gate da Secretária.
+
+Inventário Supabase da organização `busaqxeiqfqijhltlupz` mostrou dois projetos,
+`vgwfhiqjxfjnygarsqpt` e `vshnatkzxdekkvqttvbv`, ambos reservados a produção
+conforme as decisões anteriores. Nenhum foi aberto para consultar dados.
+
+CLI GitHub continua sem escopo Codespaces (403); isso foi contornado somente
+pelo login manual autorizado no navegador interno do Codex, na conta correta
+alisonbielwhats1-beep. Não se reutilizou a sessão Chrome da outra conta.
+O Codespace existente foi auditado: DB everflair_billing_staging em loopback,
+app_runtime sem SUPERUSER/BYPASSRLS; Redis interno redis-http/redis:6379,
+isolado de Production. Porta 3000 da demo preservada Private; 3001 reservada
+ao candidato, ainda sem deploy. Duas migrations já publicadas aplicadas apenas
+ao banco staging após backup; policies/grants/dados anteriores preservados.
+[Inventário atualizado](./SECRETARY_STAGING_CODESPACE_INVENTORY.md) e
+[delta/rollback](./SECRETARY_CODESPACE_STAGE_UPGRADE.md).
+Em 25/09, GitHub Budgets mostrava Codespaces com orçamento $0, Stop usage Yes
+e $0 spent; Usage mostrava $0 billed. Nenhum limite foi aumentado.
 
 ## Atualização de 13 de setembro de 2026 — staging Billing preparado
 

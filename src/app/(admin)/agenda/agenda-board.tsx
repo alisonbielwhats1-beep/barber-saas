@@ -35,7 +35,7 @@ import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { minutesToHHMM, formatMoney } from "@/lib/utils";
 import { calendarGridRangeInTimeZone } from "@/lib/time";
-import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption } from "./appointment-form";
+import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption, type WaitlistPrefill } from "./appointment-form";
 import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
 import { appointmentColor } from "@/lib/agenda-colors";
@@ -46,6 +46,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutAppointmentsAndBlocks, type AgendaPlacement } from "./agenda-layout";
 import { AvailabilityPanel, type AvailabilityBlock, type AvailabilityPreset, type BlockSelection } from "./availability-panel";
 import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availability-block";
+import type { AgendaPrefill } from "./agenda-deep-link";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -66,6 +67,19 @@ const HEADER_H = 64;
 
 type ViewKind = "day" | "week" | "month" | "list";
 
+export type WaitlistEntryView = {
+  id: string;
+  name: string;
+  phone: string | null;
+  serviceName: string;
+  position: number;
+  /** `null` para quem entrou na fila sem conta (convidado). */
+  clientId: string | null;
+  professionalId: string;
+  startAt: string;
+  serviceIds: string[];
+};
+
 export type Appointment = {
   stages?: { name: string; durationMin: number; processingMin: number; finishingMin: number }[];
   seriesId?: string | null;
@@ -84,13 +98,7 @@ export type Appointment = {
   serviceCategory?: string | null;
   waitlistCount: number;
   waitlistNext: string | null;
-  waitlist: Array<{
-    id: string;
-    name: string;
-    phone: string | null;
-    serviceName: string;
-    position: number;
-  }>;
+  waitlist: WaitlistEntryView[];
   isOverbooked: boolean;
   version: number;
   serviceIds: string[];
@@ -164,8 +172,7 @@ function ymd(d: Date) {
 export function AgendaBoard({
   colorScope,
   operations,
-  initialAppointmentId,
-  initialClientId,
+  prefill,
   initialProfessionalId,
   availabilityBlocks = [],
   date,
@@ -183,8 +190,8 @@ export function AgendaBoard({
   canManageAvailability = canCancel,
 }: {
   colorScope: string;
-  initialAppointmentId?: string;
-  initialClientId?: string;
+  /** Deep link already re-validated by the page (agendaPrefill): what to open, prefilled. Never books anything. */
+  prefill?: AgendaPrefill;
   initialProfessionalId?: string;
   availabilityBlocks?: AvailabilityBlock[];
   operations?: ReactNode;
@@ -223,13 +230,26 @@ export function AgendaBoard({
   const filterTrigger = useRef<HTMLButtonElement>(null);
   const restoreQuickActionFocus = () => quickActionTrigger.current?.focus();
   const [blockMode, setBlockMode] = useState(false);
-  const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>();
+  const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>(() => canManageAvailability && prefill?.block ? { ...prefill.block, key: "deep-link" } : undefined);
   const [availabilityLaunch, setAvailabilityLaunch] = useState<{ key: string; preset: AvailabilityPreset } | undefined>();
   const [selectedAvailabilityBlock, setSelectedAvailabilityBlock] = useState<AvailabilityBlock | null>(null);
   const [search, setSearch] = useState("");
-  const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
+  const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === prefill?.detailId) ?? null);
   const currentDetail = detail ? appointments.find(appointment => appointment.id === detail.id) ?? detail : null;
-  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string; clientId?: string } | null>(() => canCreate && initialClientId && clients.some(client => client.id === initialClientId) && roster.length ? {startLocal:`${date}T08:00`,proId:roster[0].id,clientId:initialClientId} : null);
+  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string; clientId?: string; serviceIds?: string[]; waitlist?: WaitlistPrefill } | null>(() => canCreate && prefill?.create ? prefill.create : null);
+  // A later deep link while the agenda is already open (e.g. from the Secretária dock) opens its record or form too.
+  const prefillKey = JSON.stringify(prefill ?? {}), appliedPrefill = useRef(prefillKey);
+  useEffect(() => {
+    if (appliedPrefill.current === prefillKey) return;
+    appliedPrefill.current = prefillKey;
+    const next = prefill ?? {};
+    const linked = appointments.find(appointment => appointment.id === next.detailId);
+    if (linked) setDetail(linked);
+    if (canCreate && next.create) setCreateAt(next.create);
+    if (canManageAvailability && next.block) { setAvailabilityLaunch(undefined); setBlockSelection({ ...next.block, key: crypto.randomUUID() }); }
+  // Only a new link applies; the lists it was validated against arrive with it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillKey]);
   const [moveProposal, setMoveProposal] = useState<{
     appointment: Appointment;
     professionalId: string;
@@ -416,7 +436,7 @@ export function AgendaBoard({
         </div>
 
         <div className="agenda-view-controls">
-          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId && !initialClientId} />
+          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!prefill?.linked} />
           {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><AnimatedBorder radius={9999} /><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
@@ -605,7 +625,9 @@ export function AgendaBoard({
 
       {createAt && (
         <AppointmentDialog
-          initialClient={clients.find(client => client.id === createAt.clientId)}
+          initialClient={createAt.waitlist?.client ?? clients.find(client => client.id === createAt.clientId)}
+          initialServiceIds={createAt.serviceIds}
+          waitlist={createAt.waitlist}
           open={!!createAt}
           onOpenChange={(o) => {
             if (!o) {
@@ -651,6 +673,22 @@ export function AgendaBoard({
         timezone={timezone}
         canCreate={canCreate}
         canCancel={canCancel}
+        onScheduleWaitlist={canCreate && canCancel ? (entry) => {
+          const startLocal = formatInTimeZone(new Date(entry.startAt), timezone, "yyyy-MM-dd'T'HH:mm");
+          setDetail(null);
+          setCreateAt({
+            startLocal,
+            proId: entry.professionalId,
+            waitlist: {
+              entryId: entry.id,
+              name: entry.name,
+              sourceTime: startLocal.slice(11, 16),
+              serviceIds: entry.serviceIds,
+              client: entry.clientId ? { id: entry.clientId, name: entry.name, phone: entry.phone } : undefined,
+              guest: entry.clientId ? undefined : { name: entry.name, phone: entry.phone ?? "" },
+            },
+          });
+        } : undefined}
         onClose={() => {
           setDetail(null);
           refresh();

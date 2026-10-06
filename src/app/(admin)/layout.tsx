@@ -14,8 +14,11 @@ import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { billingEnabled } from "@/lib/billing/config";
 import { billingCapacityLabel } from "@/lib/billing/presentation";
 import { currentTerms } from "@/lib/billing/change-terms";
+import { loadPlanBadge } from "@/lib/billing/plan-badge";
 import { ThemeToggle } from "./theme-toggle";
 import { PlanShortcut } from "./plan-shortcut";
+
+const legacyPlanLabels = { FREE: "Gratuito", STARTER: "Starter", PRO: getPlanEntitlement("PRO").label, ENTERPRISE: "Enterprise" };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
@@ -47,13 +50,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         }),
         billingEnabled() ? tx.billingSubscription.findFirst({ where: { salonId, current: true, paidThrough: { not: null } } }) : null,
       ]);
-      return { salon, memberships, unreadNotifications, subscription: subscription ? await currentTerms(tx, subscription) : null };
+      const legacyLabel = salon && salon.plan !== "FREE" ? legacyPlanLabels[salon.plan] : null;
+      // Only the owner sees the shortcut; its situation includes pending and failed contracts.
+      const badge = role === "OWNER" && billingEnabled() ? await loadPlanBadge(tx, salonId, legacyLabel) : null;
+      return { salon, memberships, unreadNotifications, badge, subscription: subscription ? await currentTerms(tx, subscription) : null };
     }),
   ]);
-  const { salon, memberships, unreadNotifications, subscription } = adminData;
-  const legacyPlanLabels = { FREE: "Gratuito", STARTER: "Starter", PRO: getPlanEntitlement("PRO").label, ENTERPRISE: "Enterprise" };
+  const { salon, memberships, unreadNotifications, subscription, badge } = adminData;
   const planLabel = subscription ? billingCapacityLabel(subscription.plan, subscription.agendaLimit) : legacyPlanLabels[salon?.plan ?? "FREE"];
-  const currentPlanLabel = subscription || (salon && salon.plan !== "FREE") ? planLabel : null;
+  const planShortcut = badge ?? { plan: subscription || (salon && salon.plan !== "FREE") ? planLabel : null, status: null, tone: "neutral" as const };
+  const planHref = billingEnabled() ? "/assinatura" : "/configuracoes#plano";
 
   const membershipList = memberships.map((m) => ({
     id: m.salon.id,
@@ -61,6 +67,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     role: m.role,
   }));
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
+  let SecretaryDock: typeof import("./servicos/secretaria/secretary-dock-lazy").SecretaryDockLazy | undefined;
+  if (process.env.SALON_SECRETARY_FRONT_ENABLED === "true" && ["OWNER", "MANAGER", "RECEPTIONIST"].includes(role)) {
+    // Loaded only here, and the flag is fixed at build time (next.config env): with the Secretária off this branch is dead code,
+    // so no admin page compiles the dock, its server actions or her runtime (the CI journeys timed out compiling them).
+    try {
+      const [{ assertSecretaryEnvironment }, { assertSecretaryRolloutAccess }, dock] = await Promise.all([import("@/lib/salon-secretary-runtime"), import("@/lib/secretary-rollout"),
+        import("./servicos/secretaria/secretary-dock-lazy")]);
+      assertSecretaryEnvironment(); assertSecretaryRolloutAccess(ctx); SecretaryDock = dock.SecretaryDockLazy;
+    } catch { /* Admission and environment gates both fail closed. */ }
+  }
 
   return (
     <ThemeProvider>
@@ -77,17 +93,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* ── Main content ─────────────────────────────────── */}
       <main id="main-content" tabIndex={-1} className="admin-main scrollbar-dark min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         {role === "OWNER" && <header aria-label="Plano do estabelecimento" className="hidden min-h-16 items-center justify-end border-b border-border bg-surface-1 px-6 py-2 lg:flex print:hidden">
-          <PlanShortcut plan={currentPlanLabel} href={billingEnabled() ? "/assinatura" : "/configuracoes#plano"} />
+          <PlanShortcut {...planShortcut} href={planHref} />
         </header>}
-        <AdminMobileHeader role={role} plan={currentPlanLabel} planHref={billingEnabled() ? "/assinatura" : "/configuracoes#plano"} />
+        <AdminMobileHeader role={role} plan={planShortcut} planHref={planHref} />
         <div className="mx-auto w-full min-w-0 max-w-[1680px] p-4 pb-24 sm:p-5 md:p-6 lg:pb-6">{children}</div>
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin}
-        accountControls={<div className="space-y-4"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact plan={currentPlanLabel} href={billingEnabled() ? "/assinatura" : "/configuracoes#plano"} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /><SidebarFooter plan={planLabel} /></div>}
+        accountControls={<div className="space-y-4"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact {...planShortcut} href={planHref} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /><SidebarFooter plan={planLabel} /></div>}
       />
       <CommandPalette role={role} />
       <Toaster />
+      {SecretaryDock && <SecretaryDock key={`${salonId}:${userId}`} voiceEnabled={process.env.SALON_SECRETARY_VOICE_ENABLED === "true"}
+        voiceCorrection={process.env.SALON_SECRETARY_VOICE_CORRECTION === "true"} transcribeEnabled={process.env.SALON_SECRETARY_TRANSCRIBE_ENABLED === "true"}
+        feedbackEnabled={process.env.SALON_SECRETARY_FEEDBACK === "true"} flowEnabled={process.env.SALON_SECRETARY_FLOW_WINDOW === "true"} />}
     </div>
     </ThemeProvider>
   );

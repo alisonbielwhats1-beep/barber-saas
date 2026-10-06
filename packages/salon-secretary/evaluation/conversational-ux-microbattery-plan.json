@@ -1,0 +1,201 @@
+{
+  "status": "PREPARED_NOT_EXECUTABLE",
+  "execution_authorized": false,
+  "model": "gpt-6-luna",
+  "max_inferences": 10,
+  "max_turns": 10,
+  "case_ids": [
+    "x41",
+    "x42",
+    "x44",
+    "x46",
+    "x49"
+  ],
+  "cases": [
+    {
+      "case_id": "x41",
+      "turns": [
+        {
+          "turn": 1,
+          "message": "Marca um Corte Completo pro Andrinho amanhã.",
+          "expected_action_count": 1,
+          "expected_operations": [
+            "appointment.create"
+          ],
+          "expected_review": "NORMAL_REVIEW",
+          "expected_question_count": 1
+        },
+        {
+          "turn": 2,
+          "message": "10h.",
+          "expected_action_count": 1,
+          "expected_operations": [
+            "appointment.create"
+          ],
+          "expected_review": "NORMAL_REVIEW",
+          "expected_question_count": 0
+        }
+      ]
+    },
+    {
+      "case_id": "x42",
+      "turns": [
+        {
+          "turn": 1,
+          "message": "Marca um corte pro Andrinho amanhã.",
+          "expected_action_count": 1,
+          "expected_operations": [
+            "appointment.create"
+          ],
+          "expected_review": "NORMAL_REVIEW",
+          "expected_question_count": 1
+        },
+        {
+          "turn": 2,
+          "message": "10h.",
+          "expected_action_count": 1,
+          "expected_operations": [
+            "appointment.create"
+          ],
+          "expected_review": "NORMAL_REVIEW",
+          "expected_question_count": 1
+        }
+      ]
+    },
+    {
+      "case_id": "x44",
+      "turns": [
+        {
+          "turn": 1,
+          "message": "Agenda o Andrinho amanhã e bloqueia a Tatiana amanhã das 14h às 15h.",
+          "expected_action_count": 2,
+          "expected_operations": [
+            "appointment.create",
+            "schedule.block"
+          ],
+          "expected_review": "NORMAL_REVIEW",
+          "expected_question_count": 1
+        },
+        {
+          "turn": 2,
+          "message": "Corte Completo às 10h.",
+          "expected_action_count": 2,
+          "expected_operations": [
+            "appointment.create",
+            "schedule.block"
+          ],
+          "expected_review": "NORMAL_REVIEW",
+          "expected_question_count": 0
+        }
+      ]
+    },
+    {
+      "case_id": "x46",
+      "turns": [
+        {
+          "turn": 1,
+          "message": "Cancela Amanda Souza amanhã às 10h por pedido dela, coloca Fábio Santos no lugar, avisa Amanda Souza no WhatsApp exatamente \"Seu horário foi cancelado.\", altera a Massagem para R$80 e me fala quanto faturei ontem.",
+          "expected_action_count": 5,
+          "expected_operations": [
+            "appointment.cancel",
+            "appointment.create",
+            "customer.message",
+            "service.change",
+            "financial.report"
+          ],
+          "expected_review": "NORMAL_REVIEW",
+          "expected_question_count": 1
+        },
+        {
+          "turn": 2,
+          "message": "Corte Completo.",
+          "expected_action_count": 5,
+          "expected_operations": [
+            "appointment.cancel",
+            "appointment.create",
+            "customer.message",
+            "service.change",
+            "financial.report"
+          ],
+          "expected_review": "NORMAL_REVIEW",
+          "expected_question_count": 0
+        }
+      ]
+    },
+    {
+      "case_id": "x49",
+      "turns": [
+        {
+          "turn": 1,
+          "message": "Cancela Amanda Souza amanhã às 10h por pedido dela, coloca Fábio Santos no lugar, avisa Amanda Souza no WhatsApp exatamente \"Seu horário foi cancelado.\", altera a Massagem para R$80 e me fala quanto faturei ontem. Também cadastra Lia Santos como cliente, dá entrada em 10 unidades de Shampoo X, bloqueia Tatiana amanhã das 14h, mostra os produtos com estoque baixo e cadastra Barba Expressa por R$35 com duração de 20 minutos.",
+          "expected_action_count": 10,
+          "expected_operations": [
+            "appointment.cancel",
+            "appointment.create",
+            "customer.message",
+            "service.change",
+            "financial.report",
+            "customer.create",
+            "stock.movement",
+            "product.search",
+            "schedule.block",
+            "service.create"
+          ],
+          "expected_review": "ADVANCED_REVIEW",
+          "expected_question_count": 2
+        },
+        {
+          "turn": 2,
+          "message": "Corte Completo para o Fábio e bloqueia até 16h.",
+          "expected_action_count": 10,
+          "expected_operations": [
+            "appointment.cancel",
+            "appointment.create",
+            "customer.message",
+            "service.change",
+            "financial.report",
+            "customer.create",
+            "stock.movement",
+            "product.search",
+            "schedule.block",
+            "service.create"
+          ],
+          "expected_review": "ADVANCED_REVIEW",
+          "expected_question_count": 0
+        }
+      ]
+    }
+  ],
+  "forbidden": [
+    "confirmations",
+    "operational_writes",
+    "jev",
+    "retries",
+    "hosted_tools",
+    "containers",
+    "deploy",
+    "meta",
+    "front"
+  ],
+  "store": false,
+  "flags_default": {
+    "v2": false,
+    "paid": false,
+    "jev": false
+  },
+  "preconditions": [
+    "New explicit authorization before any inference",
+    "All offline checks PASS",
+    "Dedicated synthetic tenants and fresh preflight; never reset historical benchmark evidence",
+    "Reuse durable observation/wire/checkpoints/fsync/provider diagnostics/health/effect counters",
+    "Freeze additional source hashes for all new presentation modules; old benchmark manifest must reject changed runtime",
+    "Verify current price and announce USD cap before any paid call",
+    "Stop at clarification or proposal; stop immediately on any safety/UX regression"
+  ],
+  "source_hashes": {
+    "packages/salon-secretary/src/conversational-presentation.ts": "9f2b295b68c238f7f5c25d5ce10fce209f2182e2da1e9687f4aa33067ec784b7",
+    "packages/salon-secretary/src/action-plan.ts": "8b1a37a413fc2fa5633b9a1cdf9dc85b0947b1ff4d473bafc6f7d393f2038f59",
+    "src/lib/secretary-presentation.ts": "1c52c93363c2fe62c8372dcf401ff5c25125fa99d50f422f4b68bbf20fc4ee82",
+    "src/lib/salon-secretary.ts": "605823144f67180b5788d200860e85dd72f0fcef9577f96564a2d128325f5769"
+  }
+}

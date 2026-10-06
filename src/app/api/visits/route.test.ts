@@ -23,6 +23,8 @@ vi.mock("@/lib/visit-scheduling", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/visit-scheduling")>()),
   createVisit: m.create,
 }));
+import { AppointmentError } from "@/lib/appointment-domain";
+import { PlanLimitError } from "@/lib/plan-entitlements";
 import { POST } from "./route";
 const body = {
   salonId: "salon",
@@ -104,13 +106,69 @@ describe("confirmação pública de visita", () => {
     expect((await request()).status).toBe(401);
     expect(m.create).not.toHaveBeenCalled();
   });
-  it("conflito não apresenta confirmação parcial nem detalhes internos", async () => {
-    m.create.mockRejectedValueOnce(new Error("private database detail"));
+  it("conflito de domínio não apresenta confirmação parcial", async () => {
+    m.create.mockRejectedValueOnce(new AppointmentError("SLOT_TAKEN"));
+    const result = await request();
+    expect(result.status).toBe(409);
+    expect(await result.json()).toEqual({
+      code: "SLOT_TAKEN",
+      error: expect.stringContaining("Nenhum atendimento"),
+    });
+  });
+  it("limite do plano continua sendo conflito, não falha de servidor", async () => {
+    m.create.mockRejectedValueOnce(new PlanLimitError("limite do plano"));
     const result = await request();
     expect(result.status).toBe(409);
     expect(await result.json()).toEqual({
       code: "VISIT_UNAVAILABLE",
       error: expect.stringContaining("Nenhum atendimento"),
     });
+  });
+  it("corrida barrada pela exclusion constraint continua sendo conflito de horário", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const overlap = Object.assign(
+      new Error('conflicting key value violates exclusion constraint "appointment_no_overlap"'),
+      { name: "PrismaClientUnknownRequestError" },
+    );
+    m.create.mockRejectedValueOnce(overlap);
+    const result = await request();
+    expect(result.status).toBe(409);
+    expect(await result.json()).toEqual({
+      code: "SLOT_TAKEN",
+      error: expect.stringContaining("Nenhum atendimento"),
+    });
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+  it("falha inesperada vira 500 genérico, é registrada e não vaza detalhes", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    m.create.mockRejectedValueOnce(new Error("private database detail"));
+    const result = await request();
+    expect(result.status).toBe(500);
+    const payload = await result.json();
+    expect(payload).toEqual({
+      code: "VISIT_FAILED",
+      error: expect.stringContaining("Tente novamente"),
+    });
+    expect(JSON.stringify(payload)).not.toContain("private database detail");
+    expect(payload.error).not.toContain("Nenhum atendimento");
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0]![0]).toBe("[visits] unexpected failure");
+    log.mockRestore();
+  });
+  it("falha do Prisma registra só nome e código, sem a mensagem com valores da consulta", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const prisma = Object.assign(new Error("Unique constraint failed on email=ana@example.test"), {
+      name: "PrismaClientKnownRequestError",
+      code: "P2002",
+    });
+    m.create.mockRejectedValueOnce(prisma);
+    expect((await request()).status).toBe(500);
+    expect(log.mock.calls[0]![1]).toEqual({
+      name: "PrismaClientKnownRequestError",
+      code: "P2002",
+      message: undefined,
+    });
+    log.mockRestore();
   });
 });

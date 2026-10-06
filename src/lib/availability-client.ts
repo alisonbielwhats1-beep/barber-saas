@@ -187,3 +187,44 @@ export function availabilityErrorMessage(error: AvailabilityRequestError) {
       return "";
   }
 }
+
+export type BookableDays = {
+  freeDays: string[];
+  waitlistDays: string[];
+};
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Dias com horário livre e dias lotados que só aceitam fila. Qualquer falha
+ * vira erro: o calendário então mantém todos os dias da janela clicáveis.
+ */
+export async function requestBookableDays(
+  url: string,
+  { signal, timeoutMs = 10_000, fetcher = fetch }: AvailabilityRequestOptions = {},
+): Promise<BookableDays> {
+  const controller = new AbortController();
+  const onExternalAbort = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", onExternalAbort, { once: true });
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    if (signal?.aborted) throw new AvailabilityRequestError("aborted");
+    const response = await fetcher(url, { signal: controller.signal });
+    if (!response.ok) throw new AvailabilityRequestError("server_error");
+    const body: unknown = await response.json().catch(() => null);
+    const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
+    const isDateList = (value: unknown): value is string[] =>
+      Array.isArray(value) && value.every(item => typeof item === "string" && DATE_KEY.test(item));
+    if (!payload || !isDateList(payload.freeDays) || !isDateList(payload.waitlistDays)) {
+      throw new AvailabilityRequestError("invalid_response");
+    }
+    return { freeDays: payload.freeDays, waitlistDays: payload.waitlistDays };
+  } catch (error) {
+    if (error instanceof AvailabilityRequestError) throw error;
+    if (signal?.aborted) throw new AvailabilityRequestError("aborted");
+    throw new AvailabilityRequestError("network");
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", onExternalAbort);
+  }
+}

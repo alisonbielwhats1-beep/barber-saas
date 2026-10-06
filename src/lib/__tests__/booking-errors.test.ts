@@ -6,6 +6,13 @@ describe("friendlyError", () => {
     expect(friendlyError("SLOT_TAKEN")).toBe(ERROR_PT.SLOT_TAKEN);
     expect(friendlyError("SERVICE_INVALID")).toBe(ERROR_PT.SERVICE_INVALID);
   });
+  it("não expõe ao cliente final que a assinatura do salão precisa de regularização", () => {
+    const msg = friendlyError("BILLING_REQUIRED");
+    expect(msg).toBe(
+      "Este estabelecimento não está recebendo reservas online agora. Fale diretamente com ele.",
+    );
+    expect(msg).not.toMatch(/assinatura|regulariz|pagamento/i);
+  });
   it("nunca mostra código cru desconhecido", () => {
     const msg = friendlyError("SOME_NEW_CODE");
     expect(msg).not.toContain("SOME_NEW_CODE");

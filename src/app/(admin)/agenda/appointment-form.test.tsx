@@ -6,13 +6,14 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   createRecurring: vi.fn(),
   onOpenChange: vi.fn(),
-  last: vi.fn(), search: vi.fn(),
+  last: vi.fn(), search: vi.fn(), slots: vi.fn(),
 }));
 
 vi.mock("./actions", () => ({
   createAppointmentManually: mocks.create,
   createRecurringAppointments: mocks.createRecurring,
   getLastAppointmentServices: mocks.last,
+  getStaffFreeSlots: mocks.slots,
 }));
 
 vi.mock("./client-search-actions", () => ({ searchAppointmentClients: mocks.search }));
@@ -29,6 +30,9 @@ beforeEach(() => {
     .mockResolvedValueOnce({ success: true });
 });
 afterEach(cleanup);
+beforeEach(() => {
+  mocks.slots.mockResolvedValue({ slots: ["14:00", "16:00"], bestFit: ["16:00"] });
+});
 
 function chooseClient(name = "Cliente A") {
   const edit = screen.queryByRole("button", { name: "Alterar cliente" });
@@ -284,4 +288,81 @@ it("abre o cliente vindo do perfil sem gravar e permite trocar antes de confirma
   fireEvent.click(screen.getByRole("button", {name:"Alterar cliente"}));
   expect(screen.getByRole("button", {name:/Cliente B/})).toHaveAttribute("aria-pressed", "true");
   expect(mocks.create).not.toHaveBeenCalled();
+});
+
+describe("pessoa da fila agendada em outro horário", () => {
+  function mountWaitlist(guest = false) {
+    render(
+      <AppointmentDialog
+        open
+        waitlist={{
+          entryId: "entry-a",
+          name: "Aline",
+          sourceTime: "08:30",
+          serviceIds: ["service-a"],
+          ...(guest
+            ? { guest: { name: "Aline", phone: "11957908895" } }
+            : { client: { id: "client-a", name: "Aline", phone: "11957908895" } }),
+        }}
+        initialClient={guest ? undefined : { id: "client-a", name: "Aline", phone: "11957908895" }}
+        onOpenChange={mocks.onOpenChange}
+        slotStartLocal="2030-09-11T08:30"
+        professionalId="professional-a"
+        professionals={[{ id: "professional-a", name: "Alex Profissional", serviceIds: ["service-a"] }]}
+        services={[{ id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 }]}
+        clients={[]}
+        canOverbook
+        canOverrideBreak
+        canRepeat
+        timezone="America/Sao_Paulo"
+      />,
+    );
+  }
+
+  it("abre no horário com sugestões livres e consome a entrada ao confirmar", async () => {
+    mocks.create.mockReset().mockResolvedValueOnce({ success: true });
+    mountWaitlist();
+    expect(screen.getByRole("heading", { name: "Novo horário para Aline" })).toBeTruthy();
+    expect(mocks.slots).toHaveBeenCalledWith({ professionalId: "professional-a", serviceIds: ["service-a"], date: "2030-09-11" });
+    fireEvent.click(await screen.findByRole("button", { name: /16:00/ }));
+    expect((screen.getByLabelText("Hora de início") as HTMLInputElement).value).toBe("16:00");
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    expect(screen.getByText(/Da fila de espera das 08:30/)).toBeTruthy();
+    expect(screen.queryByText(/Recorrência/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar agendamento" }));
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      clientId: "client-a",
+      serviceIds: ["service-a"],
+      startLocal: "2030-09-11T16:00",
+      waitlistEntryId: "entry-a",
+    })));
+    await waitFor(() => expect(mocks.onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it("exige escolher um horário antes de revisar", () => {
+    mountWaitlist();
+    expect((screen.getByLabelText("Hora de início") as HTMLInputElement).required).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    expect(screen.getByRole("heading", { name: "Novo horário para Aline" })).toBeTruthy();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("convidado da fila segue como novo cliente com nome e telefone", async () => {
+    mocks.create.mockReset().mockResolvedValueOnce({ success: true });
+    mountWaitlist(true);
+    fireEvent.click(await screen.findByRole("button", { name: /14:00/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar agendamento" }));
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      clientName: "Aline",
+      clientPhone: "11957908895",
+      waitlistEntryId: "entry-a",
+    })));
+  });
+
+  it("informa quando não há horários livres no dia", async () => {
+    mocks.slots.mockResolvedValue({ slots: [], bestFit: [] });
+    mountWaitlist();
+    expect(await screen.findByText(/Sem horários livres neste dia/)).toBeTruthy();
+  });
 });

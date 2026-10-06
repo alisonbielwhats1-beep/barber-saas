@@ -1,0 +1,623 @@
+[
+  {
+    "id": "N01",
+    "title": "Alvo do dono por voz: remarcar, cancelar e fechar agenda numa frase só",
+    "capability": ["multi-action", "reschedule", "cancel", "block", "voice", "filler", "spoken-number", "day-of-month", "accents", "run-on", "clarification"],
+    "expect": "Frase ditada, sem pontuação, com 'é' inicial e horas por extenso. Fábio (com a Tatiana) vai para amanhã 10h, mesmo serviço e profissional; o cancelamento da Amanda pergunta o motivo; o Rodrigo fica bloqueado amanhã das 10h às 11h ('dia N' é amanhã).",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "professionals": [{ "key": "rodrigo", "name": "Rodrigo Lima", "services": ["Corte Completo", "Barba"] }],
+    "appointments": [
+      { "key": "fabio_d2", "customer": "fabio", "professional": "tatiana", "service": "corte", "day": 2, "time": "16:00" },
+      { "key": "amanda_d3", "customer": "amanda", "professional": "tatiana", "service": "escova", "day": 3, "time": "11:00" }
+    ],
+    "steps": [
+      { "say": "é altera o horario do fabio pra amanha as dez cancela o horario da amanda e fecha a agenda do rodrigo das dez as onze do dia {{d:+1|dd}}" },
+      { "confirm": "all" }
+    ],
+    "answers": { "reason": ["ela viajou", "viajou", "é que ela viajou", "ela ta viajando"] },
+    "final": {
+      "appointments": [
+        { "customer": "Fábio Santos", "service": "Corte Completo", "day": 1, "time": "10:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" },
+        { "customer": "Amanda Souza", "service": "Escova", "day": 3, "time": "11:00", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": ["viajou", "viajando"] }
+      ],
+      "blocks": [{ "professional": "Rodrigo Lima", "day": 1, "from": "10:00", "to": "11:00" }]
+    }
+  },
+  {
+    "id": "N02",
+    "title": "Digitado no celular: 'cancelar a', 'orario', '10hs', 'e tb', 'de 10 a 11'",
+    "capability": ["multi-action", "reschedule", "cancel", "block", "keyboard", "accents", "abbreviation", "common-typo", "time-format", "interval", "run-on", "clarification"],
+    "expect": "Três ações com erros de digitação comuns. Amanda cancelada (motivo perguntado); Fábio para amanhã 10h (mesmo serviço e profissional); Rodrigo bloqueado amanhã 10h-11h.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "professionals": [{ "key": "rodrigo", "name": "Rodrigo Lima", "services": ["Corte Completo", "Barba"] }],
+    "appointments": [
+      { "key": "fabio_d3", "customer": "fabio", "professional": "tatiana", "service": "corte", "day": 3, "time": "15:00" },
+      { "key": "amanda_d2", "customer": "amanda", "professional": "tatiana", "service": "escova", "day": 2, "time": "09:30" }
+    ],
+    "steps": [
+      { "say": "cancelar a amanda e passa o fabio pra amanha 10hs e tb fecha o orario do rodrigo de 10 a 11 amanha" },
+      { "confirm": "all" }
+    ],
+    "answers": { "reason": ["ela n vai poder vir", "n vai poder vir", "ela avisou q n pode vir"] },
+    "final": {
+      "appointments": [
+        { "customer": "Fábio Santos", "service": "Corte Completo", "day": 1, "time": "10:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" },
+        { "customer": "Amanda Souza", "service": "Escova", "day": 2, "time": "09:30", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": ["poder vir", "pode vir"] }
+      ],
+      "blocks": [{ "professional": "Rodrigo Lima", "day": 1, "from": "10:00", "to": "11:00" }]
+    }
+  },
+  {
+    "id": "N03",
+    "title": "Áudio longo com 'então', 'tipo', 'aí', 'né' e horas por extenso",
+    "capability": ["multi-action", "create", "reschedule", "block", "voice", "filler", "spoken-number", "relative-day", "interval", "run-on"],
+    "expect": "Carla marcada amanhã 10h30 (Escova, Tatiana); João (Corte, Ricardo) passa para depois de amanhã 14h; Ricardo bloqueado depois de amanhã 9h-10h. 'às dez e meia' e 'nove' são manhã; só 'duas da tarde' é 14h.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "joao_d3", "customer": "joao", "professional": "ricardo", "service": "corte", "day": 3, "time": "11:00" }
+    ],
+    "steps": [
+      { "say": "então tipo marca a carla amanhã às dez e meia pra escova aí passa o joão pra depois de amanhã às duas da tarde e fecha a agenda do ricardo depois de amanhã de manhã das nove às dez né" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Carla Mendes", "service": "Escova", "day": 1, "time": "10:30", "professional": "Tatiana Rocha", "status": "CONFIRMED" },
+        { "customer": "João Pereira", "service": "Corte Completo", "day": 2, "time": "14:00", "professional": "Ricardo Alves", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Ricardo Alves", "day": 2, "from": "09:00", "to": "10:00" }]
+    }
+  },
+  {
+    "id": "N04",
+    "title": "Autocorreção ditada: 'às dez não pera às onze'",
+    "capability": ["reschedule", "voice", "self-correction", "negation", "spoken-number"],
+    "expect": "A correção vale: Rosa vai para amanhã 11h (não 10h), mesmo serviço e profissional. O 'não' nega só o 'dez'.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "rosa_d2", "customer": "rosa", "professional": "tatiana", "service": "escova", "day": 2, "time": "15:00" }
+    ],
+    "steps": [
+      { "say": "remarca a rosa pra amanhã às dez não pera às onze" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Rosa Viana", "service": "Escova", "day": 1, "time": "11:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "N05",
+    "title": "Dois cancelamentos com motivo abreviado ('q', 'tb', 'pq', 'ta')",
+    "capability": ["multi-action", "cancel", "reason-inline", "keyboard", "abbreviation", "accents"],
+    "expect": "Cada cancelamento guarda o próprio motivo dito ('ela viajou' / 'ele ta doente'); nenhuma pergunta.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "amanda_d1", "customer": "amanda", "professional": "tatiana", "service": "escova", "day": 1, "time": "10:00" },
+      { "key": "joao_d2", "customer": "joao", "professional": "ricardo", "service": "corte", "day": 2, "time": "14:00" }
+    ],
+    "steps": [
+      { "say": "cancela a amanda q ela viajou e o joao tb pq ele ta doente" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Amanda Souza", "service": "Escova", "day": 1, "time": "10:00", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": "viajou", "reasonNot": ["joao", "doente"] },
+        { "customer": "João Pereira", "service": "Corte Completo", "day": 2, "time": "14:00", "professional": "Ricardo Alves", "status": "CANCELLED", "reason": "doente", "reasonNot": ["amanda", "viaj"] }
+      ]
+    }
+  },
+  {
+    "id": "N06",
+    "title": "Dois cancelamentos sem motivo: um só pedido, motivos respondidos juntos",
+    "capability": ["multi-action", "cancel", "clarification", "keyboard", "accents"],
+    "expect": "'de amanha' vale para as duas. Pergunta o motivo; a resposta dá um motivo para cada uma e cada cancelamento guarda o seu (Rosa doente, Carla viagem).",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "rosa_d1", "customer": "rosa", "professional": "tatiana", "service": "coloracao", "day": 1, "time": "10:00" },
+      { "key": "carla_d1", "customer": "carla", "professional": "tatiana", "service": "escova", "day": 1, "time": "15:00" }
+    ],
+    "steps": [
+      { "say": "desmarca a rosa e a carla de amanha" },
+      { "confirm": "all" }
+    ],
+    "answers": {
+      "reason": { "queue": [
+        ["a rosa ta doente e a carla viajou", "rosa doente e carla viajou", "a rosa ficou doente e a carla vai viajar"],
+        ["a rosa ta doente e a carla viajou", "rosa doente e carla viajou", "a rosa ficou doente e a carla vai viajar"]
+      ] }
+    },
+    "final": {
+      "appointments": [
+        { "customer": "Rosa Viana", "service": "Coloração", "day": 1, "time": "10:00", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": "doente", "reasonNot": ["carla", "viaj"] },
+        { "customer": "Carla Mendes", "service": "Escova", "day": 1, "time": "15:00", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": ["viajou", "viajar"], "reasonNot": ["rosa", "doente"] }
+      ]
+    }
+  },
+  {
+    "id": "N07",
+    "title": "Só o primeiro nome com homônimos: 'fabio' (Fábio Santos e Fabio Nunes)",
+    "capability": ["cancel", "homonym", "first-name", "safety", "entity", "clarification", "reason-inline", "keyboard", "accents"],
+    "expect": "Os dois Fábios têm horário amanhã: perguntar qual (sem escolher sozinha). A resposta aponta o Fábio Santos; só ele é cancelado, com o motivo dito ('ele viajou').",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "customers": [{ "key": "fabio_nunes", "name": "Fabio Nunes", "phone": "11987650101" }],
+    "appointments": [
+      { "key": "fabio_d1", "customer": "fabio", "professional": "ricardo", "service": "barba", "day": 1, "time": "10:00" },
+      { "key": "fabio_nunes_d1", "customer": "fabio_nunes", "professional": "tatiana", "service": "corte", "day": 1, "time": "14:00" }
+    ],
+    "steps": [
+      { "say": "cancela o horario do fabio amanha ele viajou" },
+      { "select": "Santos", "optional": true },
+      { "confirm": "all" }
+    ],
+    "answers": {
+      "customer_ref": ["o fabio santos", "fabio santos", "o santos, o da barba"],
+      "appointment_ref": ["o fabio santos", "fabio santos", "o santos, o da barba"]
+    },
+    "final": {
+      "appointments": [
+        { "customer": "Fábio Santos", "service": "Barba", "day": 1, "time": "10:00", "professional": "Ricardo Alves", "status": "CANCELLED", "reason": "viajou" },
+        { "customer": "Fabio Nunes", "service": "Corte Completo", "day": 1, "time": "14:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "mustAsk": ["customer_ref", "appointment_ref", "selection"]
+    }
+  },
+  {
+    "id": "N08",
+    "title": "Profissional pelo primeiro nome com homônimo ('o ricardo') e marcação na sexta",
+    "capability": ["multi-action", "block", "create", "homonym", "first-name", "safety", "entity", "interval", "weekday", "time-format", "keyboard", "accents"],
+    "expect": "Há Ricardo Alves e Ricardo Moura: perguntar qual antes de bloquear. Com a resposta, Ricardo Alves bloqueado amanhã 14h-16h; Rosa marcada na sexta 9h (Escova, Tatiana) sem pergunta.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "professionals": [{ "key": "ricardo_moura", "name": "Ricardo Moura", "services": ["Corte Completo", "Barba"] }],
+    "steps": [
+      { "say": "bloqueia o ricardo amanha 14h as 16h e marca a rosa sexta de manha as 9 pra escova" },
+      { "select": "Alves", "optional": true },
+      { "confirm": "all" }
+    ],
+    "answers": { "professional_ref": ["o ricardo alves", "ricardo alves", "é o ricardo alves"] },
+    "final": {
+      "appointments": [
+        { "customer": "Rosa Viana", "service": "Escova", "day": "sex", "time": "09:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Ricardo Alves", "day": 1, "from": "14:00", "to": "16:00" }],
+      "mustAsk": ["professional_ref", "selection"]
+    }
+  },
+  {
+    "id": "N09",
+    "title": "Profissional digitada errado ('tatiane') e verbo com letra dobrada ('marcaa')",
+    "capability": ["create", "typo", "common-typo", "safety", "entity", "time-format", "keyboard", "accents"],
+    "expect": "'tatiane' não existe: nada é gravado antes de a Secretária perguntar ou sugerir; a Tatiana Rocha (única que faz Escova) é escolhida pelo dono. Carla amanhã 15h ('as 3 da tarde').",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "steps": [
+      { "say": "marcaa a carla amanha as 3 da tarde com a tatiane pra escova" },
+      { "choose": 1, "optional": true },
+      { "confirm": "all" }
+    ],
+    "answers": { "professional_ref": ["a tatiana", "tatiana rocha", "é a tatiana, digitei errado"] },
+    "final": {
+      "appointments": [
+        { "customer": "Carla Mendes", "service": "Escova", "day": 1, "time": "15:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "mustAsk": ["professional_ref", "selection"]
+    }
+  },
+  {
+    "id": "N10",
+    "title": "Bloqueio com profissional digitado errado ('rodirgo') e remarcação 'pro meio dia'",
+    "capability": ["multi-action", "block", "reschedule", "typo", "safety", "entity", "interval", "time-format", "keyboard", "accents"],
+    "expect": "'rodirgo' não pode virar Rodrigo sozinho: perguntar/sugerir antes de gravar o bloqueio. João muda só o horário (mesmo dia, mesmo profissional) para 12h; Rodrigo bloqueado amanhã 10h-11h.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "professionals": [{ "key": "rodrigo", "name": "Rodrigo Lima", "services": ["Corte Completo", "Barba"] }],
+    "appointments": [
+      { "key": "joao_d1", "customer": "joao", "professional": "ricardo", "service": "corte", "day": 1, "time": "16:00" }
+    ],
+    "steps": [
+      { "say": "fecha a agenda do rodirgo amanha de 10 a 11 e passa o joao pro meio dia" },
+      { "select": "Rodrigo", "optional": true },
+      { "confirm": "all" }
+    ],
+    "answers": { "professional_ref": ["o rodrigo", "rodrigo lima", "é o rodrigo, escrevi errado"] },
+    "final": {
+      "appointments": [
+        { "customer": "João Pereira", "service": "Corte Completo", "day": 1, "time": "12:00", "professional": "Ricardo Alves", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Rodrigo Lima", "day": 1, "from": "10:00", "to": "11:00" }],
+      "mustAsk": ["professional_ref", "selection"]
+    }
+  },
+  {
+    "id": "N11",
+    "title": "Profissional digitado errado ('ricado'), '10hs' e 'fecha a tatiana' coloquial",
+    "capability": ["multi-action", "create", "block", "typo", "safety", "entity", "time-format", "interval", "relative-day", "keyboard", "abbreviation", "colloquial", "accents"],
+    "expect": "'ricado' pede pergunta ou sugestão (o Ricardo é o único que faz Barba) antes de gravar. João marcado depois de amanhã 10h (Barba, Ricardo); Tatiana bloqueada depois de amanhã 12h-13h.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "steps": [
+      { "say": "marca o joao depois de amanha 10hs pra barba com o ricado e fecha a tatiana das 12 as 13 depois de amanha tb" },
+      { "choose": 1, "optional": true },
+      { "confirm": "all" }
+    ],
+    "answers": { "professional_ref": ["o ricardo", "ricardo alves", "é o ricardo"] },
+    "final": {
+      "appointments": [
+        { "customer": "João Pereira", "service": "Barba", "day": 2, "time": "10:00", "professional": "Ricardo Alves", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Tatiana Rocha", "day": 2, "from": "12:00", "to": "13:00" }],
+      "mustAsk": ["professional_ref", "selection"]
+    }
+  },
+  {
+    "id": "N12",
+    "title": "Apelido ('fabinho') em pedido em forma de pergunta ('vc consegue')",
+    "capability": ["reschedule", "nickname", "safety", "entity", "weekday", "time-format", "keyboard", "abbreviation", "accents"],
+    "expect": "'fabinho' não é um nome cadastrado: perguntar quem é antes de remarcar (nunca escolher o Fábio sozinha). Com a resposta, Fábio (Barba, Ricardo) vai para sexta 16h ('as 4 da tarde').",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "fabio_ter", "customer": "fabio", "professional": "ricardo", "service": "barba", "day": "ter", "time": "11:00" }
+    ],
+    "steps": [
+      { "say": "vc consegue passar o fabinho pra sexta as 4 da tarde" },
+      { "select": "Santos", "optional": true },
+      { "confirm": "all" }
+    ],
+    "answers": { "customer_ref": ["o fabio santos", "fabio santos", "é o fabio santos"], "appointment_ref": ["o fabio santos", "fabio santos", "é o fabio santos"] },
+    "final": {
+      "appointments": [
+        { "customer": "Fábio Santos", "service": "Barba", "day": "sex", "time": "16:00", "professional": "Ricardo Alves", "status": "CONFIRMED" }
+      ],
+      "mustAsk": ["customer_ref", "appointment_ref", "selection"]
+    }
+  },
+  {
+    "id": "N13",
+    "title": "'semana que vem na terca' sem horário: perguntar a hora e remarcar",
+    "capability": ["reschedule", "clarification", "relative-week", "weekday", "keyboard", "accents"],
+    "expect": "'semana que vem na terca' é a terça da próxima semana de calendário (semanas de segunda a domingo, regra NEXT_WEEK): numa segunda é daqui a 8 dias, nunca amanhã. Dia novo sem horário: perguntar o horário, nunca manter ou chutar. Com 'as 15h', Rosa vai para essa terça às 15h, mesmo serviço e profissional.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "rosa_d1", "customer": "rosa", "professional": "tatiana", "service": "coloracao", "day": 1, "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "remarca a rosa pra semana que vem na terca" },
+      { "confirm": "all" }
+    ],
+    "answers": { "time": ["as 15h", "15h", "de tarde as 3"] },
+    "final": {
+      "appointments": [
+        { "customer": "Rosa Viana", "service": "Coloração", "day": "ter@semana-que-vem", "time": "15:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "mustAsk": ["time"]
+    }
+  },
+  {
+    "id": "N14",
+    "title": "Data '29/9' sem zero, 'meio dia' e 'no mesmo dia as 3 da tarde'",
+    "capability": ["multi-action", "create", "date-format", "time-format", "reference", "keyboard", "accents"],
+    "expect": "Carla marcada no dia d/m ao meio-dia (Escova, Tatiana); João no mesmo dia às 15h (Corte, Ricardo). 'no mesmo dia' herda a data da primeira ação.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "steps": [
+      { "say": "coloca a carla dia {{d:+2|dm}} meio dia pra escova e o joao no mesmo dia as 3 da tarde pra corte com o ricardo" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Carla Mendes", "service": "Escova", "day": 2, "time": "12:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" },
+        { "customer": "João Pereira", "service": "Corte Completo", "day": 2, "time": "15:00", "professional": "Ricardo Alves", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "N15",
+    "title": "Dia do mês ditado por extenso ('dia trinta', 'dia primeiro') e 'nesse dia'",
+    "capability": ["multi-action", "create", "block", "voice", "filler", "spoken-number", "day-of-month", "interval", "reference"],
+    "expect": "'dia <por extenso>' é daqui a 3 dias. Rosa marcada às 9h para Coloração (Tatiana); Tatiana bloqueada no mesmo dia das 14h às 16h ('das duas às quatro da tarde'). 'às nove' é manhã.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "steps": [
+      { "say": "é tipo marca a rosa dia {{d:+3|dw}} às nove pra coloração e bloqueia a tatiana nesse dia das duas às quatro da tarde" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Rosa Viana", "service": "Coloração", "day": 3, "time": "09:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Tatiana Rocha", "day": 3, "from": "14:00", "to": "16:00" }]
+    }
+  },
+  {
+    "id": "N16",
+    "title": "'de manha as 9' e 'tb depois de amanha' em duas marcações",
+    "capability": ["multi-action", "create", "relative-day", "time-format", "keyboard", "abbreviation", "accents"],
+    "expect": "Fábio depois de amanhã 9h (Barba, Ricardo) e Amanda depois de amanhã 11h (Escova, Tatiana).",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "steps": [
+      { "say": "marca o fabio depois de amanha de manha as 9 pra barba e a amanda tb depois de amanha as 11 pra escova" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Fábio Santos", "service": "Barba", "day": 2, "time": "09:00", "professional": "Ricardo Alves", "status": "CONFIRMED" },
+        { "customer": "Amanda Souza", "service": "Escova", "day": 2, "time": "11:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "N17",
+    "title": "Intervalo '14h-16h' e 'ai passa a amanda pras 17h'",
+    "capability": ["multi-action", "block", "reschedule", "interval", "time-format", "keyboard", "run-on", "accents"],
+    "expect": "Tatiana bloqueada amanhã 14h-16h; Amanda muda só o horário (mesmo dia amanhã, mesma profissional) para 17h.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "amanda_d1", "customer": "amanda", "professional": "tatiana", "service": "escova", "day": 1, "time": "11:00" }
+    ],
+    "steps": [
+      { "say": "bloqueia a tatiana amanha 14h-16h ai passa a amanda pras 17h" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Amanda Souza", "service": "Escova", "day": 1, "time": "17:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Tatiana Rocha", "day": 1, "from": "14:00", "to": "16:00" }]
+    }
+  },
+  {
+    "id": "N18",
+    "title": "'bloquea' digitado errado com 'das 10 as 11' e 'de 10 a 11 tb'",
+    "capability": ["multi-action", "block", "interval", "common-typo", "keyboard", "abbreviation", "accents"],
+    "expect": "Ricardo bloqueado amanhã 10h-11h e Tatiana depois de amanhã 10h-11h; a Escova da Carla amanhã 10h (com a Tatiana, que não é bloqueada amanhã) continua igual.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "carla_d1", "customer": "carla", "professional": "tatiana", "service": "escova", "day": 1, "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "bloquea o ricardo amanha das 10 as 11 e a tatiana depois de amanha de 10 a 11 tb" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Carla Mendes", "service": "Escova", "day": 1, "time": "10:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "blocks": [
+        { "professional": "Ricardo Alves", "day": 1, "from": "10:00", "to": "11:00" },
+        { "professional": "Tatiana Rocha", "day": 2, "from": "10:00", "to": "11:00" }
+      ]
+    }
+  },
+  {
+    "id": "N19",
+    "title": "Verbo repetido no áudio ('cancela cancela') e outra cliente no lugar",
+    "capability": ["multi-action", "cancel", "create", "voice", "repetition", "weekday", "reason-inline", "released-slot", "reference"],
+    "expect": "A repetição é um único cancelamento. Carla (sexta) cancelada com o motivo dito ('pediu pra desmarcar'); Rosa entra no mesmo dia, horário e profissional para Escova.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "carla_sex", "customer": "carla", "professional": "tatiana", "service": "escova", "day": "sex", "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "cancela cancela o horário da carla de sexta ela pediu pra desmarcar e põe a rosa no lugar dela pra escova" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Carla Mendes", "service": "Escova", "day": "sex", "time": "10:00", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": "desmarcar" },
+        { "customer": "Rosa Viana", "service": "Escova", "day": "sex", "time": "10:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "N20",
+    "title": "'hj' e 'n' como contexto, não como data do atendimento",
+    "capability": ["reschedule", "keyboard", "abbreviation", "distractor", "accents"],
+    "expect": "'me ligou hj' é quando o cliente ligou, não a data do atendimento; 'n vai poder vir' não cancela nada. João (Corte, Ricardo) vai para amanhã 11h.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "joao_d2", "customer": "joao", "professional": "ricardo", "service": "corte", "day": 2, "time": "11:00" }
+    ],
+    "steps": [
+      { "say": "o joao me ligou hj q n vai poder vir no dia dele passa ele pra amanha as 11" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "João Pereira", "service": "Corte Completo", "day": 1, "time": "11:00", "professional": "Ricardo Alves", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "N21",
+    "title": "Agenda do dia digitada ('me mostra td q a tatiana tem amanha')",
+    "capability": ["read", "day-agenda", "keyboard", "abbreviation", "accents"],
+    "expect": "Mostra os atendimentos da Tatiana amanhã; nenhuma escrita.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "rosa_d1", "customer": "rosa", "professional": "tatiana", "service": "coloracao", "day": 1, "time": "10:00" },
+      { "key": "carla_d1", "customer": "carla", "professional": "tatiana", "service": "escova", "day": 1, "time": "15:00" }
+    ],
+    "steps": [
+      { "say": "me mostra td q a tatiana tem amanha", "expect": "READ_DONE" }
+    ],
+    "final": {
+      "unchanged": true,
+      "read": { "operation": "appointment.list", "professional": "Tatiana Rocha", "day": 1, "replyMustMention": ["Rosa", "10:00", "Carla", "15:00"] }
+    }
+  },
+  {
+    "id": "N22",
+    "title": "Horários livres ditados com muleta ('é tipo que horário...')",
+    "capability": ["read", "availability", "voice", "filler"],
+    "expect": "Lista horários livres da Tatiana para Escova depois de amanhã; nenhuma escrita.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "amanda_d2", "customer": "amanda", "professional": "tatiana", "service": "escova", "day": 2, "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "é tipo que horário a tatiana tem livre depois de amanhã pra escova", "expect": "READ_DONE" }
+    ],
+    "final": {
+      "unchanged": true,
+      "read": { "operation": "availability.get", "professional": "Tatiana Rocha", "service": "Escova", "day": 2, "replyMustMention": ["09:00", "10:45"],
+        "replyMustNotOffer": [{ "from": "09:15", "to": "10:45" }, { "from": "18:15", "to": "23:59" }] }
+    }
+  },
+  {
+    "id": "N23",
+    "title": "'joga a carla pra sexta' sem horário: perguntar a hora",
+    "capability": ["reschedule", "clarification", "weekday", "colloquial", "keyboard"],
+    "expect": "'joga pra' é remarcar; dia novo sem horário: perguntar (nunca manter as 16h). Com 'as 10', Carla vai para sexta 10h, mesmo serviço e profissional.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "carla_qua", "customer": "carla", "professional": "tatiana", "service": "escova", "day": "qua", "time": "16:00" }
+    ],
+    "steps": [
+      { "say": "joga a carla pra sexta" },
+      { "confirm": "all" }
+    ],
+    "answers": { "time": ["as 10", "10h", "de manha as 10"] },
+    "final": {
+      "appointments": [
+        { "customer": "Carla Mendes", "service": "Escova", "day": "sex", "time": "10:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "N24",
+    "title": "Desistência ditada ('não não pera deixa quieto') depois de duas ações prontas",
+    "capability": ["multi-action", "create", "block", "negation", "safety", "voice", "filler", "repetition"],
+    "expect": "Depois de 'não não pera deixa quieto não faz nada não' nada é gravado e não sobra plano pendente; o clique seguinte não encontra nada para confirmar. Só vale se a primeira frase chegou a uma proposta pronta.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "steps": [
+      { "say": "é marca a amanda amanhã às 10 pra escova e bloqueia o ricardo amanhã das 14 às 16", "expect": "READY" },
+      { "say": "não não pera deixa quieto não faz nada não" },
+      { "confirm": "all", "expectError": "NOTHING_TO_CONFIRM" }
+    ],
+    "final": { "unchanged": true, "noPendingPlan": true }
+  },
+  {
+    "id": "N25",
+    "title": "Autocorreção de pessoa digitada ('cancela a rosa, nao pera, a carla')",
+    "capability": ["cancel", "self-correction", "negation", "safety", "reason-inline", "keyboard", "abbreviation", "accents"],
+    "expect": "Só a Carla é cancelada, com o motivo dito ('ela ta doente'); a Rosa, desmentida na própria frase, continua marcada.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "rosa_d1", "customer": "rosa", "professional": "tatiana", "service": "escova", "day": 1, "time": "10:00" },
+      { "key": "carla_d1", "customer": "carla", "professional": "tatiana", "service": "escova", "day": 1, "time": "15:00" }
+    ],
+    "steps": [
+      { "say": "cancela a rosa, nao pera, a carla, ela ta doente" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Rosa Viana", "service": "Escova", "day": 1, "time": "10:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" },
+        { "customer": "Carla Mendes", "service": "Escova", "day": 1, "time": "15:00", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": "doente" }
+      ]
+    }
+  },
+  {
+    "id": "N26",
+    "title": "Áudio longo com três ações e autocorreção de horário no meio",
+    "capability": ["multi-action", "cancel", "reschedule", "block", "voice", "filler", "self-correction", "negation", "spoken-number", "reason-inline", "interval", "run-on"],
+    "expect": "João (amanhã) cancelado com 'ele tá doente'; Rosa vai para depois de amanhã às 15h (a correção 'não às três da tarde' vale; mesmo serviço e profissional); Tatiana bloqueada amanhã do meio-dia às 13h. O 'não' só corrige o horário da Rosa.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "joao_d1", "customer": "joao", "professional": "ricardo", "service": "corte", "day": 1, "time": "14:00" },
+      { "key": "rosa_d1", "customer": "rosa", "professional": "tatiana", "service": "escova", "day": 1, "time": "16:00" }
+    ],
+    "steps": [
+      { "say": "então cancela o joão de amanhã que ele tá doente aí remarca a rosa pra depois de amanhã às duas não às três da tarde e bloqueia a tatiana amanhã do meio dia a uma da tarde" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "João Pereira", "service": "Corte Completo", "day": 1, "time": "14:00", "professional": "Ricardo Alves", "status": "CANCELLED", "reason": "doente" },
+        { "customer": "Rosa Viana", "service": "Escova", "day": 2, "time": "15:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Tatiana Rocha", "day": 1, "from": "12:00", "to": "13:00" }]
+    }
+  },
+  {
+    "id": "N27",
+    "title": "Marcar, remarcar para a sexta e cancelar sem motivo, tudo digitado",
+    "capability": ["multi-action", "create", "reschedule", "cancel", "clarification", "weekday", "keyboard", "abbreviation", "run-on", "accents"],
+    "expect": "Rosa marcada amanhã 9h (Escova, Tatiana); Fábio para sexta 17h (mesmo serviço e profissional); cancelamento da Amanda pergunta o motivo.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "fabio_seg", "customer": "fabio", "professional": "tatiana", "service": "corte", "day": "seg", "time": "10:00" },
+      { "key": "amanda_d3", "customer": "amanda", "professional": "tatiana", "service": "coloracao", "day": 3, "time": "13:00" }
+    ],
+    "steps": [
+      { "say": "marca a rosa amanha 9h pra escova e tb passa o fabio pra sexta 17h e cancela a amanda" },
+      { "confirm": "all" }
+    ],
+    "answers": { "reason": ["ela n vai vir mais", "n vem mais", "ela desistiu"] },
+    "final": {
+      "appointments": [
+        { "customer": "Rosa Viana", "service": "Escova", "day": 1, "time": "09:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" },
+        { "customer": "Fábio Santos", "service": "Corte Completo", "day": "sex", "time": "17:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" },
+        { "customer": "Amanda Souza", "service": "Coloração", "day": 3, "time": "13:00", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": ["vir mais", "vem mais", "desistiu"] }
+      ]
+    }
+  },
+  {
+    "id": "N28",
+    "title": "'das 10hs pras dez e meia' e marcação com profissional nomeado",
+    "capability": ["multi-action", "reschedule", "create", "time-format", "spoken-number", "keyboard", "accents"],
+    "expect": "Amanda muda só o horário (mesmo dia, mesma profissional) de 10h para 10h30; João marcado amanhã 11h (Corte, Ricardo).",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "amanda_d1", "customer": "amanda", "professional": "tatiana", "service": "escova", "day": 1, "time": "10:00" }
+    ],
+    "steps": [
+      { "say": "passa a amanda das 10hs pras dez e meia e marca o joao amanha as 11 com o ricardo pra corte" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Amanda Souza", "service": "Escova", "day": 1, "time": "10:30", "professional": "Tatiana Rocha", "status": "CONFIRMED" },
+        { "customer": "João Pereira", "service": "Corte Completo", "day": 1, "time": "11:00", "professional": "Ricardo Alves", "status": "CONFIRMED" }
+      ]
+    }
+  },
+  {
+    "id": "N29",
+    "title": "'ai' inicial, motivo com 'pq' e três ações coladas por 'e'",
+    "capability": ["multi-action", "cancel", "block", "create", "keyboard", "abbreviation", "reason-inline", "interval", "run-on", "colloquial", "accents"],
+    "expect": "Carla cancelada com o motivo dito ('ela ta sem carro'); Ricardo bloqueado depois de amanhã 9h-12h ('fecha o ricardo'); João marcado amanhã 16h para Barba (Ricardo).",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "appointments": [
+      { "key": "carla_d1", "customer": "carla", "professional": "tatiana", "service": "escova", "day": 1, "time": "15:00" }
+    ],
+    "steps": [
+      { "say": "ai cancela a carla pq ela ta sem carro e fecha o ricardo depois de amanha das 9 as 12 e marca o joao amanha 16h pra barba" },
+      { "confirm": "all" }
+    ],
+    "final": {
+      "appointments": [
+        { "customer": "Carla Mendes", "service": "Escova", "day": 1, "time": "15:00", "professional": "Tatiana Rocha", "status": "CANCELLED", "reason": "sem carro" },
+        { "customer": "João Pereira", "service": "Barba", "day": 1, "time": "16:00", "professional": "Ricardo Alves", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Ricardo Alves", "day": 2, "from": "09:00", "to": "12:00" }]
+    }
+  },
+  {
+    "id": "N30",
+    "title": "Clientes homônimas ('a amanda': Souza e Costa) numa marcação com bloqueio",
+    "capability": ["multi-action", "create", "block", "homonym", "first-name", "safety", "entity", "weekday", "interval", "keyboard"],
+    "expect": "Há Amanda Souza e Amanda Costa: perguntar qual antes de marcar. Com a resposta, Amanda Souza marcada na sexta 10h (Escova, Tatiana); Ricardo bloqueado na sexta 16h-18h sem pergunta.",
+    "openWeekdays": [0, 1, 2, 3, 4, 5, 6],
+    "customers": [{ "key": "amanda_costa", "name": "Amanda Costa", "phone": "11987650102" }],
+    "steps": [
+      { "say": "marca a amanda sexta 10h pra escova e fecha a agenda do ricardo na sexta das 16 as 18" },
+      { "select": "Souza", "optional": true },
+      { "confirm": "all" }
+    ],
+    "answers": { "customer_ref": ["a amanda souza", "amanda souza", "é a amanda souza"] },
+    "final": {
+      "appointments": [
+        { "customer": "Amanda Souza", "service": "Escova", "day": "sex", "time": "10:00", "professional": "Tatiana Rocha", "status": "CONFIRMED" }
+      ],
+      "blocks": [{ "professional": "Ricardo Alves", "day": "sex", "from": "16:00", "to": "18:00" }],
+      "mustAsk": ["customer_ref", "selection"]
+    }
+  }
+]

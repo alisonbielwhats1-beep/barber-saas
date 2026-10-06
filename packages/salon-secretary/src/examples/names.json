@@ -1,0 +1,200 @@
+{
+ "about": [
+  "G1: nomes fictícios que preenchem os marcadores dos exemplos few-shot ({cliente}, {profissional}, {servico}) na hora de montar o pedido.",
+  "Uso exclusivo de preenchimento: nenhum código usa esta lista para reconhecer, validar ou resolver nomes.",
+  "Gerada por packages/salon-secretary/evaluation/example-names.ts (lado de desenvolvimento dos pools; nenhum token do lado reservado à avaliação; nenhuma pessoa das fixtures, baterias ou do Golden 30). Não edite à mão.",
+  "services: lista genérica usada só quando o salão atual não publica seus serviços."
+ ],
+ "version": 1,
+ "given": {
+  "f": [
+   "Jéssica",
+   "Ariane",
+   "Luzia",
+   "Cláudia",
+   "Evelyn",
+   "Moema",
+   "Sirlene",
+   "Helga",
+   "Sheila",
+   "Natasha",
+   "Alzira",
+   "Gisele",
+   "Telma",
+   "Yuki",
+   "Cleusa",
+   "Vanessa",
+   "Cecília",
+   "Ísis",
+   "Melina",
+   "Antônia",
+   "Liz",
+   "Lorena",
+   "Noemi",
+   "Tamires"
+  ],
+  "m": [
+   "Tiago",
+   "Mário",
+   "Enzo",
+   "Saulo",
+   "Yuri",
+   "Otávio",
+   "Cícero",
+   "Richard",
+   "Leônidas",
+   "Maicon",
+   "Juliano",
+   "Robson",
+   "Douglas",
+   "Maurício",
+   "Josias",
+   "Juvenal",
+   "Milton",
+   "Osvaldo",
+   "Wesley",
+   "Noah",
+   "Wilson",
+   "Breno",
+   "Kleber",
+   "Anthony"
+  ],
+  "u": [
+   "Ariel",
+   "Sasha",
+   "Jaci",
+   "Kim"
+  ]
+ },
+ "nicknames": [
+  {
+   "name": "Fabi",
+   "gender": "f"
+  },
+  {
+   "name": "Lili",
+   "formal": "Lilian",
+   "gender": "f"
+  },
+  {
+   "name": "Gabi",
+   "formal": "Gabriela",
+   "gender": "f"
+  },
+  {
+   "name": "Fafá",
+   "gender": "f"
+  },
+  {
+   "name": "Vivi",
+   "gender": "f"
+  },
+  {
+   "name": "Tetê",
+   "formal": "Teresa",
+   "gender": "f"
+  },
+  {
+   "name": "Mari",
+   "formal": "Mariana",
+   "gender": "f"
+  },
+  {
+   "name": "Juju",
+   "formal": "Juliana",
+   "gender": "f"
+  },
+  {
+   "name": "Dedé",
+   "formal": "André",
+   "gender": "m"
+  },
+  {
+   "name": "Zé",
+   "gender": "m"
+  },
+  {
+   "name": "JP",
+   "gender": "m"
+  },
+  {
+   "name": "Dudu",
+   "gender": "m"
+  },
+  {
+   "name": "Gui",
+   "gender": "m"
+  },
+  {
+   "name": "Serginho",
+   "gender": "m"
+  },
+  {
+   "name": "Cadu",
+   "gender": "m"
+  },
+  {
+   "name": "Nando",
+   "gender": "m"
+  },
+  {
+   "name": "Rafa",
+   "gender": "u"
+  },
+  {
+   "name": "Cris",
+   "gender": "u"
+  },
+  {
+   "name": "Manu",
+   "formal": "Manuela",
+   "gender": "u"
+  },
+  {
+   "name": "Duda",
+   "gender": "u"
+  }
+ ],
+ "surnames": [
+  "Siqueira",
+  "Rezende",
+  "Suzuki",
+  "Andrade",
+  "Lacerda",
+  "Gomes",
+  "Colombo",
+  "Nakamura",
+  "Fonseca",
+  "Castro",
+  "Silva",
+  "Medeiros",
+  "Becker",
+  "Xavier",
+  "Salomão",
+  "Melo",
+  "Romano",
+  "Klein",
+  "Soares",
+  "Kowalski",
+  "Vieira",
+  "Tanaka",
+  "Schmidt",
+  "Macedo"
+ ],
+ "services": [
+  "Corte",
+  "Escova",
+  "Hidratação",
+  "Coloração",
+  "Luzes",
+  "Progressiva",
+  "Manicure",
+  "Pedicure",
+  "Barba",
+  "Sobrancelha",
+  "Pigmentação",
+  "Unha em gel",
+  "Corte masculino",
+  "Mão e pé"
+ ]
+}
