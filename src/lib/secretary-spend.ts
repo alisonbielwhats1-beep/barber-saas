@@ -34,10 +34,24 @@ const pricingOf = (modelId: unknown) => { try { return secretaryModelProfile(Str
 const counter = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 const record = (value: unknown) => (value && typeof value === "object" && !Array.isArray(value) ? value : {}) as Record<string, unknown>;
 
-/** Upper-bound price of one finished model call, in micro-USD, from its recorded tokens. The model that answered (the reserve,
- * after a provider failure) is priced when the registry knows its id; otherwise the requested one; an unknown pair counts at the
- * dearest registered rates. */
+/** OpenRouter's platform fee on the credit it sells (about 5,5%): part of the real cost of a call it reports. */
+export const OPENROUTER_FEE_MULTIPLIER = 1.055;
+/** A reported cost below this share of the table price is not trusted (the table price is used instead). */
+export const REPORTED_COST_FLOOR_SHARE = 0.2;
+/** Owner 06/10/2026: the real cost of one finished model call, in micro-USD. The provider-reported cost (OpenRouter `usage.cost`)
+ * plus the platform fee when the call carries one; otherwise (OpenAI, or no report) the price from its recorded tokens at the
+ * registry's rates (the model that answered, else the requested one, else the dearest registered rates). A reported cost far
+ * below the token price is never trusted. */
 export function callMicroUsd(metadata: unknown) {
+  const tabled = tableMicroUsd(metadata), reported = record(metadata).cost_micro_usd;
+  if (typeof reported === "number" && Number.isFinite(reported) && reported >= 0) {
+    const real = reported * OPENROUTER_FEE_MULTIPLIER;
+    if (real >= tabled * REPORTED_COST_FLOOR_SHARE) return real;
+  }
+  return tabled;
+}
+/** The price of a call from its recorded tokens at the registry's (highest provider) rates. */
+export function tableMicroUsd(metadata: unknown) {
   const m = record(metadata);
   const p = pricingOf(m.model_id_returned) ?? pricingOf(m.model_id_requested) ?? DEAREST;
   const cached = counter(m.cached_input_tokens), input = Math.max(0, counter(m.input_tokens) - cached);
