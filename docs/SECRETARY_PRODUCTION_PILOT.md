@@ -40,11 +40,13 @@ Nenhum outro salão vê o botão nem consegue usar a Secretária.
 | `SALON_SECRETARY_FALLBACK_MODEL` | `gpt-6-luna` |
 | `SALON_SECRETARY_PERSISTED_STATE` | `true` (conversa sobrevive entre instâncias; exige a 027) |
 | flags certificadas (as de `scripts/run-secretary-golden-model.cjs`, `CERTIFICATION_FLAGS`) | os mesmos valores |
-| `SALON_SECRETARY_FLOW_WINDOW`, `SALON_SECRETARY_VOICE_ENABLED`, `SALON_SECRETARY_VOICE_CORRECTION`, `SALON_SECRETARY_TRANSCRIBE_ENABLED`, `SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES`, `SALON_SECRETARY_CANCEL_REASON_OPTIONAL` | `true` |
+| `SALON_SECRETARY_FLOW_WINDOW`, `SALON_SECRETARY_VOICE_ENABLED`, `SALON_SECRETARY_VOICE_CORRECTION`, `SALON_SECRETARY_TRANSCRIBE_ENABLED`, `SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES` | `true` |
 | `SALON_SECRETARY_TRANSCRIBE_SALONS` | `<id do salão de apresentação>` |
 | `SALON_SECRETARY_TRANSCRIBE_BUDGET_USD` | `2` |
 
-   `SALON_SECRETARY_NAME_ALIASES` fica desligada (sem certificação própria). `SALON_SECRETARY_AGENT` e
+   `SALON_SECRETARY_CANCEL_REASON_OPTIONAL` **fica desligada**: entra no contrato do modelo e não foi certificada (ligada no
+   piloto em 06/10, o portão recusou o DeepSeek com `SECRETARY_MODEL_NOT_CERTIFIED`; retirada e novo deploy). Qualquer variável de
+   `SECRETARY_CONTRACT_ENV` precisa estar igual ao `contractEnv` do certificado. `SALON_SECRETARY_NAME_ALIASES` fica desligada (sem certificação própria). `SALON_SECRETARY_AGENT` e
    `SALON_SECRETARY_PILOT_RESCHEDULE` ficam desligadas.
 5. Novo deploy de Produção (as variáveis só valem num deploy novo; `SALON_SECRETARY_FRONT_ENABLED` é fixada na compilação
    desde 05/10, então precisa estar cadastrada antes desse deploy) e `/api/health`.
