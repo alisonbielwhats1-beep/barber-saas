@@ -57,7 +57,7 @@ vi.mock("./provider", async original => {
 
 import * as mp from "./provider";
 import { applyCreditPayment, createCreditPurchase, creditReference, receiveCreditPayment, reconcileCreditPurchase, validateCreditPayment } from "./credits-provider";
-import { assertCanStartRequest, chargeMessage, chargeRecording, grantCredits, secretaryCreditView } from "../secretary-credits";
+import { assertCanStartRequest, chargePendingCalls, chargeRecording, CHARGING_STARTS_AT, grantCredits, secretaryCreditView } from "../secretary-credits";
 import { FREE_MONTHLY_UNITS } from "../secretary-credits-rules";
 
 const actor = { salonId: "salao-1", userId: "dono-1" };
@@ -85,11 +85,14 @@ const payment = (purchase: Row, over: Partial<mp.RemotePayment> = {}): mp.Remote
   live_mode: false, external_reference: creditReference(purchase as { salonId: string; id: string }), transaction_amount_refunded: 0, ...over });
 async function buy(pack: "P15" | "P25" | "P40" | "P80") { providerEchoesPreference(); return await createCreditPurchase(actor, { pack }, randomUUID()) as unknown as Row; }
 const paidBalance = () => (db.ledger.at(-1)?.balanceAfter as number | undefined) ?? 0;
+/** Now, but never before the credit went live (same month as the allowance spent by the helpers below). */
+const NOW = new Date(Math.max(Date.now(), CHARGING_STARTS_AT.getTime() + 3600_000));
 /** One finished model call of a conversation, as the usage recorder writes it. */
-function modelCall(sessionId: string, input: number, output: number, at = new Date()) {
+function modelCall(sessionId: string, input: number | null, output: number | null, at = NOW, status = "SUCCEEDED") {
   db.calls.push({ id: randomUUID(), entityId: randomUUID(), salonId: actor.salonId, entityType: "SALON_SECRETARY_USAGE", action: "MODEL_CALL_FINISHED", createdAt: at,
-    metadata: { session_id: sessionId, model_id_requested: "deepseek/deepseek-v4.1-flash", input_tokens: input, cached_input_tokens: 0, cache_write_tokens: 0, output_tokens: output } });
+    metadata: { session_id: sessionId, status, model_id_requested: "deepseek/deepseek-v4.1-flash", input_tokens: input, cached_input_tokens: 0, cache_write_tokens: 0, output_tokens: output } });
 }
+const sweep = () => chargePendingCalls(actor, process.env, NOW);
 /** The micro-USD whose charge is exactly `units` at R$ 5,60 (units = ceil(micro-USD x 0,56)). */
 const microFor = (units: number) => Math.floor(units * 10_000 / 5600);
 /** Uses up this month's free allowance, so the tests below look at the paid credit alone. */
@@ -134,29 +137,44 @@ describe("buying credit through Mercado Pago", () => {
   });
 });
 
-describe("using the credit: each request at its real cost x 10", () => {
-  it("a message takes the real cost of its model calls (here 1000 input + 100 output tokens = US$ 0,00069 -> 387 units), the free allowance first", async () => {
-    const started = new Date();
+describe("using the credit: each model call and each recording at its real cost x 10", () => {
+  it("a call takes its real cost (1000 input + 100 output tokens = US$ 0,00069 -> 387 units), the free allowance first, then paid credit", async () => {
     modelCall("conv-1", 1000, 100);
-    expect(await chargeMessage(actor, { sessionId: "conv-1", startedAt: started })).toBe(1);
+    expect(await sweep()).toBe(1);
     expect(db.ledger[0]).toMatchObject({ kind: "USAGE", units: 0, freeUnits: 387 });
-    // The rest of the month's allowance (16 200 - 387), so the next message takes paid credit.
     await chargeRecording(actor, { recordingKey: "rest", microUsd: microFor(FREE_MONTHLY_UNITS - 387) });
     expect(db.ledger[1]).toMatchObject({ units: 0, freeUnits: FREE_MONTHLY_UNITS - 387 });
-    const purchase = await buy("P15");
-    await applyCreditPayment(purchase as never, payment(purchase));
+    await grantCredits({ salonId: actor.salonId, units: 150_000, actorUserId: "hq", reason: "cortesia", grantKey: randomUUID() });
     modelCall("conv-1", 1000, 100);
-    await chargeMessage(actor, { sessionId: "conv-1", startedAt: new Date(Date.now() - 1000) });
+    await sweep();
     expect(paidBalance()).toBe(150_000 - 387);
   });
-  it("each call is charged once, even when two messages are close together; another conversation's calls are never charged here", async () => {
+  it("every call of the salon is charged once: a follow-up answered in a child conversation, a repair, a message that failed", async () => {
     await useFreeAllowance();
     await grantCredits({ salonId: actor.salonId, units: 100_000, actorUserId: "hq", reason: "cortesia", grantKey: randomUUID() });
-    const started = new Date();
-    modelCall("conv-1", 1000, 100); modelCall("conv-2", 1000, 100);
-    await chargeMessage(actor, { sessionId: "conv-1", startedAt: started });
-    await chargeMessage(actor, { sessionId: "conv-1", startedAt: started });
-    expect(paidBalance()).toBe(100_000 - 387);
+    modelCall("conv-1", 1000, 100); modelCall("child-of-conv-1", 1000, 100); modelCall("conv-2", 1000, 100, NOW, "FAILED");
+    expect(await sweep()).toBe(3);
+    expect(await sweep()).toBe(0);
+    expect(paidBalance()).toBe(100_000 - 3 * 387);
+  });
+  it("a call that succeeded without reported usage is charged as an average call; a failed one without usage costs nothing", async () => {
+    await useFreeAllowance();
+    await grantCredits({ salonId: actor.salonId, units: 10_000, actorUserId: "hq", reason: "cortesia", grantKey: randomUUID() });
+    modelCall("conv-1", null, null); modelCall("conv-1", null, null, NOW, "TIMEOUT");
+    expect(await sweep()).toBe(1);
+    expect(paidBalance()).toBe(10_000 - 1_680); // 3000 micro-USD x 0,56
+  });
+  it("calls before the credit went live (the pilot's test night) and older than 48 h are never charged", async () => {
+    modelCall("conv-1", 1000, 100, new Date(CHARGING_STARTS_AT.getTime() - 60_000));
+    modelCall("conv-1", 1000, 100, new Date(NOW.getTime() - 49 * 3600_000));
+    expect(await sweep()).toBe(0);
+  });
+  it("a request first charges what was left behind, then checks the balance (a crash after a call never makes it free)", async () => {
+    await useFreeAllowance();
+    await grantCredits({ salonId: actor.salonId, units: 300, actorUserId: "hq", reason: "cortesia", grantKey: randomUUID() });
+    modelCall("conv-1", 1000, 100);
+    await expect(assertCanStartRequest(actor, process.env, NOW)).rejects.toThrow("SECRETARY_CREDITS_EMPTY");
+    expect(paidBalance()).toBe(300 - 387);
   });
   it("a recording takes its reported transcription cost, sent or not (1500 micro-USD -> 840 units), once", async () => {
     await useFreeAllowance();
@@ -170,6 +188,10 @@ describe("using the credit: each request at its real cost x 10", () => {
     await expect(assertCanStartRequest(actor)).rejects.toThrow("SECRETARY_CREDITS_EMPTY");
     await expect(assertCanStartRequest(actor, process.env, new Date(Date.now() + 40 * 86_400_000))).resolves.toBeUndefined();
   });
+  it("an exchange rate outside 1 to 20 refuses every request instead of charging nothing", async () => {
+    process.env.SALON_SECRETARY_USD_BRL = "0.5";
+    await expect(assertCanStartRequest(actor)).rejects.toThrow("CREDIT_FX_INVALID");
+  });
   it("a salon that never bought sees its allowance; after the allowance, only a percentage and a status ever reach the screen", async () => {
     expect(await secretaryCreditView(actor)).toEqual({ percent: 100, status: "OK" });
     await useFreeAllowance();
@@ -179,7 +201,7 @@ describe("using the credit: each request at its real cost x 10", () => {
     process.env.SALON_SECRETARY_CREDITS_ENABLED = "false";
     modelCall("conv-1", 1000, 100);
     await expect(assertCanStartRequest(actor)).resolves.toBeUndefined();
-    expect(await chargeMessage(actor, { sessionId: "conv-1", startedAt: new Date(0) })).toBe(0);
+    expect(await sweep()).toBe(0);
     expect(await chargeRecording(actor, { recordingKey: "r", microUsd: 1500 })).toBeNull();
     expect(db.ledger).toHaveLength(0);
   });

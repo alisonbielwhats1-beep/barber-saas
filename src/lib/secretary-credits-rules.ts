@@ -12,9 +12,12 @@
 export const CREDIT_UNIT_BRL = 0.0001;
 /** Price = cost x 10: a 90% gross margin before the payment fee (cost is priced at the providers' highest rates). */
 export const MARGIN_MULTIPLIER = 10;
-/** Average units of one request (half typed at ~R$ 0,039, half spoken at ~R$ 0,123): only to show "about N requests". */
-export const AVERAGE_REQUEST_UNITS = 810;
-/** Free allowance per salon and month: about 20 requests. */
+/** Average units of one request, MEASURED in the Production pilot on 06/10/2026 (37 messages, 35 DeepSeek calls of ~11 440 input
+ * tokens with 58% cached, 38 recordings of ~3,6 s): US$ 0,00334 per request at the charged rates = R$ 0,187 with the x10. Only
+ * used to show "about N requests" (never a promise); re-measure with the HQ report (/api/hq/secretary-spend) after any change
+ * to the prompt or the providers. */
+export const AVERAGE_REQUEST_UNITS = 1_870;
+/** Free allowance per salon and month: about 20 requests at the measured average (37 400 units, ~R$ 0,37 of real cost). */
 export const FREE_MONTHLY_UNITS = 20 * AVERAGE_REQUEST_UNITS;
 export const LOW_BALANCE_PERCENT = 20;
 export const CREDIT_KINDS = ["PURCHASE", "GRANT", "USAGE", "REVERSAL"] as const;
@@ -72,9 +75,10 @@ export function creditView(point: LedgerPoint | null, freeUsedThisMonth: number)
 /** A request may start while any credit or allowance is left. */
 export const canStartRequest = (point: LedgerPoint | null, freeUsedThisMonth: number) => (point?.balanceAfter ?? 0) + freeLeft(freeUsedThisMonth) > 0;
 
-/** The credit a payment's reversal takes back in total: all of it on a chargeback, otherwise the refunded share, rounded up. */
+/** The credit a payment's reversal takes back in total: all of it on a chargeback or on a "refunded" status without an amount,
+ * otherwise the refunded share, rounded up. */
 export function reversedUnits(pack: { amountCents: number; units: number }, refund: { status: string; refundedCents: number }) {
-  if (refund.status === "charged_back") return pack.units;
+  if (refund.status === "charged_back" || (refund.status === "refunded" && refund.refundedCents <= 0)) return pack.units;
   if (refund.refundedCents <= 0) return 0;
   if (!Number.isSafeInteger(refund.refundedCents) || refund.refundedCents > pack.amountCents) throw Error("PAYMENT_MISMATCH");
   return Math.ceil(refund.refundedCents * pack.units / pack.amountCents);
@@ -106,6 +110,7 @@ export function decideCreditPayment(input: CreditPaymentInput): CreditPaymentDec
   const remaining = wasPaid ? purchase.units - reversedUnits(purchase, payment) : 0, current = credited - reversed;
   const credit = credited === 0 && remaining > 0 ? remaining : 0;
   const reverse = credited > 0 ? Math.max(0, current - remaining) : 0;
-  const state: PurchaseState = remaining <= 0 || purchase.state === "REFUNDED" ? "REFUNDED" : "PAID";
+  // A purchase in review stays in review until someone resolves it by hand (its own payment still credits or reverses).
+  const state: PurchaseState = purchase.state === "REVIEW" ? "REVIEW" : remaining <= 0 || purchase.state === "REFUNDED" ? "REFUNDED" : "PAID";
   return { credit, reverse, state, error: null, providerPaymentId: payment.id };
 }

@@ -9,11 +9,8 @@ export async function GET(request: Request) {
   const secret = process.env.BILLING_CRON_SECRET || process.env.CRON_SECRET;
   if (!isCronAuthorized(request.headers.get("authorization"), secret)) return billingJson({ error: "UNAUTHORIZED" }, 401);
   if (!billingEnabled()) return billingJson({ disabled: true });
-  try {
-    const result = await runBillingWorker(1);
-    // Secretária packs waiting for payment: the webhook's safety net (a failure here never fails the subscriptions' run).
-    let credits: unknown = null;
-    try { credits = await reconcilePendingCreditPurchases(20); } catch { console.error("SECRETARY_CREDIT_RECONCILE_FAILED"); }
-    return billingJson({ ...result, credits });
-  } catch (e) { return billingFailure(e); }
+  // Secretária packs waiting for payment: the webhook's safety net, run whatever happens to the subscriptions' run.
+  let credits: unknown = null;
+  try { credits = await reconcilePendingCreditPurchases(20); } catch { console.error("SECRETARY_CREDIT_RECONCILE_FAILED"); }
+  try { return billingJson({ ...(await runBillingWorker(1)), credits }); } catch (e) { return billingFailure(e); }
 }

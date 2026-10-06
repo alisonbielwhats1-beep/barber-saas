@@ -30,8 +30,10 @@ describe("the charge: each request at its own real cost x 10", () => {
 });
 
 describe("packs: a bigger pack yields more, about N requests is only an estimate", () => {
-  it("R$ 15, 25, 40 and 80 give about 185, 340, 600 and 1300 requests at the average cost", () => {
-    expect(Object.values(SECRETARY_CREDIT_PACKS).map(p => [p.amountCents, estimatedRequests(p.units)])).toEqual([[1500, 185], [2500, 340], [4000, 600], [8000, 1300]]);
+  it("at the cost measured in the pilot (R$ 0,187 per request), R$ 15, 25, 40 and 80 give about 80, 145, 260 and 565 requests", () => {
+    expect(Object.values(SECRETARY_CREDIT_PACKS).map(p => [p.amountCents, estimatedRequests(p.units)])).toEqual([[1500, 80], [2500, 145], [4000, 260], [8000, 565]]);
+    // The measured average: 105 775 micro-USD of model calls over 37 messages plus 17 948 of voice = 3 344 micro-USD per request.
+    expect(costUnits(Math.round((105_775 + 17_948) / 37), 5.6)).toBe(1_873);
   });
   it("each bigger pack gives more credit per real, and the average margin stays at 86% or more before the payment fee", () => {
     const perReal = Object.values(SECRETARY_CREDIT_PACKS).map(p => p.units / p.amountCents);
@@ -40,7 +42,7 @@ describe("packs: a bigger pack yields more, about N requests is only an estimate
       const ourCostBrl = pack.units * CREDIT_UNIT_BRL / MARGIN_MULTIPLIER;
       expect(1 - ourCostBrl / (pack.amountCents / 100)).toBeGreaterThanOrEqual(0.86);
     }
-    expect(AVERAGE_REQUEST_UNITS).toBe(810);
+    expect(AVERAGE_REQUEST_UNITS).toBe(1_870);
   });
 });
 
@@ -100,9 +102,9 @@ describe("the free monthly allowance (about 20 requests)", () => {
     expect(splitCost(1_232, FREE_MONTHLY_UNITS - 200)).toEqual({ free: 200, paid: 1_032 });
     expect(splitCost(1_232, FREE_MONTHLY_UNITS)).toEqual({ free: 0, paid: 1_232 });
   });
-  it("is 16 200 units: about 20 requests, R$ 1,62 of credit, about R$ 0,16 of real cost per salon and month", () => {
-    expect(FREE_MONTHLY_UNITS).toBe(16_200);
-    expect(FREE_MONTHLY_UNITS * CREDIT_UNIT_BRL / MARGIN_MULTIPLIER).toBeCloseTo(0.162);
+  it("is 37 400 units: about 20 requests at the measured average, about R$ 0,37 of real cost per salon and month", () => {
+    expect(FREE_MONTHLY_UNITS).toBe(37_400);
+    expect(FREE_MONTHLY_UNITS * CREDIT_UNIT_BRL / MARGIN_MULTIPLIER).toBeCloseTo(0.374);
   });
 });
 
@@ -141,6 +143,14 @@ describe("payments: credit, duplicates and refunds", () => {
   });
   it("a payment first seen already partly refunded credits only what is left", () => {
     expect(decideCreditPayment({ purchase, payment: { ...approved, status: "refunded", refundedCents: 500 }, credited: 0, reversed: 0 })).toMatchObject({ credit: 100_000, reverse: 0, state: "PAID" });
+  });
+  it("a refunded status without an amount takes everything back", () => {
+    expect(decideCreditPayment({ purchase: paid, payment: { ...approved, status: "refunded", refundedCents: 0 }, credited: 150_000, reversed: 0 })).toMatchObject({ reverse: 150_000, state: "REFUNDED" });
+  });
+  it("a purchase in review stays in review: its own payment's later notices still credit or reverse, but never reopen it", () => {
+    const review = { ...paid, state: "REVIEW" as const };
+    expect(decideCreditPayment({ purchase: review, payment: approved, credited: 150_000, reversed: 0 })).toMatchObject({ credit: 0, state: "REVIEW" });
+    expect(decideCreditPayment({ purchase: review, payment: { ...approved, status: "refunded", refundedCents: 1500 }, credited: 150_000, reversed: 0 })).toMatchObject({ reverse: 150_000, state: "REVIEW" });
   });
   it("a chargeback takes everything back; a refund of a payment never credited takes nothing; a refund above the price is refused", () => {
     expect(decideCreditPayment({ purchase: paid, payment: { ...approved, status: "charged_back" }, credited: 150_000, reversed: 0 })).toMatchObject({ reverse: 150_000, state: "REFUNDED" });

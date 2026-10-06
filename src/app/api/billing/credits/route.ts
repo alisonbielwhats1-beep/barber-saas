@@ -44,6 +44,8 @@ export async function POST(request: Request) {
     if (!secretaryAvailableTo(ctx)) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
     const key = z.string().uuid().parse(request.headers.get("idempotency-key"));
     const purchase = await createCreditPurchase(ctx, await readBillingBody(request), key);
+    // A repeated key of a purchase already paid or past its link's expiry never reopens that checkout.
+    if (purchase.state !== "AWAITING_PAYMENT" || purchase.expiresAt.getTime() <= Date.now()) throw new BillingError("CREDIT_PURCHASE_EXPIRED");
     if (!purchase.checkoutUrl) throw new BillingError("CREDIT_CHECKOUT_UNAVAILABLE", 503);
     return billingJson({ id: purchase.id, checkoutUrl: purchase.checkoutUrl, state: purchase.state }, 201);
   } catch (e) { return billingFailure(e); }
