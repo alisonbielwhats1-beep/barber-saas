@@ -19,7 +19,7 @@ Nenhum outro salão vê o botão nem consegue usar a Secretária.
 ## Ordem dos passos (cada passo em Produção com confirmação do dono)
 
 1. PR desta branch, CI verde, merge no `master` (a Vercel publica sozinha; todas as funções novas ficam desligadas por flag).
-2. Supabase Produção: conferir só lendo se as tabelas das migrations manuais 026 (feedback) e 027 (estado da conversa) já
+2. Supabase Produção (027 pronta para Produção: roteiro em `docs/SECRETARY_027_PRODUCTION.md`; a 026 não entra no piloto): conferir só lendo se as tabelas das migrations manuais 026 (feedback) e 027 (estado da conversa) já
    existem. Se não existirem: preflight, backup e aplicação (`prisma/sql/manual/026_secretary_feedback*`,
    `027_secretary_state*`; não confundir com `026_client_push_reminders` e `027_variable_service_final_prices`, que já vieram do
    `master`), depois `verify`. Conferir também a mudança de schema desta branch sem migration própria: o valor `WHATSAPP` no enum
@@ -46,7 +46,8 @@ Nenhum outro salão vê o botão nem consegue usar a Secretária.
 
    `SALON_SECRETARY_NAME_ALIASES` fica desligada (sem certificação própria). `SALON_SECRETARY_AGENT` e
    `SALON_SECRETARY_PILOT_RESCHEDULE` ficam desligadas.
-5. Novo deploy de Produção (as variáveis só valem num deploy novo) e `/api/health`.
+5. Novo deploy de Produção (as variáveis só valem num deploy novo; `SALON_SECRETARY_FRONT_ENABLED` é fixada na compilação
+   desde 05/10, então precisa estar cadastrada antes desse deploy) e `/api/health`.
 6. Teste na conta de apresentação: abrir a Secretária, um pedido simples, um por voz; conferir que outro salão não vê o botão.
 
 ## Desligar
