@@ -56,9 +56,8 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --warning: 32 95% 56%;          /* laranja — alerta */
     --danger: 0 78% 60%;            /* vermelho — problema */
     --marketing: 267 84% 66%;       /* roxo   — marketing/growth */
-    /* Ações operacionais de rotina: grafite neutro e vermelho, com texto branco
-       legível. Lilás fica para a ação principal; verde, para sucesso. */
-    --action-positive: #3b3d45;
+    /* Ações operacionais: verde solicitado e vermelho, com texto branco legível. */
+    --action-positive: #126949;
     --action-critical: #b91c1c;
     --selection: 240 5% 18%;
     --selection-foreground: 40 33% 95%;
@@ -90,13 +89,13 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --border: 240 5% 25%;
     --border-strong: 240 5% 37%;
     --input: 240 5% 28%;
-    --primary: 264 36% 77%;
-    --primary-foreground: 258 35% 14%;
+    --primary: 155 52% 65%;
+    --primary-foreground: 158 48% 12%;
     --secondary: 240 5% 21%;
     --secondary-foreground: 240 8% 96%;
-    --accent: 264 36% 77%;
-    --accent-foreground: 258 35% 14%;
-    --ring: 264 36% 77%;
+    --accent: 155 52% 65%;
+    --accent-foreground: 158 48% 12%;
+    --ring: 155 52% 65%;
     --selection: 262 27% 24%;
     --selection-foreground: 264 65% 88%;
     --selection-solid: 264 54% 73%;
@@ -128,22 +127,21 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --border-strong: 220 10% 69%;
     --input: 220 10% 58%;
     --panel-shadow: 0 2px 4px rgb(22 34 52 / 0.04), 0 8px 24px -8px rgb(22 34 52 / 0.12);
-    --ring: 263 30% 49%;
-    /* Lilás suave só na ação principal e na seleção; ações de rotina são
-       neutras e o verde fica para estados de sucesso. */
+    --ring: 158 71% 24%;
+    /* Lilás autorizado como acento de navegação; ações operacionais mantêm semântica. */
     --selection: 263 65% 95%;
     --selection-foreground: 263 38% 38%;
     --selection-solid: 263 36% 45%;
     --selection-on-solid: 0 0% 100%;
 
-    /* Lilás nos controles; verde não domina a interface. */
-    --primary: 263 30% 49%;
+    /* Verde nos controles; lilás fica restrito à marca e à seleção. */
+    --primary: 158 71% 24%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 94%;
     --secondary-foreground: 218 10% 23%;
 
-    --accent: 263 30% 49%;
+    --accent: 158 71% 24%;
     --accent-foreground: 0 0% 100%;
 
     /* Semantic — slightly deeper for light bg legibility */
@@ -154,8 +152,8 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --marketing: 267 72% 50%;
 
     /* Contraste concentrado na prioridade; cobre faz parte da identidade. */
-    --priority-surface: #2f3137;
-    --priority-surface-hover: #3b3d45;
+    --priority-surface: #126949;
+    --priority-surface-hover: #0f5b40;
     --copper: 22 50% 36%;
 
     --destructive: 0 68% 46%;
@@ -250,15 +248,15 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
 
     --border: 230 8% 18%;
     --input: 230 8% 18%;
-    --ring: 264 36% 77%;
+    --ring: 155 52% 65%;
 
-    --primary: 264 36% 77%;
-    --primary-foreground: 258 35% 14%;
+    --primary: 155 52% 65%;
+    --primary-foreground: 158 48% 12%;
 
     --secondary: 230 8% 15%;
     --secondary-foreground: 40 30% 96%;
 
-    --accent: 264 36% 77%;
+    --accent: 264 54% 73%;
     --accent-foreground: 258 35% 14%;
     --success: 155 52% 65%;
     --info: 213 92% 72%;
@@ -279,18 +277,18 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --background: 220 20% 97%;
     --foreground: 225 12% 15%;
     --card: 0 0% 100%;
-    --card-hover: 264 30% 97%;
+    --card-hover: 155 30% 95%;
     --card-foreground: 225 12% 15%;
     --muted: 220 16% 93%;
     --muted-foreground: 220 10% 40%;
     --border: 220 14% 86%;
     --input: 220 14% 80%;
-    --ring: 263 30% 49%;
-    --primary: 263 30% 49%;
+    --ring: 158 71% 24%;
+    --primary: 158 71% 24%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 16% 93%;
     --secondary-foreground: 225 12% 15%;
-    --accent: 263 30% 49%;
+    --accent: 263 36% 45%;
     --accent-foreground: 0 0% 100%;
     --success: 158 71% 24%;
     --info: 213 73% 37%;
@@ -449,13 +447,13 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
   [data-theme="admin-light"] .now-appointment[data-cue="next"] {
     --primary: 0 0% 100%;
     --foreground: 0 0% 100%;
-    --muted-foreground: 220 10% 82%;
-    --border: 220 8% 45%;
+    --muted-foreground: 150 32% 89%;
+    --border: 150 30% 72%;
     --ring: 0 0% 100%;
     color: hsl(var(--foreground));
     background: var(--priority-surface);
     border-color: var(--priority-surface);
-    box-shadow: 0 8px 20px -14px rgb(35 38 43 / 0.45);
+    box-shadow: 0 8px 20px -14px rgb(18 105 73 / 0.65);
   }
 
   [data-theme="admin-light"] .now-appointment[data-cue="next"]:hover {
@@ -844,34 +842,4 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     opacity: 1 !important;
     transform: none !important;
   }
-}
-
-/* ─── Borda animada (components/ui/button-border.tsx) ─────────────────────── */
-.animated-border {
-  position: absolute;
-  inset: -1px;
-  pointer-events: none;
-  border-radius: inherit;
-  border: 2px solid transparent;
-  mask-image: linear-gradient(transparent, transparent), linear-gradient(#000, #000);
-  mask-clip: padding-box, border-box;
-  mask-composite: intersect;
-}
-.animated-border-dot {
-  position: absolute;
-  width: 20px;
-  aspect-ratio: 1;
-  background: linear-gradient(to right, transparent, hsl(var(--primary)), hsl(var(--primary)));
-  offset-path: rect(0 auto auto 0 round var(--animated-border-radius, 20px));
-  animation: animated-border-travel 5s linear infinite;
-}
-@keyframes animated-border-travel {
-  from { offset-distance: 0%; }
-  to { offset-distance: 100%; }
-}
-@supports not (offset-path: rect(0 auto auto 0)) {
-  .animated-border { display: none; }
-}
-@media (prefers-reduced-motion: reduce), (forced-colors: active) {
-  .animated-border { display: none; }
 }

@@ -282,13 +282,10 @@ Fundos escuros em grafite neutro, sem roxo dominante. Após nova solicitação,
 o tema claro substitui marfim/pedra por cinza quase branco frio (`#F6F7F9`),
 cartões brancos, contornos suaves e sombras discretas para separar os painéis.
 Campos mantêm bordas mais definidas e foco visível.
-Ação principal em lilás suave; ações de rotina (iniciar/concluir, compartilhar)
-e próximo atendimento em grafite neutro; execução azul,
-pendências âmbar e avisos críticos vermelhos. Verde fica restrito a estados de
-sucesso (confirmado, pago, concluído) — revisão de 27/09/2026, a pedido do
-responsável, para o verde deixar de ser predominante.
+Botões principais verdes, próximo atendimento verde, execução azul,
+pendências âmbar e avisos críticos vermelhos. Lilás restrito à marca e seleção.
 Cores de serviços continuam sendo categorias, sem substituir os estados.
-Após revisão do tema claro, o próximo atendimento recebe grafite sólido da
+Após revisão do tema claro, o próximo atendimento recebe verde sólido da
 marca com texto claro. Indicadores e próximas ações ganham acentos semânticos
 mais presentes; cobre diferencia ocupação. Os fundos gerais continuam neutros.
 O menu expandido exibe símbolo e nome; recolhido, somente símbolo. Controle de
@@ -306,7 +303,7 @@ avaliação do salão em destaque após atendimento concluído. Ver
 `CLIENTE_AGENDAMENTO_CLARO_2026-09-08.md`.
 
 Por solicitação do responsável, a entrada do cliente usa fundo grafite com
-movimento verde/lilás e marca clara. Agendamento e botões principais em lilás suave (desde 27/09/2026);
+movimento verde/lilás e marca clara. Agendamento e botões principais verdes;
 contatos recebem cores reconhecíveis. Reservas confirmadas têm bloco verde,
 canceladas vermelho, pendentes âmbar e em atendimento azul. Texto e ícone
 continuam explicitando o estado. Ver `CLIENTE_CORES_ENTRADA_2026-09-07.md`.
@@ -719,9 +716,9 @@ Ele nunca usa maiúsculas, listas de palavras, citações literais ou gramática
 48. **Nomes parecidos por voz ou grafia (05/10, dono aprovou as 4 melhorias):** (1) busca pelo som (`SALON_SECRETARY_PHONETIC_NAMES`): W/V, Y/I, letra dobrada, PH/F, TH/T, K/C/QU, H mudo, Z/S, GE/JE, CE/SE; quando só uma cliente ou serviço soa exatamente igual ao dito, a Secretária segue com ele (o nome completo aparece no cartão antes do Confirmar); havendo mais de um, mostra as opções; nunca para um nome que o modelo escreveu diferente da mensagem. (2) O filtro das duas primeiras letras das sugestões de cliente também tenta os começos do mesmo som ("Wa" acha "Va", "Ti" acha "Th"). (3) Memória da escolha (`SALON_SECRETARY_NAME_ALIASES`, já existente) ligada na demo. (4) A transcrição de voz recebe também os nomes das clientes com agendamento de 7 dias atrás a 30 à frente, até 40 nomes, só o nome (`SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES`; decisão do dono: os nomes vão à OpenAI junto com o áudio). Provado no fluxo real: Walter → Valter Assunção, Isabella → Isabela Mattos, Tiago → Thiago Mendes.
 49. **Piloto da Secretária em Produção (05/10):** só para o **dono** do salão de apresentação (`everflair-apresentacao`), teto de **US$ 1 por dia** (chamadas de modelo + voz), todas as funções certificadas (memória da escolha fica desligada). Flag `SALON_SECRETARY_PRODUCTION_PILOT` + lista exata `SALON_SECRETARY_ALLOWED_ACTORS`; qualquer outro salão ou usuário é recusado. Certificação com as flags novas: DeepSeek 90/90 (principal) e Luna 90/90 (reserva). Passos e variáveis: `docs/SECRETARY_PRODUCTION_PILOT.md`. Também: na regra de manhã/noite, quando nenhuma leitura está livre mas o motivo vira exceção, vale a do horário de funcionamento do salão e segue para "quer marcar mesmo assim?"; serviço não reconhecido pela voz vira sugestão pelos mais parecidos na escrita.
 
-## Destaque animado em ícones — 27/09/2026
+## Verde de volta — 06/10/2026
 
-Ícones que sinalizam pendência real (avisos da agenda, notificações não lidas
-do cliente, instalação disponível) recebem brilho percorrendo a borda, só
-enquanto a condição existe. Some com movimento reduzido. Componente:
-`src/components/ui/button-border.tsx`.
+O lilás nos botões e a borda animada (PR #129, mesclado em 06/10) foram
+desfeitos a pedido do dono: painel e app do cliente voltam aos botões
+principais verdes, com lilás restrito à marca e à seleção. Não reaplicar
+sem conferência visual aprovada pelo dono.
