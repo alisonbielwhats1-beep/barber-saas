@@ -53,7 +53,7 @@ export default async function PortfolioPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Galeria
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">Portfólio</h1>
@@ -80,7 +80,7 @@ export default async function PortfolioPage() {
               /> : <MissingImage />}
             </div>
             <div className="flex items-center justify-between gap-2 p-3">
-              <div className="min-w-0 text-[11px] text-foreground">
+              <div className="min-w-0 text-xs text-foreground">
                 {it.caption && <p className="line-clamp-2 font-medium">{it.caption}</p>}
                 {it.professional && (
                   <p className="opacity-70">por {it.professional.user.name}</p>

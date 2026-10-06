@@ -20,7 +20,7 @@ export function PageHeader({
       <div>
         {meta}
         {kicker && (
-          <p className={`${compact ? "hidden md:block" : ""} mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground`}>
+          <p className={`${compact ? "hidden md:block" : ""} mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground`}>
             {kicker}
           </p>
         )}

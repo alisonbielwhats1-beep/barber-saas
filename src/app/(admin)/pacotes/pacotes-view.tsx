@@ -100,18 +100,18 @@ export function PacotesView({
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-[14px] font-semibold">{p.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{p.serviceName ?? "Genérico"} · {p.soldCount} {p.soldCount === 1 ? "vendido" : "vendidos"}</p>
+                      <p className="text-xs text-muted-foreground">{p.serviceName ?? "Genérico"} · {p.soldCount} {p.soldCount === 1 ? "vendido" : "vendidos"}</p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                       {p.active ? "Ativo" : "Pausado"}
                     </span>
                   </div>
                   <div className="mt-3 flex items-end justify-between">
                     <div>
                       <p className="text-2xl font-semibold tracking-tight">{formatMoney(p.priceCents)}</p>
-                      <p className="text-[11px] text-muted-foreground">{p.sessions} sessões · {p.validityDays} dias</p>
+                      <p className="text-xs text-muted-foreground">{p.sessions} sessões · {p.validityDays} dias</p>
                     </div>
-                    <p className="text-right text-[11px] text-muted-foreground">
+                    <p className="text-right text-xs text-muted-foreground">
                       {formatMoney(Math.round(p.priceCents / p.sessions))}<br />por sessão
                     </p>
                   </div>
@@ -150,18 +150,18 @@ export function PacotesView({
                   <div key={pur.id} className="flex items-center gap-4 border-b border-border px-4 py-3 last:border-0">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium">{pur.clientName}</p>
-                      <p className="truncate text-[11px] text-muted-foreground">{pur.packageName} · vence {format(new Date(pur.expiresAt), "d MMM yyyy", { locale: ptBR })}</p>
+                      <p className="truncate text-xs text-muted-foreground">{pur.packageName} · vence {format(new Date(pur.expiresAt), "d MMM yyyy", { locale: ptBR })}</p>
                       <p className="mt-1 text-xs font-medium text-success">{remaining} de {pur.sessionsTotal} sessões restantes</p>
                     </div>
                     <div className="hidden w-28 sm:block">
-                      <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
+                      <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                         <span>{remaining} restantes</span><span>{pur.sessionsUsed}/{pur.sessionsTotal}</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                         <div className="h-full rounded-full bg-primary" style={{ width: `${(pur.sessionsUsed / pur.sessionsTotal) * 100}%` }} />
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button aria-label="Ações" disabled={!enabled} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40">
@@ -209,16 +209,16 @@ export function PacotesView({
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-[14px] font-semibold">{p.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{p.subCount} {p.subCount === 1 ? "assinante" : "assinantes"}</p>
+                      <p className="text-xs text-muted-foreground">{p.subCount} {p.subCount === 1 ? "assinante" : "assinantes"}</p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                       {p.active ? "Ativo" : "Pausado"}
                     </span>
                   </div>
                   <p className="mt-3 text-2xl font-semibold tracking-tight">
                     {formatMoney(p.priceCents)}<span className="text-[12px] font-normal text-muted-foreground">/{p.interval === "ANNUAL" ? "ano" : "mês"}</span>
                   </p>
-                  {p.benefits && <p className="mt-2 line-clamp-2 text-[11px] text-muted-foreground">{p.benefits}</p>}
+                  {p.benefits && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{p.benefits}</p>}
                   <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
                     <button
                       disabled={!enabled}
@@ -252,10 +252,10 @@ export function PacotesView({
                   <div key={s.id} className="flex items-center gap-4 border-b border-border px-4 py-3 last:border-0">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium">{s.clientName}</p>
-                      <p className="truncate text-[11px] text-muted-foreground">{s.planName} · renova {format(new Date(s.renewsAt), "d MMM yyyy", { locale: ptBR })}</p>
+                      <p className="truncate text-xs text-muted-foreground">{s.planName} · renova {format(new Date(s.renewsAt), "d MMM yyyy", { locale: ptBR })}</p>
                     </div>
                     <p className="hidden text-[12px] text-muted-foreground sm:block">{formatMoney(s.priceCents)}/{s.interval === "ANNUAL" ? "ano" : "mês"}</p>
-                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
                     {s.status === "ACTIVE" && (
                       <button onClick={() => setConfirmation({ title: "Cancelar assinatura", summary: `${s.clientName} · ${s.planName}. O histórico será preservado.`, action: () => cancelSubscription(s.id) })} disabled={!enabled || pending} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-danger" title="Cancelar assinatura">
                         <Ban className="h-3.5 w-3.5" />
@@ -325,7 +325,7 @@ function OfferMenu({ onEdit, onToggle, active, onDelete, pending }: { onEdit: Re
 
 function TabBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Layers; label: string }) {
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+    <button onClick={onClick} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
       <Icon className="h-3.5 w-3.5" /> {label}
     </button>
   );

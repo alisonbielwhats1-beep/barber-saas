@@ -1,3 +1,4 @@
+import { saysWholeDay, wholeDayBounds } from "./schedule-block-whole-day";
 import { daypartChoiceRetry, firstTemporalAmbiguity, nextTemporalAmbiguities, temporalAmbiguityQuestion, type PendingTemporalAmbiguity } from "./scheduling-temporal-ambiguity";
 import { firstCalendarConflict, nextCalendarConflicts, calendarConflictQuestion, dateChoiceRetryFor, type PendingCalendarConflict } from "./scheduling-calendar-conflict";
 import { coherentIntervalReadings, dateRulesV2Enabled, daypartRulesV2Enabled } from "./scheduling-temporal-reference";
@@ -98,7 +99,7 @@ export type AlterSwap={professional:{ref:string;name?:string};target:{ref:string
  * with more after them (an ordinal over the rows shown is not over all of them); "SUMMARY", a day summarized with a question. */
 /** P3c (flag SALON_SECRETARY_RECURRENCE_GUARD): `recurrence`, a recurrence the owner's words stated for this create/block and
  * whether they said yes to its first occurrence alone (secretary-recurrence.ts); the `recurrence_ref` card is that one option. */
-export type SchedulingState={combo_chosen?:string[];
+export type SchedulingState={combo_chosen?:string[];block_whole_day?:boolean;
   /** 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): the schedule exception the owner was asked about ("quer … mesmo assim?"),
    * bound to that slot and its causes; a consent only counts for this hash and before it expires. */
   exception_pending?:{operation:"appointment.create"|"appointment.change";hash:string;causes:string[];expires_at:string};block_overlap?:BlockOverlapChoice;recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
@@ -619,6 +620,11 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   const proDay=readsV2Enabled()&&!notice&&(op==="appointment.list"||op==="appointment.read")&&f.professional_ref&&!f.customer_ref&&!f.customer_name&&!f.date&&!f.time&&!f.period&&!held("date")&&!c.draft?.temporal_missing?.includes("date")
     ?await timed(c.metrics,"appointments",()=>withTenant(actor,tx=>professionalReadDay(tx,actor,{professional_ref:f.professional_ref!,...(f.service_ref?{service_ref:f.service_ref}:{})}))):undefined;
   if(proDay){f.date=proDay.date;codes.push(proDay.today?"READ_PROFESSIONAL_TODAY":"READ_PROFESSIONAL_NEXT_DAY");}
+  if(op==="schedule.block"&&c.block_whole_day&&!notice&&f.professional_ref&&f.date&&!f.end_date&&!f.time&&!f.end_time){
+    const bounds=await withTenant(actor,tx=>wholeDayBounds(tx,actor.salonId,f.professional_ref!,f.date!));
+    if(bounds){f.time=bounds.time;f.end_time=bounds.end_time;codes.push("BLOCK_WHOLE_DAY");}
+    else{notice=`${f.professional_name??"Esse profissional"} não tem expediente em ${dayLabel(f.date)}. De que horas a que horas devo bloquear?`;c.waiting_for="time";codes.push("BLOCK_WHOLE_DAY_NO_HOURS");}
+  }
   // P2a: an alteration with no destination said keeps the slot (no date/time required); its names must be resolved.
   const required=schedulingRequiredFields(op,f);
   const missing=[...new Set([...required,...(c.draft?.temporal_missing??[])])].filter(k=>!requiredFieldHeld(f,k)||waiting.has(k));
@@ -872,6 +878,8 @@ async function applySchedulingInterpretationMutable(actor:ServiceActor,c:Schedul
   const start=performance.now();c.proposal=undefined;c.interpretation_source??="MODEL";
   const {operation=c.operation,temporal_evidence,temporal_negative_context,target_professional_name,service_changes,service_names,...raw}=result;if(!operation)throw Error("OPERATION_REQUIRED");
   if(c.operation&&c.operation!==operation)throw Error("OPERATION_MISMATCH");c.operation=operation;
+  // Owner 06/10: "o dia inteiro" with no time said blocks the professional's whole working day (prepare() reads their hours).
+  if(operation==="schedule.block"&&sourceMessage!==undefined){if(raw.time||raw.end_time)c.block_whole_day=false;else if(saysWholeDay(sourceMessage))c.block_whole_day=true;}
   // P3c (flag): a recurrence this turn's own words state for a create/block (re)opens its question: never one silent occurrence.
   // Review B: an adjective of the construction inside the owner's own names of this action ("pacote mensal") is that name.
   const recurring=recurrenceFromTurn(c.recurrence,operation,sourceMessage,[raw.service_name,...service_names??[],raw.customer_name,raw.professional_name,
@@ -1394,6 +1402,19 @@ export async function applyScheduleExceptionConsent(actor:ServiceActor,c:Schedul
   if(decision.reason)next.fields.override_reason=decision.reason;else delete next.fields.override_reason;
   delete next.fields.override_reason_source;next.interpretation_source="DETERMINISTIC_FAST_PATH";
   try{await prepare(actor,next);commitScheduling(c,next);}catch(error){publishCommittedSchedulingDraft(c,next);throw error;}
+}
+/** 06/10 (flag SALON_SECRETARY_CANCEL_REASON_OPTIONAL): an open cancellation (ready for Confirmar) and the owner explaining the cause.
+ * The whole sentence is the reason, proven literal like any other; a fresh preparation, no model call, still ends in Confirmar. */
+export const cancelReasonOpen=(c:SchedulingState|undefined)=>c?.operation==="appointment.cancel"&&!!c.proposal;
+export async function applyCancelReason(actor:ServiceActor,c:SchedulingState,message:string){
+  if(!cancelReasonOpen(c))return false;
+  const patch:Record<string,unknown>={reason:message.trim()};
+  if(!groundSchedulingReasons(patch,c.fields as Record<string,unknown>,message).accepted.includes("reason"))return false;
+  c.proposal=undefined;
+  const next=structuredClone(c);
+  next.fields.reason=patch.reason as string;(next.fields as Record<string,unknown>).reason_source=patch.reason_source;next.interpretation_source="DETERMINISTIC_FAST_PATH";
+  try{await prepare(actor,next);commitScheduling(c,next);}catch(error){publishCommittedSchedulingDraft(c,next);throw error;}
+  return true;
 }
 /** 05/10: "não" to the exception question: nothing is prepared; the free times are offered again. */
 export function refuseScheduleException(c:SchedulingState){

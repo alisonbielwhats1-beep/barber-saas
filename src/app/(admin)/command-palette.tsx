@@ -209,7 +209,7 @@ export function CommandPalette({ role }: { role: string }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-medium">{c.label}</p>
-                  <p className="text-[11px] text-muted-foreground">{c.hint}</p>
+                  <p className="text-xs text-muted-foreground">{c.hint}</p>
                 </div>
                 {i === active && <CornerDownLeft className="h-3.5 w-3.5 text-muted-foreground" />}
               </button>
@@ -217,7 +217,7 @@ export function CommandPalette({ role }: { role: string }) {
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><Command className="h-3 w-3" /> Navegar rápido</span>
           <span>↑↓ mover · ↵ abrir</span>
         </div>
@@ -246,10 +246,10 @@ export function OpenCommandPaletteButton({ compact = false }: { compact?: boolea
       aria-label="Buscar"
       title={compact ? `Buscar (${shortcut})` : undefined}
       data-command-palette-trigger="true"
-      className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 text-[12px] text-muted-foreground transition hover:border-border-strong hover:text-foreground"
+      className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 text-[13px] text-muted-foreground transition hover:border-border-strong hover:text-foreground"
     >
       <Search className={`h-4 w-4 shrink-0 ${compact ? "mx-auto" : ""}`} />
-      {!compact && <><span className="flex-1 text-left">Buscar</span><kbd className="rounded border border-border px-1 py-0.5 text-[10px]">{shortcut}</kbd></>}
+      {!compact && <><span className="flex-1 text-left">Buscar</span><kbd className="rounded border border-border px-1 py-0.5 text-xs [@media(hover:none)]:hidden">{shortcut}</kbd></>}
     </button>
   );
 }

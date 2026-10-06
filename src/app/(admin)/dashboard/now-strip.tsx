@@ -61,7 +61,7 @@ export function NowStrip({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-40" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
               </span>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">Operação de hoje</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em]">Operação de hoje</p>
             </div>
             <h2 id="now-strip-title" className="mt-1 text-lg font-semibold tracking-tight">
               Próximos atendimentos de hoje
@@ -69,7 +69,7 @@ export function NowStrip({
             <p className="mt-1 text-[13px] text-muted-foreground">
               {formatInTimeZone(now, timezone, "EEEE, d 'de' MMMM '·' HH:mm", { locale: ptBR })}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Atualização automática a cada minuto</p>
+            <p className="mt-1 text-xs text-muted-foreground">Atualização automática a cada minuto</p>
           </div>
           <Link
             href={`/hoje?date=${todayDate}`}
@@ -114,7 +114,7 @@ export function NowStrip({
                   aria-label={`${cue.label}. ${formatInTimeZone(appointment.startAt, timezone, "HH:mm")}, ${appointment.client.name}, ${appointment.service.name}. Abrir agenda`}
                   className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <p className={`now-appointment-cue mb-3 flex items-center gap-1.5 text-[11px] font-semibold ${cue.text}`}>
+                  <p className={`now-appointment-cue mb-3 flex items-center gap-1.5 text-xs font-semibold ${cue.text}`}>
                     {cue.urgent ? <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : <Clock3 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />}
                     {cue.label}
                   </p>
@@ -123,7 +123,7 @@ export function NowStrip({
                       {formatInTimeZone(appointment.startAt, timezone, "HH:mm")}
                     </span>
                     <span
-                      className={`now-appointment-status rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                      className={`now-appointment-status rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
                         appointment.status === "IN_PROGRESS"
                           ? "bg-info/10 text-info"
                           : appointment.status === "PENDING"

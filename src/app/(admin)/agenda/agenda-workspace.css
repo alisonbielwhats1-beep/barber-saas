@@ -56,8 +56,16 @@
 .agenda-mobile-views > button[aria-pressed=true] { background: hsl(var(--primary)); border-color: transparent; color: hsl(var(--primary-foreground)); }
 @media (max-width: 639px) {
   .agenda-toolbar h1 button { text-transform: capitalize; }
-  .agenda-toolbar button[aria-label="Buscar e filtrar agenda"] { border: 0; }
+  .agenda-toolbar :is(button[aria-label="Buscar e filtrar agenda"], button[aria-label="Como usar a agenda"]) { border: 0; }
   .agenda-mobile-views { padding-bottom: 8px; border-bottom: 1px solid hsl(var(--border)); }
 }
 /* Appointment backgrounds are deliberately light; pending labels need dark ink too. */
 .agenda-grid [data-colorful-appointment] .text-warning { color: #111827; }
+
+/* Phones in landscape: the day strip repeats the date arrows and the bar is slimmer, so the grid keeps most of the 375px. */
+@media (max-height: 500px) and (max-width: 1023px) {
+  .agenda-workspace nav[aria-label="Dias da semana da agenda"] { display: none; }
+  .agenda-optional-control { display: none; }
+  .agenda-filter-extras { display: block !important; }
+  .admin-main > div:has(.agenda-workspace) { padding-bottom: calc(52px + env(safe-area-inset-bottom)); }
+}

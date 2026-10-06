@@ -37,7 +37,7 @@ export function SalonSwitcher({
   }
 
   const trigger = (
-    <div className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${compact ? "justify-center" : ""}`}>
+    <div className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] ${compact ? "justify-center" : ""}`}>
       <Store className="h-4 w-4 shrink-0 text-foreground" />
       <span className={compact ? "sr-only" : "flex-1 truncate font-medium text-foreground"}>{current.name}</span>
       {!compact && memberships.length > 1 && (
@@ -67,7 +67,7 @@ export function SalonSwitcher({
         {trigger}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[13rem]" sideOffset={4}>
-        <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">
+        <DropdownMenuLabel className="text-xs uppercase tracking-wider text-muted-foreground">
           Trocar de salão
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

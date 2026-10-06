@@ -96,7 +96,7 @@ export default async function PacotesPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-6">
       <header>
-        <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Receita recorrente
         </p>
         <h1 className="text-[26px] font-semibold tracking-tight">Pacotes & Planos</h1>
@@ -139,7 +139,7 @@ function Kpi({ icon: Icon, accent, label, value }: { icon: React.ComponentType<{
       </span>
       <div className="min-w-0">
         <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
+        <p className="mt-1 text-xs leading-snug text-muted-foreground">{label}</p>
       </div>
     </div>
   );

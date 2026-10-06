@@ -24,20 +24,20 @@
 .appointment-flow-header > h2 { font-size: 16px; line-height: 24px; }
 .appointment-flow-body h2 { font-size: 18px; line-height: 26px; }
 .appointment-flow-body :is(button, input, textarea, select):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
-.appointment-steps { display: flex; padding: 4px 12px 0; font-size: 11px; }
+.appointment-steps { display: flex; padding: 4px 12px 0; font-size: 12px; }
 .appointment-step { position: relative; display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; gap: 8px; }
 .appointment-step:not(:last-child)::after { content: ''; position: absolute; height: 1px; background: hsl(var(--border)); top: 14px; left: calc(50% + 20px); right: calc(-50% + 20px); }
 .appointment-step[data-complete=true]::after { background: hsl(var(--primary)); }
-.appointment-step-number { border: 1px solid hsl(var(--border)); font-size: 11px; }
+.appointment-step-number { border: 1px solid hsl(var(--border)); font-size: 12px; }
 .appointment-client-list { max-height: min(320px, 40dvh); background: hsl(var(--surface-1)); }
 .appointment-service-list { overflow: hidden; background: hsl(var(--surface-1)); }
 .appointment-service-option[data-selected=true] { background: hsl(var(--primary) / .08); }
 .appointment-service-option input { border-radius: 50%; }
 .appointment-visit-card { background: hsl(var(--surface-1)); }
 .appointment-visit-card [aria-haspopup=dialog] { min-height: 44px; font-size: 14px; background: hsl(var(--card)); border-radius: 10px; }
-.appointment-visit-card > div:first-child { font-size: 10px; letter-spacing: .06em; }
+.appointment-visit-card > div:first-child { font-size: 12px; letter-spacing: .04em; }
 .appointment-visit-card > div:first-child > span:last-child { font-variant-numeric: tabular-nums; letter-spacing: 0; color: hsl(var(--foreground)); }
-.appointment-summary-row h3 { font-size: 11px; letter-spacing: .03em; }
+.appointment-summary-row h3 { font-size: 12px; letter-spacing: .03em; }
 .appointment-flow-footer button { border-radius: 12px; }
 .appointment-discard-dialog { height: auto; max-width: 26rem; }
 .appointment-discard-dialog .appointment-flow-body:has(> fieldset[hidden]) { display: none; }

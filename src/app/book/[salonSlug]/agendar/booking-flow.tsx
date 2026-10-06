@@ -1366,7 +1366,7 @@ function BookingReview({
   return (
     <Dialog open onOpenChange={(open) => !open && !loading && onBack()}>
       <DialogContent className="bottom-0 top-auto max-h-[calc(100dvh-1rem)] max-w-[480px] -translate-y-0 gap-0 overflow-y-auto rounded-b-none rounded-t-3xl bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{salonName}</p>
+        <p className="pr-10 text-xs font-semibold uppercase tracking-[0.16em] text-primary">{salonName}</p>
         <DialogTitle className="mt-1 text-xl">Revise sua reserva</DialogTitle>
         <div className="mt-4"><BookingProgress current={3} /></div>
         <DialogDescription className="sr-only">
