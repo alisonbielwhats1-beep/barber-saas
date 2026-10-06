@@ -24,6 +24,19 @@ describe("model calls", () => {
   });
 });
 
+describe("real cost (owner 06/10: x10 on the real cost)", () => {
+  const deepseek = { model_id_requested: "deepseek/deepseek-v4.1-flash", input_tokens: 11_000, cached_input_tokens: 9_900, cache_write_tokens: 0, output_tokens: 220 };
+  it("a call that reports its cost is priced at it plus the 5,5% OpenRouter fee, not at the table", () => {
+    // Table: 1100 x 0,45 + 9900 x 0,048 + 220 x 2,40 = 1 498,2 micro-USD; reported 600 -> 633.
+    expect(callMicroUsd(deepseek)).toBeCloseTo(1_498.2);
+    expect(callMicroUsd({ ...deepseek, cost_micro_usd: 600 })).toBeCloseTo(633);
+  });
+  it("a reported cost far below the token price (under 20%) is not trusted: the table price is used", () => {
+    expect(callMicroUsd({ ...deepseek, cost_micro_usd: 0 })).toBeCloseTo(1_498.2);
+    expect(callMicroUsd({ ...deepseek, cost_micro_usd: 200 })).toBeCloseTo(1_498.2);
+  });
+});
+
 describe("voice", () => {
   it("bounds agree with secretary-transcribe.ts", () => {
     expect(SPEND_TRANSCRIBE_ENTITY).toBe(TRANSCRIBE_AUDIT_ENTITY);

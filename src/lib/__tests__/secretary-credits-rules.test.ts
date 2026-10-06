@@ -30,10 +30,11 @@ describe("the charge: each request at its own real cost x 10", () => {
 });
 
 describe("packs: a bigger pack yields more, about N requests is only an estimate", () => {
-  it("at the cost measured in the pilot (R$ 0,187 per request), R$ 15, 25, 40 and 80 give about 80, 145, 260 and 565 requests", () => {
-    expect(Object.values(SECRETARY_CREDIT_PACKS).map(p => [p.amountCents, estimatedRequests(p.units)])).toEqual([[1500, 80], [2500, 145], [4000, 260], [8000, 565]]);
-    // The measured average: 105 775 micro-USD of model calls over 37 messages plus 17 948 of voice = 3 344 micro-USD per request.
-    expect(costUnits(Math.round((105_775 + 17_948) / 37), 5.6)).toBe(1_873);
+  it("at the real cost measured in the pilot (R$ 0,125 per request), R$ 15, 25, 40 and 80 give about 120, 220, 390 and 840 requests", () => {
+    expect(Object.values(SECRETARY_CREDIT_PACKS).map(p => [p.amountCents, estimatedRequests(p.units)])).toEqual([[1500, 120], [2500, 220], [4000, 390], [8000, 840]]);
+    // The pilot's tokens at the real rates (0,30 / 0,006 / 1,20 per million) + 5,5% fee, over 37 messages, plus 17 948 micro-USD of voice.
+    const model = (166_799 * 0.3 + 233_600 * 0.006 + 8_126 * 1.2) * 1.055;
+    expect(costUnits(Math.round((model + 17_948) / 37), 5.6)).toBe(1_249);
   });
   it("each bigger pack gives more credit per real, and the average margin stays at 86% or more before the payment fee", () => {
     const perReal = Object.values(SECRETARY_CREDIT_PACKS).map(p => p.units / p.amountCents);
@@ -42,7 +43,7 @@ describe("packs: a bigger pack yields more, about N requests is only an estimate
       const ourCostBrl = pack.units * CREDIT_UNIT_BRL / MARGIN_MULTIPLIER;
       expect(1 - ourCostBrl / (pack.amountCents / 100)).toBeGreaterThanOrEqual(0.86);
     }
-    expect(AVERAGE_REQUEST_UNITS).toBe(1_870);
+    expect(AVERAGE_REQUEST_UNITS).toBe(1_250);
   });
 });
 
@@ -102,9 +103,9 @@ describe("the free monthly allowance (about 20 requests)", () => {
     expect(splitCost(1_232, FREE_MONTHLY_UNITS - 200)).toEqual({ free: 200, paid: 1_032 });
     expect(splitCost(1_232, FREE_MONTHLY_UNITS)).toEqual({ free: 0, paid: 1_232 });
   });
-  it("is 37 400 units: about 20 requests at the measured average, about R$ 0,37 of real cost per salon and month", () => {
-    expect(FREE_MONTHLY_UNITS).toBe(37_400);
-    expect(FREE_MONTHLY_UNITS * CREDIT_UNIT_BRL / MARGIN_MULTIPLIER).toBeCloseTo(0.374);
+  it("is 25 000 units: about 20 requests at the measured average, about R$ 0,25 of real cost per salon and month", () => {
+    expect(FREE_MONTHLY_UNITS).toBe(25_000);
+    expect(FREE_MONTHLY_UNITS * CREDIT_UNIT_BRL / MARGIN_MULTIPLIER).toBeCloseTo(0.25);
   });
 });
 

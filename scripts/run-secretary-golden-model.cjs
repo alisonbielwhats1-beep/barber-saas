@@ -19,7 +19,11 @@ const CERTIFICATION_FLAGS = Object.freeze({ SALON_SECRETARY_ALLOW_PAID_CALLS: 'f
   // 05/10 (owner decisions 46-48): schedule exceptions, service swap and names by sound are certified on.
   SALON_SECRETARY_SCHEDULE_EXCEPTIONS: 'true', SALON_SECRETARY_SERVICE_SWAP_V2: 'true', SALON_SECRETARY_PHONETIC_NAMES: 'true',
   // 06/10 (owner, production pilot): the optional cancel/reschedule reason is part of the model contract, so it is certified on.
-  SALON_SECRETARY_CANCEL_REASON_OPTIONAL: 'true' });
+  SALON_SECRETARY_CANCEL_REASON_OPTIONAL: 'true',
+  // 06/10: SALON_SECRETARY_CACHE_LAYOUT=dynamic-last was measured here (golden-20261006-deepseek-cache-layout-k3: 90/90, but 89,1%
+  // cached against 94,8% with the certified layout, real cost US$ 0,00069 against 0,00051 per call). Not certified; set it with
+  // SALON_SECRETARY_CACHE_LAYOUT_ON=true only to measure again.
+  ...(process.env.SALON_SECRETARY_CACHE_LAYOUT_ON === 'true' ? { SALON_SECRETARY_CACHE_LAYOUT: 'dynamic-last' } : {}) });
 const args = process.argv.slice(2), options = {};
 for (let i = 0; i < args.length; i += 2) {
   const key = args[i], value = args[i + 1];
