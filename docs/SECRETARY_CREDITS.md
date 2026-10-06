@@ -1,86 +1,89 @@
-# Secretária — pedidos pré-pagos (pacotes pelo Mercado Pago)
+# Secretária — crédito pré-pago (pacotes pelo Mercado Pago)
 
 Decisões do dono em 06/10/2026:
 
 - A Secretária é pré-paga e vale para todos os planos.
-- O cliente compra **pedidos**: cada mensagem enviada à Secretária, digitada ou falada. Nunca compra dinheiro.
-- Pacotes: R$ 15 = 185 pedidos, R$ 25 = 310 pedidos, R$ 40 = 500 pedidos. O preço sai da média de custo por pedido
-  (cerca de R$ 0,08, para ficar perto de 90% de margem) e cada pacote arredonda a favor do cliente.
-- A recarga **soma** ao que sobrou. Exemplo: com 20% (37 de 185), comprar R$ 15 deixa 222 pedidos, e a barra volta a 100%.
-- Os pedidos não expiram.
-- Todos os papéis veem o número de pedidos. Só o dono recarrega, em Plano e assinatura.
-- Aviso amarelo abaixo de 20%. Em zero, a Secretária para e a agenda segue normal.
+- O cliente compra **crédito**, não uma quantidade fixa de pedidos. Cada pedido (mensagem enviada à Secretária) desconta o
+  próprio custo real vezes 10, e assim a margem de 90% vale em todo pedido. Entram no custo:
+  - as chamadas ao DeepSeek;
+  - cada gravação transcrita pelo GPT Transcribe, mesmo que não vire mensagem.
+- "Cerca de N pedidos" é só uma estimativa pelo custo médio. Não é promessa.
+- O cliente vê **só a barra e a porcentagem**: nem valores, nem número de pedidos, nem dias.
+- Pacotes (pacote maior rende mais):
+
+  | Pacote | Crédito (unidades de R$ 0,0001) | Estimativa | Margem média antes da taxa |
+  |---|---|---|---|
+  | R$ 15 | 150.000 | cerca de 185 pedidos | 90% |
+  | R$ 25 | 275.000 | cerca de 340 pedidos | 89% |
+  | R$ 40 | 485.000 | cerca de 600 pedidos | 88% |
+  | R$ 80 | 1.053.000 | cerca de 1.300 pedidos | 87% |
+
+- **Franquia grátis todo mês:** 16.200 unidades, cerca de 20 pedidos, para todo salão.
+  - Custa uns R$ 0,16 reais por salão por mês.
+  - É usada antes do crédito pago e não acumula: o que sobrar não passa para o mês seguinte.
+- A recarga **soma** ao que sobrou e a barra volta a 100%. O crédito não expira.
+- Só o dono recarrega. Todos os papéis veem a barra. Aviso abaixo de 20%; sem nada, a Secretária para e a agenda segue normal.
 
 ## Regras (validadas em teste)
 
-Fonte: `src/lib/secretary-credits-rules.ts`; testes em `src/lib/__tests__/secretary-credits-rules.test.ts` e
+Fonte: `src/lib/secretary-credits-rules.ts`. Testes em `src/lib/__tests__/secretary-credits-rules.test.ts` e
 `src/lib/billing/secretary-credits.test.ts`.
 
-- **Barra:** o saldo dividido pelo saldo logo depois do último crédito (compra ou cortesia). Arredonda para baixo, mas um
-  saldo positivo nunca aparece como 0%.
-- **Aviso:** abaixo de 20%, em conta inteira. 37 de 185 = 20% não avisa; 36 de 185 = 19% avisa.
-- **Uso:** só a mensagem que terminou consome 1 pedido. Recusa e falha não são cobradas. O débito acontece uma única vez
-  por mensagem (chave da mensagem).
-- **Mensagem já iniciada sempre termina:** com duas mensagens juntas no último pedido, o saldo pode ficar em −1. A próxima
-  compra cobre essa diferença (−1 + 185 = 184).
-- **Reembolso:** devolve os pedidos na proporção do valor estornado, arredondando para cima. R$ 5 de R$ 15 devolvem 62 de
-  185. O saldo pode ficar negativo, porque os pedidos já usados foram pagos com o dinheiro estornado.
-- **Chargeback:** devolve o pacote inteiro.
-- **Pagamento repetido:** o mesmo pagamento nunca credita duas vezes, seja no webhook, na volta do checkout ou na rotina
-  agendada.
-- **Segundo pagamento da mesma compra:** não é creditado e a compra vai para revisão (o estorno é manual).
-- **Aprovação depois da compra expirar:** ainda credita. O dinheiro nunca fica sem os pedidos.
-- **Compra não paga:** expira 24 h depois, mais 1 h de tolerância.
-- **Sem estimativa de dias para o cliente** (dono, 06/10): a tela mostra só a barra, a porcentagem e os pedidos restantes.
+- **Cobrança:** custo em micro-dólares × câmbio fixo (`SALON_SECRETARY_USD_BRL`, padrão 5,60) × 10, em unidades inteiras de
+  R$ 0,0001, arredondando para cima.
+  - Pedido digitado típico: US$ 0,0007, que vira R$ 0,039.
+  - Pedido falado: US$ 0,0022, que vira R$ 0,123.
+  - O custo usa o preço mais alto dos fornecedores, então a margem nunca fica abaixo de 90%.
+- **Uma cobrança por chamada e por gravação:**
+  - cada chamada do modelo é cobrada uma vez, pelo próprio registro (`call:<id>`);
+  - cada gravação é cobrada uma vez, pelo registro da sua reserva (`voice:<id>`);
+  - mensagem recusada ou com falha não é cobrada; a gravação é.
+- **Barra:**
+  - Quem já comprou vê o crédito pago: o saldo dividido pelo saldo logo depois da última recarga. A franquia que sobrou entra
+    dos dois lados da conta, então gastar a franquia não baixa a barra, e logo depois de uma compra ela marca sempre 100%.
+  - Quem nunca comprou vê a franquia do mês.
+  - Exemplo do dono: com 20% sobrando, comprar R$ 15 soma os dois e a barra volta a 100%.
+- **Pedido já iniciado sempre termina:** o crédito pago pode ficar negativo e a próxima recarga cobre a diferença.
+- **Reembolsos e pagamentos problemáticos:**
+  - reembolso devolve o crédito na proporção do valor estornado, arredondando para cima (R$ 5 de R$ 15 = 1/3);
+  - chargeback devolve tudo;
+  - o mesmo pagamento nunca credita duas vezes;
+  - um segundo pagamento da mesma compra, ou um pagamento divergente, vai para revisão;
+  - aprovação depois de a compra expirar ainda credita;
+  - compra não paga expira em 24 h, com 1 h de tolerância.
+
+## Banco
+
+- `029_secretary_credits`: livro só de inclusão e compras com cotação imutável, com RLS e FORCE.
+- `030_secretary_credit_units`: renomeia `requests` para `units`, cria `freeUnits` (a parte da franquia em cada uso) e o
+  pacote P80. A linha gravada antes da 030 continua como está, agora lida como unidades.
+- As duas foram validadas num Postgres 16 descartável: `VERIFY_OK` e todas as recusas de segurança funcionaram.
 
 ## Como funciona
 
-**Banco:** migração `prisma/sql/manual/029_secretary_credits*.sql`, com duas tabelas.
-- `SecretaryCreditLedger`: o livro de pedidos.
-  - Só aceita inclusão. Uma trigger e a falta de permissão impedem alterar ou apagar.
-  - Cada linha guarda o saldo e a base da barra logo depois dela.
-  - É escrito sob uma trava por salão (`creditLock`), que também abre a permissão de escrita da RLS (`app.credit_write`).
-  - Um índice garante um único crédito por pagamento.
-- `SecretaryCreditPurchase`: as compras.
-  - A cotação (pacote, valor, pedidos, prazo) não pode mudar.
-  - A rotina agendada só enxerga compras aguardando pagamento.
+- **Compra:** `POST /api/billing/credits`, só o dono e só para quem pode usar a Secretária.
+  - Checkout Pro com o item "Everflair — Crédito da Secretária", valor exato, Pix ou cartão em 1x, sem boleto, link de 24 h.
+  - Referência `efc:{salão}:{compra}`.
+  - A volta do pagamento cai em `/api/billing/return?origem=creditos`.
+- **Confirmação:** pelo webhook (tópico `payment`, ramo `efc:`), pela volta do checkout (`GET /api/billing/credits?sync=1`) e
+  pela rotina de cobrança (`/api/cron/billing`). Nos três, o pagamento é relido no Mercado Pago e conferido: referência,
+  conta, moeda, valor e modo.
+- **Secretária:**
+  - `budgeted()` exige crédito ou franquia.
+  - Ao terminar uma mensagem, `charged()` cobra as chamadas dela.
+  - A transcrição cobra a gravação.
+  - A tela recebe só `{ percent, status }`.
+- **Cortesia:** `POST /api/hq/secretary-credits`, só HQ, com corpo `{ salonId, units, reason, grantKey }`.
 
-**Compra:** `POST /api/billing/credits`, só o dono, com chave de idempotência. Cria uma preferência de Checkout Pro:
-- valor exato em reais, 1 parcela, Pix e cartão (boleto excluído) e validade de 24 h;
-- referência `efc:{salão}:{compra}`;
-- a resposta do Mercado Pago é conferida campo a campo antes de mostrar o link.
+**Comportamento da flag.** Com `SALON_SECRETARY_CREDITS_ENABLED` ligada, os tetos de gasto diário e mensal
+(`secretary-spend.ts`) valem para todos os salões. Desligada, a flag bloqueia só compras novas e o uso; pagamentos de compras
+abertas continuam sendo confirmados. O rollback da 029 e da 030 se recusa a apagar histórico.
 
-**Confirmação** do pagamento, sempre relendo o pagamento no Mercado Pago e conferindo referência, conta, moeda, valor e
-modo live:
-1. o webhook (`/api/webhooks/mercadopago`, tópico `payment`, ramo `efc:`);
-2. a volta do checkout (`GET /api/billing/credits?sync=1`);
-3. a rotina de cobrança (`/api/cron/billing`, até 20 compras por execução).
+## Ordem em Produção
 
-**Na Secretária:** `budgeted()` exige pelo menos 1 pedido (mensagem e gravação). `charged()` debita depois da resposta.
-A barra fica no topo da conversa e o aviso aparece acima da caixa de texto.
-
-**Cortesia:** `POST /api/hq/secretary-credits`, só HQ, com corpo `{ salonId, requests, reason, grantKey }`.
-
-## Para ligar (cada passo de Produção só com o ok do dono)
-
-1. Merge do PR (tudo fica desligado: `SALON_SECRETARY_CREDITS_ENABLED` ausente).
-2. Supabase Produção:
-   - rodar `029_secretary_credits.preflight.sql` (só leitura);
-   - fazer backup;
-   - aplicar `029_secretary_credits.sql`;
-   - rodar `029_secretary_credits.verify.sql`, que deve devolver `VERIFY_OK`.
-   O mesmo SQL já foi aplicado duas vezes num Postgres 16 local descartável: deu `VERIFY_OK` e todas as recusas de
-   segurança funcionaram.
-3. No painel do Mercado Pago, conferir que o webhook do app recebe o tópico **Pagamentos** (o mesmo das trocas de plano).
-4. Testar primeiro em Preview, com `MERCADOPAGO_MODE=test`, credenciais de teste e Pix/cartão de teste:
-   comprar, ver o crédito, estornar pelo painel e ver os pedidos voltarem.
-5. Dar a cortesia do salão de apresentação pelo HQ.
-6. Vercel Produção: `SALON_SECRETARY_CREDITS_ENABLED=true` e um novo deploy.
-
-Para parar de vender sem perder nada, basta `SALON_SECRETARY_CREDITS_ENABLED=false`. A flag desligada bloqueia só compras
-novas e o uso de pedidos. Pagamentos de compras já abertas continuam sendo confirmados, porque o dinheiro nunca fica sem os
-pedidos. Um pagamento que não confere com a compra (valor, moeda, conta ou modo) não credita nada, e a compra vai para
-revisão. Com a flag ligada, os tetos de gasto diário e mensal (`secretary-spend.ts`) passam a valer para todos os salões,
-não só para o piloto. Isso limita, por exemplo, gravações que nunca viram mensagem. A volta do checkout de um pacote usa
-`/api/billing/return?origem=creditos` e cai no cartão da Secretária. O rollback da 029 se recusa a apagar
-tabelas que já têm histórico.
+1. 029 aplicada (06/10, `VERIFY_OK`).
+2. 030: preflight, aplicar, verify. **Antes do merge**, porque o código novo já lê `units` e `freeUnits`.
+3. Cortesia do piloto em crédito, por exemplo 485.000 unidades (um pacote de R$ 40).
+4. Merge e deploy. As variáveis `SALON_SECRETARY_CREDITS_ENABLED=true` e `SALON_SECRETARY_MONTHLY_BUDGET_USD=5` já estão
+   cadastradas na Vercel.
+5. Conferir que o webhook do Mercado Pago recebe o tópico **Pagamentos**.
