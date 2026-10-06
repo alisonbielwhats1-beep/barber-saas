@@ -217,7 +217,7 @@ describe('program real-spend cap: hash-chained, append-only ledger', () => {
     const anchors = [resolve(PROGRAM_SPEND_ANCHOR_FILE), resolve(PROGRAM_SPEND_WALLETS.openrouter.anchorFile)], anchorsBefore = anchors.map(fileState);
     const json = spawnSync(process.execPath, [cli, '--json'], { encoding: 'utf8', timeout: 60_000 });
     if (json.status === 0) expect(JSON.parse(json.stdout)).toMatchObject({ openai: { ledger: 'program-spend-20260927', wallet: 'openai', capUsd: 16, capHistory: PROGRAM_CAP_HISTORY, hardStop: null },
-      openrouter: { ledger: 'program-spend-openrouter-20261004', wallet: 'openrouter', capUsd: 1.4, hardStop: null } });
+      openrouter: { ledger: 'program-spend-openrouter-20261004', wallet: 'openrouter', capUsd: 2.4, hardStop: null } });
     else expect(json.stderr + json.stdout).toMatch(/PROGRAM_SPEND_JOURNAL|"hardStop": "PROGRAM_SPEND_/); // reported, never repaired
     expect(spawnSync(process.execPath, [cli, 'C:/elsewhere/program-spend-20260927.jsonl'], { encoding: 'utf8', timeout: 60_000 }).status).toBe(2);
     expect(reals.map(fileState)).toEqual(before); for (const real of reals) expect(existsSync(real + '.lock')).toBe(false);
