@@ -14,7 +14,10 @@ import type { ServiceActor } from "./service-catalog";
  * secretary-voice-customers.ts: names only, appointments around today). The text is returned to the input box: never sent. */
 type Env = Record<string, string | undefined>;
 export const TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions";
-export const TRANSCRIBE_MODELS = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe"] as const;
+/** gpt-transcribe (owner, 06/10/2026, production pilot): OpenAI's recommended model for recorded speech, billed per second of
+ * audio (US$ 0.0045 per minute), with its own fields: `languages[]` instead of `language` and `keywords[]` (literal terms
+ * expected in the audio: the directory names). Runtime only: the sealed evaluation estimator keeps the two gpt-4o models. */
+export const TRANSCRIBE_MODELS = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "gpt-transcribe"] as const;
 export const TRANSCRIBE_DEFAULT_MODEL = "gpt-4o-mini-transcribe";
 /** Same bounds as the sealed evaluation estimator (TRANSCRIBE_PRICING); a test keeps them equal. */
 export const TRANSCRIBE_LIMITS = { maxAudioSeconds: 60, maxAudioBytes: 1_500_000, upperUsdPerMinute: 0.02 } as const;
@@ -38,6 +41,10 @@ export const TRANSCRIBE_PROMPT_MAX = 800;
 export const TRANSCRIBE_FETCH_TIMEOUT_MS = 15_000;
 export const TRANSCRIBE_AUDIT_ENTITY = "SECRETARY_TRANSCRIBE";
 const FIELDS = ["file", "model", "language", "response_format", "prompt"];
+const KEYWORD_FIELDS = ["file", "model", "languages[]", "response_format", "prompt", "keywords[]"];
+/** Bounds of the keyword list sent with gpt-transcribe (names only, each one whole). */
+export const TRANSCRIBE_KEYWORDS = { max: 60, maxLength: 60 } as const;
+const keywordModel = (chosen: string) => chosen === "gpt-transcribe";
 const model = (value: unknown): value is (typeof TRANSCRIBE_MODELS)[number] => (TRANSCRIBE_MODELS as readonly unknown[]).includes(value);
 
 export function transcribeEnabled(env: Env = process.env) { return env.SALON_SECRETARY_TRANSCRIBE_ENABLED === "true"; }
@@ -49,7 +56,11 @@ export function transcribeConfig(env: Env = process.env) {
   if (!model(chosen) || !Number.isFinite(budget) || budget < 0 || budget > 5) throw Error("TRANSCRIBE_CONFIGURATION_REQUIRED");
   const salons = [...new Set((env.SALON_SECRETARY_TRANSCRIBE_SALONS ?? "").split(",").map(salon => salon.trim()).filter(Boolean))];
   if (!salons.length || salons.length * budget > TRANSCRIBE_SERVER.programCapUsd) throw Error("TRANSCRIBE_CONFIGURATION_REQUIRED");
-  const apiKey = env.SALON_SECRETARY_OPENAI_API_KEY, project = env.SALON_SECRETARY_OPENAI_PROJECT;
+  // Owner, 06/10/2026: the voice has its own OpenAI project ("Transcribe do Everflair"), apart from the Luna reserve and the
+  // evaluation runs. Its own key and project, both or neither; neither falls back to the Secretary's key and project.
+  const ownKey = env.SALON_SECRETARY_TRANSCRIBE_OPENAI_API_KEY?.trim(), ownProject = env.SALON_SECRETARY_TRANSCRIBE_OPENAI_PROJECT?.trim();
+  if (Boolean(ownKey) !== Boolean(ownProject)) throw Error("SECRETARY_CONFIGURATION_REQUIRED");
+  const apiKey = ownKey || env.SALON_SECRETARY_OPENAI_API_KEY, project = ownProject || env.SALON_SECRETARY_OPENAI_PROJECT;
   if (!apiKey || !project) throw Error("SECRETARY_CONFIGURATION_REQUIRED");
   return { model: chosen, apiKey, project, budgetMicroUsd: Math.floor(budget * 1e6), salons };
 }
@@ -84,6 +95,13 @@ function groupedTranscriptionPrompt(directory: { professionals: readonly string[
   }
   return prompt;
 }
+/** gpt-transcribe: the directory names go as keywords (professionals, customers, services; whole names, deduplicated, bounded)
+ * and the prompt keeps only the style line, so there is no name list for the model to echo. */
+export function transcriptionKeywords(directory: { professionals: readonly string[]; services: readonly string[]; customers?: readonly string[] }) {
+  const names = [...directory.professionals, ...(directory.customers ?? []), ...directory.services].map(name => name.replace(/\s+/g, " ").trim())
+    .filter(name => name && name.length <= TRANSCRIBE_KEYWORDS.maxLength);
+  return [...new Set(names)].slice(0, TRANSCRIBE_KEYWORDS.max);
+}
 const baseType = (type: string) => type.split(";")[0].trim().toLowerCase();
 /** Size, type and declared duration of one recording, before any budget or network work. */
 export function assertTranscriptionAudio(audio: unknown, seconds: unknown): asserts audio is Blob {
@@ -92,9 +110,12 @@ export function assertTranscriptionAudio(audio: unknown, seconds: unknown): asse
   if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) throw Error("TRANSCRIBE_AUDIO_INVALID");
   if (seconds > TRANSCRIBE_LIMITS.maxAudioSeconds) throw Error("TRANSCRIBE_AUDIO_TOO_LONG");
 }
-export function transcriptionRequest(audio: Blob, chosen: string, prompt: string, auth: { apiKey: string; project: string }): [string, RequestInit] {
+export function transcriptionRequest(audio: Blob, chosen: string, prompt: string, auth: { apiKey: string; project: string }, keywords: readonly string[] = []): [string, RequestInit] {
   const body = new FormData(), extension = baseType(audio.type).split("/")[1]?.replace(/^x-/, "") || "webm";
-  body.set("file", audio, `audio.${extension}`); body.set("model", chosen); body.set("language", "pt"); body.set("response_format", "json");
+  body.set("file", audio, `audio.${extension}`); body.set("model", chosen);
+  if (keywordModel(chosen)) body.append("languages[]", "pt"); else body.set("language", "pt");
+  body.set("response_format", "json");
+  for (const keyword of keywordModel(chosen) ? keywords : []) body.append("keywords[]", keyword);
   if (prompt) body.set("prompt", prompt);
   // A provider that never answers fails the call (the client also gives up after 20 s; a piece normally takes under 1 s); nothing is sent or confirmed.
   return [TRANSCRIBE_URL, { method: "POST", headers: { Authorization: `Bearer ${auth.apiKey}`, "OpenAI-Project": auth.project }, body, signal: AbortSignal.timeout(TRANSCRIBE_FETCH_TIMEOUT_MS) }];
@@ -104,10 +125,15 @@ export function transcriptionRequest(audio: Blob, chosen: string, prompt: string
 export function assertTranscriptionWire(input: Parameters<typeof fetch>[0], init: RequestInit | undefined, chosen: string) {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
   if (url !== TRANSCRIBE_URL || init?.method !== "POST" || !(init.body instanceof FormData)) throw Error("TRANSCRIBE_GUARD");
-  const body = init.body, keys = [...body.keys()];
-  if (keys.some(key => !FIELDS.includes(key)) || new Set(keys).size !== keys.length) throw Error("TRANSCRIBE_GUARD");
+  const body = init.body, keys = [...body.keys()], keywordWire = keywordModel(chosen), allowed = keywordWire ? KEYWORD_FIELDS : FIELDS;
+  const single = keys.filter(key => key !== "keywords[]");
+  if (keys.some(key => !allowed.includes(key)) || new Set(single).size !== single.length) throw Error("TRANSCRIBE_GUARD");
   const file = body.get("file"), prompt = body.get("prompt");
-  if (body.get("model") !== chosen || !model(chosen) || body.get("language") !== "pt" || body.get("response_format") !== "json") throw Error("TRANSCRIBE_GUARD");
+  if (body.get("model") !== chosen || !model(chosen) || body.get("response_format") !== "json") throw Error("TRANSCRIBE_GUARD");
+  if (keywordWire ? body.get("languages[]") !== "pt" : body.get("language") !== "pt") throw Error("TRANSCRIBE_GUARD");
+  const keywords = body.getAll("keywords[]");
+  if (keywords.length > TRANSCRIBE_KEYWORDS.max || keywords.some(keyword => typeof keyword !== "string" || !keyword.trim() || keyword.length > TRANSCRIBE_KEYWORDS.maxLength))
+    throw Error("TRANSCRIBE_GUARD");
   if (!(file instanceof Blob) || file.size < 1) throw Error("TRANSCRIBE_GUARD");
   if (file.size > TRANSCRIBE_LIMITS.maxAudioBytes) throw Error("TRANSCRIBE_AUDIO_TOO_LARGE");
   if (prompt !== null && (typeof prompt !== "string" || prompt.length > TRANSCRIBE_PROMPT_MAX)) throw Error("TRANSCRIBE_GUARD");
@@ -143,15 +169,17 @@ export async function reserveTranscriptionBudget(tx: Tx, actor: ServiceActor, in
 }
 /** Upper-bound list prices (USD per 1M tokens) of the admitted models, for the usage the provider reports with each
  * transcription; a duration usage is priced at the per-minute ceiling. */
-export const TRANSCRIBE_TOKEN_PRICES: Readonly<Record<(typeof TRANSCRIBE_MODELS)[number], { audio: number; text: number; output: number }>> = {
+export const TRANSCRIBE_TOKEN_PRICES: Readonly<Record<"gpt-4o-mini-transcribe" | "gpt-4o-transcribe", { audio: number; text: number; output: number }>> = {
   "gpt-4o-mini-transcribe": { audio: 3, text: 1.25, output: 5 }, "gpt-4o-transcribe": { audio: 6, text: 2.5, output: 10 } };
+/** List price per minute of the models billed by duration (OpenAI pricing page, 06/10/2026). */
+export const TRANSCRIBE_MINUTE_PRICES: Readonly<Record<string, number>> = { "gpt-transcribe": 0.0045 };
 const count = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
 /** The provider-reported cost of one call, in micro-USD (rounded up); undefined when no usage came back. */
 export function transcriptionUsageMicroUsd(usage: unknown, chosen: string): number | undefined {
   const u = usage as { type?: unknown; input_tokens?: unknown; output_tokens?: unknown; seconds?: unknown; input_token_details?: { audio_tokens?: unknown; text_tokens?: unknown } } | null;
   if (!u || typeof u !== "object") return undefined;
-  if (u.type === "duration") return Math.ceil(count(u.seconds) / 60 * TRANSCRIBE_LIMITS.upperUsdPerMinute * 1e6);
-  const prices = model(chosen) ? TRANSCRIBE_TOKEN_PRICES[chosen] : TRANSCRIBE_TOKEN_PRICES["gpt-4o-transcribe"];
+  if (u.type === "duration") return Math.ceil(count(u.seconds) / 60 * (TRANSCRIBE_MINUTE_PRICES[chosen] ?? TRANSCRIBE_LIMITS.upperUsdPerMinute) * 1e6);
+  const prices = chosen in TRANSCRIBE_TOKEN_PRICES ? TRANSCRIBE_TOKEN_PRICES[chosen as keyof typeof TRANSCRIBE_TOKEN_PRICES] : TRANSCRIBE_TOKEN_PRICES["gpt-4o-transcribe"];
   const audio = count(u.input_token_details?.audio_tokens), text = count(u.input_token_details?.text_tokens), input = count(u.input_tokens), output = count(u.output_tokens);
   if (!input && !output) return undefined;
   // Input tokens without a split are priced as audio (the dearer kind).
@@ -175,13 +203,21 @@ export async function transcribeSecretaryAudio(input: { audio: unknown; seconds:
   reserve: (reservation: TranscriptionReservation) => Promise<unknown>; settle?: (settlement: TranscriptionSettlement) => Promise<unknown>; env?: Env; fetchFn?: typeof fetch }): Promise<{ text: string }> {
   const env = input.env ?? process.env, config = transcribeConfig(env);
   assertTranscriptionAudio(input.audio, input.seconds);
-  const [url, init] = transcriptionRequest(input.audio, config.model, transcriptionPrompt(input.directory), config);
+  const keywordWire = keywordModel(config.model);
+  const [url, init] = transcriptionRequest(input.audio, config.model, keywordWire ? TRANSCRIBE_STYLE : transcriptionPrompt(input.directory), config,
+    keywordWire ? transcriptionKeywords(input.directory) : []);
   assertTranscriptionWire(url, init, config.model);
   const worstCaseMicroUsd = transcriptionWorstCaseMicroUsd(input.audio.size, input.seconds as number);
   if (worstCaseMicroUsd > config.budgetMicroUsd) throw Error("TRANSCRIBE_BUDGET");
   await input.reserve({ worstCaseMicroUsd, budgetMicroUsd: config.budgetMicroUsd, model: config.model, bytes: input.audio.size, salons: config.salons });
   const response = await transcriptionGuardedFetch(input.fetchFn ?? globalThis.fetch, config.model, env)(url, init);
-  if (!response.ok) throw Error("TRANSCRIBE_FAILED");
+  if (!response.ok) {
+    // Only the status and the provider's error code (never the body text or the audio): enough to tell a model the project
+    // does not allow (404) from a key (401) or a limit (429).
+    let code: unknown = null; try { code = ((await response.json()) as { error?: { code?: unknown } })?.error?.code ?? null; } catch { /* no body */ }
+    console.error("SECRETARY_TRANSCRIBE_PROVIDER_ERROR", JSON.stringify({ status: response.status, code: typeof code === "string" ? code.slice(0, 60) : null, model: config.model }));
+    throw Error("TRANSCRIBE_FAILED");
+  }
   let json: unknown; try { json = await response.json(); } catch { throw Error("TRANSCRIBE_FAILED"); }
   // The call was billed whatever its text: the usage is recorded first.
   if (input.settle) {
