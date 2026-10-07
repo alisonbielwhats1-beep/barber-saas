@@ -171,6 +171,25 @@ describe("baixa em lote", () => {
     expect(screen.queryByLabelText("Selecionar Ana")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Selecionar Bruno")).toBeInTheDocument();
   });
+  it("lowers the total with a described discount when part of the service was not done", async () => {
+    const user = userEvent.setup();
+    mocks.receive.mockResolvedValue([{ id: "Ana", success: true, message: "Recebido" }]);
+    render(<ReceiptWorkspace date="2026-09-12" />);
+    await user.click(screen.getByText("Registrar recebimentos"));
+    const ana = (await screen.findByLabelText("Selecionar Ana")).closest("article")!;
+    await user.type(within(ana).getByLabelText("Desconto (R$)"), "15");
+    expect(within(ana).getByText(/Total/)).toHaveTextContent("35,00");
+    await user.click(screen.getByRole("button", { name: /Dar baixa em 1/ }));
+    expect(screen.getByRole("alert")).toHaveTextContent("descreva os acréscimos e descontos");
+    expect(mocks.receive).not.toHaveBeenCalled();
+    await user.type(within(ana).getByLabelText("Motivo do desconto de Ana"), "Não fez a sobrancelha");
+    await user.click(screen.getByRole("button", { name: /Dar baixa em 1/ }));
+    await waitFor(() => expect(mocks.receive).toHaveBeenCalledTimes(1));
+    expect(mocks.receive.mock.calls[0][0].rows[0]).toMatchObject({
+      id: "Ana", surchargeCents: 0, discountCents: 1500,
+      adjustmentReason: "Não fez a sobrancelha", expectedTotalCents: 3500,
+    });
+  });
   it("keeps only failed rows for retry and prevents resubmission while awaiting the server", async () => {
     const user = userEvent.setup();
     render(<ReceiptWorkspace date="2026-09-12" />);

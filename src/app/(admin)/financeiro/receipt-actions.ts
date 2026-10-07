@@ -192,6 +192,7 @@ const batchSchema = z.object({
         ]),
         extraServiceIds: z.array(z.string().min(1)).max(30),
         surchargeCents: z.number().int().min(0).max(100_000_000),
+        discountCents: z.number().int().min(0).max(100_000_000).default(0),
         adjustmentReason: z.string().trim().max(300),
         expectedTotalCents: z.number().int().min(0).max(100_000_000),
         products: z
@@ -202,7 +203,10 @@ const batchSchema = z.object({
             }),
           )
           .max(100),
-      }),
+      }).refine(
+        (row) => !row.discountCents || row.adjustmentReason.length >= 3,
+        { message: "Descreva o desconto em pelo menos três caracteres", path: ["adjustmentReason"] },
+      ),
     )
     .min(1)
     .max(100)
@@ -242,7 +246,7 @@ export async function receiveBatch(raw: z.input<typeof batchSchema>) {
           expectedVersion: row.version,
           method: row.method,
           productLines: row.products,
-          discountCents: 0,
+          discountCents: row.discountCents,
           extraServiceIds: row.extraServiceIds,
           surchargeCents: row.surchargeCents,
           adjustmentReason: row.adjustmentReason,
