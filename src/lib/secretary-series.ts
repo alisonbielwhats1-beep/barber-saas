@@ -52,7 +52,8 @@ export type SeriesEnd = { until: string } | { month: number | "FIRST" } | { week
 export function seriesEnd(text: string | undefined, today: string, after?: number): SeriesEnd | undefined {
   if (!text) return undefined;
   const folded = fold(text), year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7)), dayNow = Number(today.slice(8, 10));
-  const dated = (d: number, m: number) => m < 1 || m > 12 || d < 1 || d > 31 ? undefined : { until: `${m < month ? year + 1 : year}-${pad(m)}-${pad(d)}` };
+  // An earlier month is next year's only when well behind (December → "até 15/01"); a recent one is a past end, refused later.
+  const dated = (d: number, m: number) => m < 1 || m > 12 || d < 1 || d > 31 ? undefined : { until: `${m < month && month - m > 6 ? year + 1 : year}-${pad(m)}-${pad(d)}` };
   let m: RegExpExecArray | null;
   if ((m = /\bate (?:o )?(?:dia )?(\d{1,2})\/(\d{1,2})\b/.exec(folded))) return dated(Number(m[1]), Number(m[2]));
   if ((m = new RegExp(`\\bate (?:o )?(?:dia )?(\\d{1,2}) de ${MONTH}\\b`).exec(folded))) return dated(Number(m[1]), monthNames.indexOf(m[2]!) + 1);
@@ -60,7 +61,8 @@ export function seriesEnd(text: string | undefined, today: string, after?: numbe
   if (/\bate (?:o )?(?:fim|final) (?:do|deste|desse) mes\b/.test(folded)) return { month: "FIRST" };
   if ((m = new RegExp(`\\bate (?:o )?(?:(?:fim|final) de )?${MONTH}\\b`).exec(folded))) return { month: monthNames.indexOf(m[1]!) + 1 };
   if ((m = new RegExp(`\\b(?:por|durante|pelas|nas)(?: proximas)? ${COUNT} semanas\\b`).exec(folded))) { const n = amount(m[1]!); if (n) return { weeks: n }; }
-  if ((m = new RegExp(`\\b${COUNT} (?:vezes|sessoes|datas|encontros|atendimentos|horarios)\\b`).exec(folded))) { const n = amount(m[1]!); if (n) return { count: n }; }
+  // A count of dates, never a frequency ("2 vezes por mês") nor what one visit holds ("2 atendimentos").
+  if ((m = new RegExp(`\\b${COUNT} (?:vezes|sessoes|datas)\\b(?! (?:por|na|no|ao|pela|pelo|em)\\b)`).exec(folded))) { const n = amount(m[1]!); if (n) return { count: n }; }
   if (after !== undefined) {
     const next = fold(text.slice(after));
     if (/^,? (?:d[eo]ste|d[eo]sse|do) mes\b/.test(next)) return { month: "FIRST" };
@@ -113,7 +115,8 @@ export function seriesEndQuestion(step: SeriesStep, first: string, time: string)
 export type SeriesPreview = { step_days: SeriesStep; until: string; first: string; occurrences: readonly { startLocal: string }[]; skipped: readonly { date: string; cause: string }[] };
 /** What a skipped date is said with (the domain's cause, grouped as the owner reads it). */
 export const seriesSkipLabel = (cause: string) => cause === "SALON_CLOSED" ? "salão fechado" : cause === "CUSTOMER_OVERLAP" ? "cliente já tem horário" :
-  ["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS", "WORKING_HOURS_BREAK", "PROFESSIONAL_UNAVAILABLE"].includes(cause) ? "fora do expediente ou folga" : "horário ocupado";
+  ["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS", "WORKING_HOURS_BREAK", "PROFESSIONAL_UNAVAILABLE"].includes(cause) ? "fora do expediente ou folga" :
+  cause === "SLOT_TAKEN" ? "horário ocupado" : "indisponível";
 export const seriesSkippedText = (skipped: SeriesPreview["skipped"]) => skipped.map(item => `${short(item.date)} (${seriesSkipLabel(item.cause)})`).join(", ");
 /** The series card: every date that can be booked (the first included) and those left out with why, BEFORE any proposal. */
 export function seriesQuestion(preview: SeriesPreview, time: string) {
@@ -133,7 +136,9 @@ export function seriesPreviewLines(series: { step_days: SeriesStep; occurrences:
  * An end ("até dia 30", "até 30/10") is no start. */
 export function seriesStartSaid(text: string | undefined) {
   if (!text) return false;
-  const folded = fold(text).replace(/\bate (?:o )?(?:dia )?\d{1,2}(?:\/\d{1,2}| de [a-z]+)?\b/g, " ");
+  // An end ("até dia 30", "nas próximas 6 semanas") is no start.
+  const folded = fold(text).replace(/\bate (?:o )?(?:dia )?\d{1,2}(?:\/\d{1,2}| de [a-z]+)?\b/g, " ")
+    .replace(new RegExp(`\\b(?:por|durante|pelas|nas)(?: proximas)? ${COUNT} semanas\\b`, "g"), " ");
   return /\b(a partir|comec\w*|inici\w*|hoje|amanha|depois de amanha|semana que vem|proxim[ao]|dia \d{1,2}\b|\d{1,2}\/\d{1,2})/.test(folded) ||
     new RegExp(`\b\d{1,2} de ${MONTH}\b`).test(folded);
 }

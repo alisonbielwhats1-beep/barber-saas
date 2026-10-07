@@ -362,3 +362,11 @@ describe("owner 07/10: 'oito e meia da manhã' mid-sentence, and a month kept ap
       expect(ground(message, "appointment.create", [c("date", text, dom(8, 10)), c("time", "às 10h", clock(10))], { now: NOON }).patch.date, message).toBe("2026-10-08");
   });
 });
+
+describe("review 07/10: 'de manhã' after a day number keeps the day", () => {
+  it("'sexta 16 de manhã' is Friday the 16th (never a 16h clock)", () => {
+    rules(true); vi.stubEnv("SALON_SECRETARY_DAYPART_RULES_V2", "true");
+    const run = ground("marca a Ana sexta 16 de manhã", "appointment.create", [c("date", "sexta 16", dom(16, null, null, 5))], { now: new Date("2026-10-07T15:00:00Z") });
+    expect({ date: run.patch.date, rejected: run.rejected }).toEqual({ date: "2026-10-16", rejected: [] });
+  });
+});

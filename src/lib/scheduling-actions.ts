@@ -89,7 +89,8 @@ async function seriesSnapshot(tx:Tx,actor:ServiceActor,fields:z.infer<typeof sch
     const found=await getSchedulingAvailability(tx,actor,{service_ref:refs[0],...(refs.length>1?{service_refs:refs}:{}),professional_ref:first.professional_ref,date,time},now,undefined,undefined,1,true);
     const plan=found.plan;
     const fits=!!plan&&!!found.quote&&plan.startLocal===`${date}T${time}`&&plan.items.length===refs.length&&plan.items.every((item,index)=>item.serviceId===refs[index]&&item.professionalId===first.professional_ref)&&groupVisitItems(plan.items).length===1;
-    if(!fits){skipped.push({date,cause:found.review?.causes[0]??"SLOT_TAKEN"});continue;}
+    // Without the review (its flags off) the cause is unknown: said as "indisponível", never guessed.
+    if(!fits){skipped.push({date,cause:found.review?.causes[0]??"UNAVAILABLE"});continue;}
     const slot={start:localDateTimeToUtc(plan!.startLocal,first.timezone),end:localDateTimeToUtc(plan!.endLocal,first.timezone)};
     if((await listUpcomingCustomerAppointments(tx,actor,first.customer_ref,{overlapping:slot,now})).length){skipped.push({date,cause:"CUSTOMER_OVERLAP"});continue;}
     occurrences.push({startLocal:plan!.startLocal,endLocal:plan!.endLocal,quote:found.quote!});
@@ -301,10 +302,10 @@ export function appointmentCreatePreview(s:Pick<z.infer<typeof snapshot>,"custom
 const brl=(cents:number)=>(cents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 /** P2b: a NEW booking with several services (one professional): every service with its own duration and price, then the
  * totals the domain computed (a price "a partir de" makes the total "a partir de" too). */
-function appointmentListPreview(s:Pick<z.infer<typeof snapshot>,"customer_name"|"professional_name"|"startLocal"|"endLocal"|"priceType"|"priceCents"|"overbook"|"exception">&{services:NonNullable<z.infer<typeof snapshot>["services"]>;durationMin?:number}){
+function appointmentListPreview(s:Pick<z.infer<typeof snapshot>,"customer_name"|"professional_name"|"startLocal"|"endLocal"|"priceType"|"priceCents"|"overbook"|"exception">&Partial<Pick<z.infer<typeof snapshot>,"series">>&{services:NonNullable<z.infer<typeof snapshot>["services"]>;durationMin?:number}){
   const services=s.services.map(item=>`${item.service_name} (${item.durationMin} min, ${item.priceType==="FROM"?"a partir de ":""}${brl(item.priceCents)})`).join(" + ");
   const minutes=s.durationMin??s.services.reduce((sum,item)=>sum+item.durationMin,0);
-  return `NOVO AGENDAMENTO\nCliente: ${s.customer_name}\nServiços: ${services}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nDuração total: ${minutes} min\nPreço total: ${s.priceType==="FROM"?"A partir de ":""}${brl(s.priceCents)}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}${s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:""}`;
+  return `${s.series?"NOVOS AGENDAMENTOS (SÉRIE)":"NOVO AGENDAMENTO"}\nCliente: ${s.customer_name}\nServiços: ${services}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nDuração total: ${minutes} min\n${s.series?"Preço por data":"Preço total"}: ${s.priceType==="FROM"?"A partir de ":""}${brl(s.priceCents)}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}${s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:""}`;
 }
 /** C7 (create vs change, review): the customer's upcoming appointments a NEW booking proposal found, the one overlapping the
  * new slot first and marked. Kept BESIDE the preview (never in it): the preview is the model's context, the notice is

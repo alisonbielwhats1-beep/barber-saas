@@ -46,7 +46,7 @@ vi.mock("../scheduling-actions", async importOriginal => {
 });
 vi.mock("../scheduling-mutations", async importOriginal => ({ ...await importOriginal<object>(), authorizeSchedulingOperation: async () => "OWNER" }));
 import { FIRST_ONLY_REF, statedRecurrence } from "../secretary-recurrence";
-import { SERIES_REF, SERIES_UNTIL_PREFIX, seriesDates, seriesEnd, seriesFirstDay, seriesQuestion, seriesRule, seriesUntil } from "../secretary-series";
+import { SERIES_REF, SERIES_UNTIL_PREFIX, seriesDates, seriesEnd, seriesFirstDay, seriesQuestion, seriesRule, seriesSkippedText, seriesStartSaid, seriesUntil } from "../secretary-series";
 import { applySchedulingInterpretation, schedulingState, selectScheduling } from "../secretary-scheduling";
 import { appointmentCreatePreview } from "../scheduling-actions";
 
@@ -86,6 +86,20 @@ describe("the series grammar (pure; the owner's words only)", () => {
     // "a partir de 16 de outubro" starts the series; it is no end. A date without "até" is not one either.
     expect(seriesEnd("toda sexta a partir de 16 de outubro", TODAY, statedRecurrence("toda sexta a partir de 16 de outubro")!.end)).toBeUndefined();
     expect(seriesEnd("toda sexta, começa dia 16", TODAY)).toBeUndefined();
+  });
+  it("review 07/10: no false ends or starts, a recent past end stays past, and an unknown cause is never 'ocupado'", () => {
+    expect(seriesEnd("toda sexta, ela faz 2 atendimentos", TODAY)).toBeUndefined();
+    expect(seriesEnd("toda sexta, umas 2 vezes por mês", TODAY)).toBeUndefined();
+    expect(seriesEnd("toda sexta, 3 vezes", TODAY)).toEqual({ count: 3 });
+    expect(seriesEnd("toda sexta até 30/09", TODAY)).toEqual({ until: "2026-09-30" });
+    expect(seriesEnd("toda sexta até 15/01", "2026-12-07")).toEqual({ until: "2027-01-15" });
+    expect(seriesStartSaid("marca o João toda sexta às 9h nas próximas 6 semanas")).toBe(false);
+    expect(seriesStartSaid("marca o João toda sexta a partir da próxima semana")).toBe(true);
+    expect(seriesSkippedText([{ date: "2026-10-23", cause: "UNAVAILABLE" }, { date: "2026-10-30", cause: "SLOT_TAKEN" }])).toBe("23/10 (indisponível), 30/10 (horário ocupado)");
+    expect(appointmentCreatePreview({ customer_name: "Edgard Lopes", service_name: "Corte + Barba", professional_name: "Nara Quintela", startLocal: "2026-10-09T08:30", endLocal: "2026-10-09T09:30",
+      priceType: "FIXED", priceCents: 12000, services: [{ service_ref: "s-corte", service_revision: "1", service_name: "Corte", priceCents: 8000, priceType: "FIXED", durationMin: 30 },
+        { service_ref: "s-barba", service_revision: "1", service_name: "Barba", priceCents: 4000, priceType: "FIXED", durationMin: 30 }],
+      series: { step_days: 7, until: "2026-10-31", occurrences: [{ startLocal: "2026-10-16T08:30", endLocal: "2026-10-16T09:30", quote: "q" }], skipped: [] } })).toMatch(/^NOVOS AGENDAMENTOS \(SÉRIE\)\n[\s\S]*\nPreço por data: R\$\s120,00\nRepete:/);
   });
   it("dates: from the first, every step, up to the end, at most 24", () => {
     expect(seriesUntil({ month: 10 }, "2026-10-09", 7)).toBe("2026-10-31");

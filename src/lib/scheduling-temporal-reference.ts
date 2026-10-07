@@ -111,7 +111,8 @@ function tokens(text: string): Tok[] {
   }
   const wordAt = (i: number) => out[i]?.k === "word" ? (out[i] as Word).w : undefined;
   // A month written with a dash ("2-Out", "1-Jan") is adjacent to its day.
-  const daypartAfter = (j: number) => (wordAt(j) === "da" || wordAt(j) === "de") && daypartWords[wordAt(j + 1) ?? ""] !== undefined;
+  // Only "da": "sexta 16 de manhã" is a day of the month and its part of the day, never a clock.
+  const daypartAfter = (j: number) => wordAt(j) === "da" && daypartWords[wordAt(j + 1) ?? ""] !== undefined;
   // Owner 07/10: a clause break between them ("de outubro, oito e meia") keeps a month and a number apart.
   const joined = (a: number, b: number) => !!out[a] && !!out[b] && !/[,.;!?]/.test(text.slice(Math.min(out[a]!.to, out[b]!.to), Math.max(out[a]!.at, out[b]!.at)));
   const monthNear = (i: number, step: 1 | -1) => {
