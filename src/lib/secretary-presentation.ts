@@ -10,6 +10,7 @@ import { daypartRulesV2Enabled } from "./scheduling-temporal-reference";
 import { isServiceListField, isSingleComboQuestion, severalProfessionalsQuestion } from "./secretary-multi-service";
 import { schedulingServiceRefs } from "./scheduling-contract";
 import { recurrenceNotice, recurrencePending, RECURRENCE_CARD } from "./secretary-recurrence";
+import { seriesSupports } from "./secretary-series";
 import { BLOCK_OVERLAP_CARD } from "./secretary-block-guard";
 /** P2a: the fields and cards of an alteration question (secretary-alteration.ts). */
 const alterationQuestions = new Set(["target_professional_name", "service_changes", "target_professional_ref", "service_changes_ref"]);
@@ -90,8 +91,10 @@ export function presentationHints(plan: ActionPlan, units: readonly ActionUnit[]
       if (!optionCard && !alterationQuestion && !serviceListQuestion && (/^(Não encontrei|Nenhum profissional|O profissional informado|O cliente não possui|O horário anterior|O final incompatível|Muitas opções|Muitos clientes|Possível cadastro|Não consegui confirmar o serviço)/.test(notice) ||
         daypartRulesV2Enabled() && /^Não consegui associar essa resposta/.test(notice)))
         hint.notice = notice.replace(/\s*(Informe|Escolha|Selecione|Confira)\b.*$/, "");
-      // P3c: while a stated recurrence owes the owner's yes, the questions before its card say it is not supported (once).
-      if (!hint.notice && scheduling && scheduling.candidates?.kind !== RECURRENCE_CARD && action.missing_fields.length && recurrencePending(scheduling.recurrence, action.operation)) {
+      // P3c: while a stated recurrence owes the owner's yes, the questions before its card say it is not supported (once: not when the
+      // backend already said it, owner 07/10; never when the series supports it, flag SALON_SECRETARY_RECURRING_SERIES).
+      if (!hint.notice && scheduling && scheduling.candidates?.kind !== RECURRENCE_CARD && action.missing_fields.length && recurrencePending(scheduling.recurrence, action.operation) &&
+        (!scheduling.recurrence!.noticed || scheduling.recurrence!.noticed_rev === scheduling.draft?.draft_revision) && !seriesSupports(action.operation, scheduling.recurrence!.expression)) {
         hint.notice = recurrenceNotice(action.operation, scheduling.recurrence!.expression); recurrenceNotices.add(key); }
       // C5: an action that only waits for another action's value is a note (never a question); a contradicted reference is said.
       const references = view.scheduling?.references ?? (action.operation === "customer.message" ? view.communication?.references : undefined);

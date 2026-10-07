@@ -562,6 +562,8 @@ export async function createVisit(
     scheduleOverrideReason?: string;
     expectedProductTotalCents?: number;
     cartItems?: { productId: string; quantity: number }[];
+    /** Owner 07/10: an occurrence of a series (the manual agenda's grouping, Appointment.seriesId). */
+    seriesId?: string;
   },
 ) {
   const fingerprint = digest({
@@ -633,6 +635,7 @@ export async function createVisit(
       notes: input.notes,
       canOverrideSchedule: !!input.manual && !!input.scheduleOverrideReason,
       scheduleOverrideReason: input.scheduleOverrideReason,
+      ...(input.seriesId ? { seriesId: input.seriesId } : {}),
       ...(clientId ? { clientId } : { guest: input.guest! }),
     });
     clientId = result.appointment.clientId;

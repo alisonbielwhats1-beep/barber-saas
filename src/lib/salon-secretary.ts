@@ -73,7 +73,7 @@ import { secretaryPlanMessage, planConversationContext, presentationHints, planO
 import { optionIndex, slotOptions, splitChoiceDelta, nameEchoAgrees, deltaHasContent, appointmentEchoRoles, writesOptionName, choiceVerdict, type PublishedOption, type SecretaryOption } from "./secretary-options";
 import { literalProofSpans } from "../../packages/salon-secretary/src/literal-match";
 import { clarificationContext } from "./secretary-clarification";
-import { unsupportedTurnNotice, recurrenceOperation, recurrenceFromTurn, RECURRENCE_CARD, type RecurrenceState } from "./secretary-recurrence";
+import { unsupportedTurnNotice, recurrenceOperation, recurrenceFromTurn, FIRST_ONLY_REF, RECURRENCE_CARD, type RecurrenceState } from "./secretary-recurrence";
 import { recurrenceGuardEnabled } from "../../packages/salon-secretary/src/recurrence-guard";
 import { turnBaseline, turnOutcome, droppedFields, reachedInterpretation, type TurnBaseline } from "./secretary-turn-outcome";
 import { actionMark, agendaFallbackNotice, clarificationAttempt, clarificationsView, planQuestions, recordClarifications,
@@ -2592,7 +2592,7 @@ export class SalonSecretary {
     // Review B (P3c): a typed yes to "só a primeira?" in a turn whose own words state the recurrence again ("pode ser, mas lembra
     // que é toda sexta") is not a yes to one occurrence: asked again (the owner's click stays unaffected).
     const held = child.scheduling?.fields;
-    if (published.field === RECURRENCE_CARD && recurrenceFromTurn(undefined, action.operation, actionScopedSource(message, op, siblings).text,
+    if (published.field === RECURRENCE_CARD && published.ref === FIRST_ONLY_REF && recurrenceFromTurn(undefined, action.operation, actionScopedSource(message, op, siblings).text,
       [held?.service_name, ...held?.service_names ?? [], held?.customer_name, held?.professional_name]).stated) { trace?.failed("OPTION_RECURRENCE_RESTATED"); return; }
     const scheduling = child.scheduling ?? (action.operation === "appointment.cancel" ? child.communication?.cancel : undefined);
     const batchItem = child.batch?.plan.items.find(item => item.key === key), batchPick = child.batch?.draft?.candidates;
@@ -3183,7 +3183,9 @@ export class SalonSecretary {
         // C5 agent (V23 (2)): a derived value's provenance is re-checked inside this very transaction (none: exactly as before).
         try{c.receipt=await withTenant(actor,tx=>confirmAppointmentCreate(tx,actor,parsed,agentConfirmOptions(actor,c.agent_basis)));c.metrics.confirmation=performance.now()-started;
           const label=c.receipt.outcome==="PENDING_ACCEPTANCE"?"Horário remarcado, aguardando aceite do cliente":c.receipt.outcome==="RESCHEDULED"?"Agendamento remarcado":c.receipt.outcome==="CANCELLED"?"Agendamento cancelado":c.receipt.outcome==="BLOCKED"?"Agenda bloqueada":"Agendamento confirmado";
-          c.message=`${label}. Referência: ${c.receipt.appointment_ref??c.receipt.block_ref}.`;await this.recordAfterCommit(s, () => persistSchedulingMetrics(actor,s.id,c));}
+          // Owner 07/10: a series says how many dates were booked (the first date's ref names the series).
+          const series=c.receipt.series_refs?.length?` (${c.receipt.series_refs.length+1} datas da série)`:"";
+          c.message=`${series?"Agendamentos confirmados":label}${series}. Referência: ${c.receipt.appointment_ref??c.receipt.block_ref}.`;await this.recordAfterCommit(s, () => persistSchedulingMetrics(actor,s.id,c));}
         catch(error){c.proposal=undefined;throw error;}return this.view(s);
       }
       if (s.customer) {

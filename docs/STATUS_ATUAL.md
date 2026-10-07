@@ -1,5 +1,37 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-07 — Secretária: série recorrente e datas faladas
+
+Branch `claude/validate-scheduling-list-3a6ec3`, a partir de um vídeo do dono conversando com um cliente ("Edgar Lopes, todas
+as sextas de outubro, oito e meia da manhã").
+- **Datas e horas que eram recusadas** (sem flag, contrato do modelo inalterado): "dia 16 do 10" / "16 de 10" / "dia 16 do mês 10";
+  "na outra sexta, na próxima semana" ("na outra sexta" sozinha continua perguntada); "oito e meia da manhã" no meio da frase, sem
+  "às"; "…de outubro, oito e meia…" não junta mais o mês com o número depois da vírgula (lia "8 de outubro").
+- **Aviso "Ainda não marco horários recorrentes"** dito uma vez por pedido, não em toda pergunta seguinte.
+- **Série recorrente** (decisão 51, flag `SALON_SECRETARY_RECURRING_SERIES`, padrão desligada): `secretary-series.ts` (leitura
+  das palavras), `scheduling-actions.ts` (proposta com cada data e as puladas; gravação de todas no mesmo Confirmar com `seriesId`),
+  cartões em `secretary-scheduling.ts`. Testes: `secretary-recurring-series.test.ts`, `scheduling-date-rules-v2.test.ts`.
+- **Demo local (07/10, banco descartável novo + DeepSeek real, flags certificadas + a da série):** "João Pereira todas as sextas
+  de outubro, nove e meia" → cartão com 09, 16, 23 e 30/10 → Confirmar → 4 marcações com o mesmo `seriesId`; "Fábio, sexta-feira,
+  dia 16 do 10, às dez e meia" marcado de primeira; "Carla toda sexta às 10h45" → "Até quando marco?" → "até o fim do mês"
+  (digitado) → "Ficam de fora: 16/10 (horário ocupado)" → "pode marcar as 3 datas" (digitado) → 3 marcações. A demo achou e
+  corrigiu: a leitura de data única do modelo apagava a primeira sexta calculada; e o aviso "Ainda não marco" vinha também da
+  camada de apresentação, que o repetia a cada turno (era o aviso repetido do vídeo).
+- **Banco da demo:** o cluster antigo em `%TEMP%` estava incompleto (a limpeza do Windows apagou arquivos). Novo cluster em
+  `D:\Projetos\pgdata\everflair-service-mvp-20261007\data` (fora da Temp), porta 55441; iniciar com
+  `pg_ctl -D <pasta> -o "-p 55441 -h 127.0.0.1" -w start`.
+- **Dois casos do dono (07/10, sem flag nova; valem em Produção ao mesclar):**
+  - "Altere o serviço da Adriana Melo." pedia dia e horário (virava remarcação). Agora, quando as palavras pedem troca de serviço
+    sem dizer qual, a Secretária pergunta "Qual serviço Adriana Melo vai fazer no lugar?" e mantém o horário; o cartão diz
+    "Alterar agendamento". Demo: "barba" → ALTERAR AGENDAMENTO, Corte Completo → Barba, mesmo horário. Frases aceitas (lista fechada,
+    `serviceChangeRequested`): alterar/mudar/trocar/substituir/modificar/editar/corrigir/ajustar + serviço/procedimento/tratamento,
+    "outro serviço", "muda o que ela vai fazer", "vai fazer outra coisa", "serviço errado"; nunca com negação ("não muda o serviço").
+  - "Verifica a agenda da Beatriz Costa para essa semana." recusava a data. Agora "essa/esta semana" (hoje a domingo) e "semana que
+    vem/próxima semana" (segunda a domingo) leem o intervalo, por dia, só pendentes e confirmados, do profissional, cliente ou salão
+    (`weekRead`/`listSchedulingAppointmentsRange`). Demo: semana do Ricardo e próxima semana do João corretas.
+- **Falta:** a flag da série fora do contrato certificado, então ela só liga em Produção depois de recertificar. Os testes de
+  integração (banco) não rodaram.
+
 ## 2026-10-05 — Secretária: trava de serviço repetido, janela de decisão e manhã/noite na remarcação
 
 Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`DECISOES_PRODUTO.md`).

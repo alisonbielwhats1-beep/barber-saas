@@ -160,8 +160,19 @@ describe("the real scheduling adapter", () => {
     const c = schedulingState();
     await applySchedulingInterpretation(actor, c, hiroshi, "não esquece de marcar o Hiroshi toda sexta às 18h pra corte com a Nara");
     // The historical clause negation guard asks the day and clock again; the recurrence stays owed and is said first.
-    expect(c.recurrence).toEqual({ expression: "toda sexta", status: "ASKED" }); expect(c.proposal).toBeUndefined(); expect(db.proposed).toBe(0);
+    expect(c.recurrence).toMatchObject({ expression: "toda sexta", status: "ASKED", noticed: true }); expect(c.proposal).toBeUndefined(); expect(db.proposed).toBe(0);
     expect(c.message.startsWith("Ainda não marco horários recorrentes pelo chat (“toda sexta”). ")).toBe(true);
+  });
+  it("the notice is said once: the next question of the same action does not repeat it; the card still names the recurrence", async () => {
+    const c = schedulingState();
+    await applySchedulingInterpretation(actor, c, { operation: "appointment.create", customer_name: "Hiroshi", service_name: "corte", professional_name: "Nara" },
+      "marca o Hiroshi toda sexta pra corte com a Nara");
+    expect(c.message.startsWith("Ainda não marco horários recorrentes pelo chat (“toda sexta”). ")).toBe(true);
+    await applySchedulingInterpretation(actor, c, { operation: "appointment.create", weekday: 5, temporal_evidence: [{ field: "date", text: "sexta" }] }, "começa nessa sexta");
+    expect(c.proposal).toBeUndefined(); expect(c.message).not.toContain("recorrentes");
+    await applySchedulingInterpretation(actor, c, { operation: "appointment.create", time: "18:00", temporal_evidence: [{ field: "time", text: "às 18h" }] }, "às 18h");
+    expect(c.proposal).toBeUndefined();
+    expect(c.message).toBe("Ainda não marco horários recorrentes pelo chat (“toda sexta”). Marco só a primeira (sex, 02/10 às 18h)? Nada foi preparado para as outras datas.");
   });
   it("an answer that changes the clock while the question is open asks again for the new first occurrence (never a proposal)", async () => {
     const c = schedulingState();
@@ -223,6 +234,16 @@ describe("the real plan path (recorded Luna frames, no model)", () => {
     expect(view.action_plan!.confirmation_groups.some(group => group.status === "READY_FOR_CONFIRMATION")).toBe(false);
     expect(view.message).toContain("Marco só a primeira (sex, 02/10 às 18h)?");
     expect(child(view, "kevin").state.scheduling!.candidates).toMatchObject({ kind: "recurrence_ref", items: [{ id: FIRST_ONLY_REF }] });
+    expect(db.proposed).toBe(0);
+  });
+  it("owner 07/10 (video): the plan's question says the notice once, never again on the next questions of the same action", async () => {
+    const noClock = () => op("kevin", "appointment.create", { customer_name: "Kevin", service_name: "corte", professional_name: "Nara", weekday: pair(5, "sexta") });
+    const { say } = await conversation(turn("NEW", [noClock()]));
+    const first = await say("marca o Kevin toda sexta pra corte com a Nara");
+    expect(first.message.split("Ainda não marco horários recorrentes").length - 1).toBe(1);
+    const next = await say("deixa eu ver o horário", ["upsert_action_draft", turn("PATCH", [{ item_key: "kevin", fields: {} }])]);
+    expect(action(next, "kevin").status).toBe("NEEDS_INPUT");
+    expect(next.message).not.toContain("Ainda não marco");
     expect(db.proposed).toBe(0);
   });
   it("a verified pick of the one option ('pode ser') prepares the ordinary proposal, which still needs Confirmar", async () => {

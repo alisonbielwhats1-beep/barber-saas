@@ -111,11 +111,21 @@ function tokens(text: string): Tok[] {
   }
   const wordAt = (i: number) => out[i]?.k === "word" ? (out[i] as Word).w : undefined;
   // A month written with a dash ("2-Out", "1-Jan") is adjacent to its day.
-  const monthNear = (i: number, step: 1 | -1) => monthWords[wordAt(i + step) ?? (out[i + step]?.k === "dash" ? wordAt(i + 2 * step) ?? "" : "")] !== undefined;
+  // Only "da": "sexta 16 de manhã" is a day of the month and its part of the day, never a clock.
+  const daypartAfter = (j: number) => wordAt(j) === "da" && daypartWords[wordAt(j + 1) ?? ""] !== undefined;
+  // Owner 07/10: a clause break between them ("de outubro, oito e meia") keeps a month and a number apart.
+  const joined = (a: number, b: number) => !!out[a] && !!out[b] && !/[,.;!?]/.test(text.slice(Math.min(out[a]!.to, out[b]!.to), Math.max(out[a]!.at, out[b]!.at)));
+  const monthNear = (i: number, step: 1 | -1) => {
+    const k = wordAt(i + step) !== undefined ? i + step : out[i + step]?.k === "dash" ? i + 2 * step : -1;
+    return k >= 0 && monthWords[wordAt(k) ?? ""] !== undefined && joined(i, k);
+  };
   out.forEach((token, i) => {
     if (token.k !== "num" || token.bind !== "free") return;
     const before = wordAt(i - 1), next = wordAt(i + 1);
     if (before === "dia" || monthNear(i, -1) || monthNear(i, 1) || next === "de" && monthWords[wordAt(i + 2) ?? ""] !== undefined) { token.bind = "date"; token.part = "day"; }
+    // The spoken month number after its day ("dia 16 do 10", "16 de 10", "16 do mês 10") is that day's month, as in "16/10".
+    else if (token.n >= 1 && token.n <= 12 && !token.ordinal && (() => { const j = before === "mes" && ["do", "de"].includes(wordAt(i - 2) ?? "") ? i - 3 : ["do", "de"].includes(before ?? "") ? i - 2 : -1;
+      const day = j >= 0 ? out[j] : undefined; return day?.k === "num" && day.part === "day" && day.bind === "date"; })()) { token.bind = "date"; token.part = "month"; }
     else if (next !== undefined && countUnits[next] !== undefined) { token.bind = "count"; token.unit = countUnits[next]; }
     else if (next !== undefined && clockUnits.has(next)) { token.bind = "clock"; token.part = next.startsWith("h") ? "hour" : "minute"; }
     else if (before !== undefined && clockLeads.has(before) && !token.ordinal) { token.bind = "clock"; token.part = "hour"; }
@@ -123,6 +133,8 @@ function tokens(text: string): Tok[] {
     // (not the second edge of "entre as 5 e 6").
     else if (before === "e" && (out[i - 2]?.k === "anchor" || out[i - 2]?.k === "num" && (out[i - 2] as Num).bind === "clock" || clockUnits.has(wordAt(i - 2) ?? "")) &&
       ![i - 3, i - 4, i - 5].some(j => wordAt(j) === "entre")) { token.bind = "clock"; token.part = "minute"; }
+    // Owner 07/10: an hour said with its part of the day and no lead ("…, oito e meia da manhã, …", "2 da tarde") is a clock too.
+    else if (!token.ordinal && token.n <= 23 && (daypartAfter(i + 1) || wordAt(i + 1) === "e" && out[i + 2]?.k === "num" && daypartAfter(i + 3))) { token.bind = "clock"; token.part = "hour"; }
     else if (token.n >= 1000 && token.n <= 2999) { token.bind = "date"; token.part = "year"; }
   });
   return out;
@@ -305,7 +317,9 @@ export type DayOptions = { direction?: DayDirection; role?: string; operation?: 
 function dayProof(facts: Facts, component: DayComponent, today: string, options: DayOptions): { verdict: DayVerdict; witness: Witness; free: Witness } {
   const value = canonicalDay(component), none = { witness: [] as Witness, free: [] as Witness }, resolved = resolveDayComponent(value, today, options.direction);
   if (resolved.status === "REJECTED" && resolved.code === "COMPONENT_INVALID") return { verdict: resolved, ...none };
-  if (facts.alternatives || facts.past || facts.other) return { verdict: mismatch, ...none };
+  // "outra sexta" alone stays a question; with the week written ("na outra sexta, na próxima semana") the week says which one.
+  const otherWeekSaid = facts.other && value.kind === "WEEKDAY" && value.week === "NEXT_WEEK" && facts.next && facts.semana;
+  if (facts.alternatives || facts.past || facts.other && !otherWeekSaid) return { verdict: mismatch, ...none };
   // "até sexta" ends a block; "a partir de amanhã" starts one; "depois de sexta" is not a day.
   const first = facts.list.findIndex(token => token.k === "word" && (weekdayWords[token.w] !== undefined || relativeWords.has(token.w) || monthWords[token.w] !== undefined) ||
     token.k === "num" && token.bind !== "clock");

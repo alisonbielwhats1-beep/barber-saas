@@ -21,8 +21,8 @@ import { EXCLUDED_VALUE, excludedClocks, polarityCodes } from "./scheduling-temp
 import { schedulingNegativeContext, withTemporalTurnDrafts } from './secretary-temporal-turn';
 import { clarificationContext } from "./secretary-clarification";
 import { secretaryFastPath } from "./secretary-fast-path";
-import { getSchedulingAppointment, getSchedulingAvailability, listSchedulingAppointments, listSchedulingProfessionals, listSchedulingServices, listUpcomingCustomerAppointments, professionalReadDay, servicePickGuardEnabled, schedulingSelfProfessional, schedulingTimezone, summarizeSchedulingAppointments, timed, type SchedulingMetrics } from "./scheduling-catalog";
-import { localDateTimeToUtc, toLocalDateTime } from "./time";
+import { getSchedulingAppointment, getSchedulingAvailability, listSchedulingAppointments, listSchedulingAppointmentsRange, listSchedulingProfessionals, listSchedulingServices, listUpcomingCustomerAppointments, professionalReadDay, servicePickGuardEnabled, schedulingSelfProfessional, schedulingTimezone, summarizeSchedulingAppointments, timed, type SchedulingMetrics } from "./scheduling-catalog";
+import { dateKeyInTimeZone, isDateKey, localDateTimeToUtc, toLocalDateTime, weekdayOfDateKey } from "./time";
 import { upsertSchedulingDraft, proposeAppointmentCreate, proposeSchedulingAction, schedulingSnapshot, confirmAppointmentCreate, type SchedulingForgetField } from "./scheduling-actions";
 import { authorizeSchedulingOperation, isSchedulingMutation, locateSchedulingAppointments, inspectSchedulingMove, schedulingActionSnapshot } from "./scheduling-mutations";
 import { exceptionHash, exceptionQuestion, hasScheduleCause, scheduleExceptionPending, scheduleExceptionsEnabled } from "./schedule-exception-policy";
@@ -35,14 +35,15 @@ import { temporalValueRoles, type SchedulingTemporalEvidence } from "@everflair/
 import { confirmQuestion, detailQuestion, nameSuggestionsEnabled, recordNameCheck, recordNameResolution, salonDirectoryNames, suggestedRows, suggestionQuestion, suggestSalonCustomers, suggestSchedulingProfessionals, suggestSchedulingServices, type Suggested } from "./entity-suggestions";
 import { ALIAS_REJECT_REF, aliasCard, aliasKey, aliasKindOf, aliasQuestion, aliasUsed, candidateSetHash, forgetAlias, learnAlias, nameAliasesEnabled, proposeAlias, type AliasRef } from "./secretary-name-aliases";
 import { requiredFieldHeld, schedulingRequiredFields, schedulingServiceRefs } from "./scheduling-contract";
-import { alterationAskQuestion, alterationMissingLabels, alteringChange, groundAlteration, resolveAlteration, selectAlteration, type AlterationField } from "./secretary-alteration";
+import { alterationAskQuestion, alterationMissingLabels, alteringChange, groundAlteration, openServiceChangeQuestion, resolveAlteration, selectAlteration, serviceChangeRequested, type AlterationField } from "./secretary-alteration";
 import { groundServiceList, listAnswer, resolveServiceList, selectServiceList, serviceListLabel, serviceListMissingLabels, unansweredServiceCard, isServiceListField, notPerformingAll, nobodyPerformsAll, singleServiceCombo } from "./secretary-multi-service";
 import { temporalFieldLabels } from "./scheduling-field-labels";
 import { secretaryCopyV2Enabled } from "./secretary-error-copy";
 import { alterAppointmentEnabled } from "../../packages/salon-secretary/src/alter-appointment";
 import { isFirstPersonReference } from "./secretary-first-person";
-import { readsV2Enabled, upcomingAppointments, upcomingMessage, daySummaryMessage, summaryOptions, availabilityAcross, availabilityAcrossMessage, periodLabel, ACROSS_MAX, SLOT_LIMIT, DAY_LIST_LIMIT } from "./secretary-reads";
-import { recurrenceFromTurn, recurrenceNotice, recurrencePending, recurrenceQuestion, FIRST_ONLY_REF, RECURRENCE_CARD, type RecurrenceState } from "./secretary-recurrence";
+import { readsV2Enabled, upcomingAppointments, upcomingMessage, daySummaryMessage, summaryOptions, availabilityAcross, availabilityAcrossMessage, periodLabel, weekRead, weekReadMessage, ACROSS_MAX, SLOT_LIMIT, DAY_LIST_LIMIT, type WeekRead } from "./secretary-reads";
+import { recurrenceFromTurn, recurrenceNotice, recurrencePending, recurrenceQuestion, statedRecurrence, FIRST_ONLY_REF, RECURRENCE_CARD, type RecurrenceState } from "./secretary-recurrence";
+import { seriesDates, seriesEnabled, seriesEnd, seriesStartSaid, seriesEndQuestion, seriesFirstDay, seriesQuestion, seriesRule, seriesUntil, SERIES_MAX, SERIES_REF, SERIES_UNTIL_PREFIX } from "./secretary-series";
 import { blockOverlapChosen, blockOverlapGuardEnabled, blockOverlapQuestion, blockOverlapSelection, BLOCK_OVERLAP_CARD, type BlockOverlapChoice } from "./secretary-block-guard";
 import { pilotRescheduleEnabled } from "./secretary-pilot";
 
@@ -102,7 +103,7 @@ export type AlterSwap={professional:{ref:string;name?:string};target:{ref:string
 export type SchedulingState={combo_chosen?:string[];block_whole_day?:boolean;
   /** 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): the schedule exception the owner was asked about ("quer … mesmo assim?"),
    * bound to that slot and its causes; a consent only counts for this hash and before it expires. */
-  exception_pending?:{operation:"appointment.create"|"appointment.change";hash:string;causes:string[];expires_at:string};block_overlap?:BlockOverlapChoice;recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
+  exception_pending?:{operation:"appointment.create"|"appointment.change";hash:string;causes:string[];expires_at:string};block_overlap?:BlockOverlapChoice;recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";service_change_open?:true;read_week?:WeekRead;origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
   draft?:Awaited<ReturnType<typeof upsertSchedulingDraft>>;proposal?:Awaited<ReturnType<typeof proposeAppointmentCreate>>;receipt?:Awaited<ReturnType<typeof confirmAppointmentCreate>>;
   candidates?:{kind:"customer_ref"|"service_ref"|"professional_ref"|"appointment_ref"|"target_professional_ref"|"service_changes_ref"|"service_list_ref"|"service_combo_ref"|typeof RECURRENCE_CARD|typeof BLOCK_OVERLAP_CARD;items:{id:string;name:string}[];source?:"suggest"|"confirm"|"alias";alias_basis?:string};unproven_names?:("customer_name"|"professional_name"|"target_professional_name")[];
   alias_declined?:{kind:AliasRef;key:string}[];
@@ -331,8 +332,14 @@ function readBack(c:SchedulingState,f:SchedulingFields,op:string){
   const parts=[...(who?[`de ${who}`]:[]),...(day?[`em ${formatDay(day)}`]:[]),...(clock?[`às ${formatClock(clock)}`]:[])];
   return parts.length?parts.join(" "):undefined;
 }
-/** P3c (flag): said before a question about the first occurrence while a stated recurrence still owes the owner's yes. */
-const recurringLine=(c:SchedulingState,op:string)=>recurrencePending(c.recurrence,op)?`${recurrenceNotice(op,c.recurrence!.expression)} `:"";
+/** Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): a create whose stated recurrence the series supports (weekly/fortnightly). */
+const seriesCovers=(c:SchedulingState,op:string)=>op==="appointment.create"&&seriesEnabled()&&!!c.recurrence&&!!seriesRule(c.recurrence.expression);
+/** P3c (flag): said before a question about the first occurrence while a stated recurrence still owes the owner's yes. Once per
+ * statement: the following questions of the same action do not repeat it (the "só a primeira?" card still says it). */
+const recurringLine=(c:SchedulingState,op:string)=>{
+  if(!recurrencePending(c.recurrence,op)||c.recurrence!.noticed||seriesCovers(c,op))return "";
+  c.recurrence={...c.recurrence!,noticed:true,...(c.draft?{noticed_rev:c.draft.draft_revision}:{})};return `${recurrenceNotice(op,c.recurrence.expression)} `;
+};
 /** `askAlteration` (P2a): an alteration part of this turn was not applied (negated or unproven): asked, nothing proposed.
  * `askList` (P2b): the service list of this turn was not applied, or named two professionals: asked, nothing proposed. */
 async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:TemporalRejection[]=[],rejectedSource:ReasonRejection[]=[],askService=false,excluded?:ReadonlySet<string>,codes:string[]=[],askAlteration?:AlterationField,
@@ -379,6 +386,12 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   }
   // B1 (flag): the past reading dropped from this action's day is said before Confirmar and in a "not found".
   let pastLine=dateRulesV2Enabled()?(c.past_readings??[]).filter(item=>f[item.field]===item.date).map(item=>`“${item.expression}” é ${formatDay(item.date)} (${formatDay(item.dropped)} já passou).`).join(" "):"";
+  // Owner 07/10: a week the owner's words name for a read is its range (read below), not a single day to confirm: the model's day
+  // reading of "essa semana" (refused or a calendar conflict) never turns into "Para qual dia?".
+  if(c.read_week&&(op==="appointment.list"||op==="appointment.read")&&!held("date")){
+    f.date=c.read_week.from;rejectedTemporal.splice(0,rejectedTemporal.length,...rejectedTemporal.filter(r=>r.field!=="date"));
+    c.pending_calendar_conflicts=(c.pending_calendar_conflicts??c.draft?.pending_calendar_conflicts??[]).filter(item=>item.field!=="date");
+  }
   const calendarConflicts=c.pending_calendar_conflicts??c.draft?.pending_calendar_conflicts??[];
   if(sourceMissing.length){
     c.draft=await withTenant(actor,tx=>upsertSchedulingDraft(tx,actor,{operation:op,fields:f,...forget,pending_calendar_conflicts:calendarConflicts,pending_temporal_ambiguities:c.pending_temporal_ambiguities??c.draft?.pending_temporal_ambiguities??[],source_missing:sourceMissing,rejected_source:rejectedSource,rejected_temporal:rejectedTemporal,...(c.draft?{draft_ref:c.draft.draft_ref,expected_revision:c.draft.draft_revision}:{})}));
@@ -413,6 +426,15 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
     c.fields=c.draft.fields;c.pending_temporal_ambiguities=c.draft.pending_temporal_ambiguities??[];
     c.waiting_for=pending.field;c.message=`${dayparts?.info?`${dayparts.info}\n`:""}${temporalAmbiguityQuestion(pending,op)}`;return;
   }
+  // Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): "todas as sextas (de outubro)" with no start day said starts on the first such
+  // weekday from today (or from the month the words name), before any temporal question: the model's single-date reading of a
+  // recurrence is no start day. Never when the owner's words name one ("a partir do dia 16", "amanhã"): that day is asked as usual.
+  if(recurrencePending(c.recurrence,op)&&seriesCovers(c,op)&&!c.recurrence!.start_said&&!f.date&&!held("date")){
+    const rule=seriesRule(c.recurrence!.expression)!,timezone=await withTenant(actor,tx=>schedulingTimezone(tx,actor)),now=new Date();
+    const first=seriesFirstDay(rule,dateKeyInTimeZone(now,timezone),toLocalDateTime(now,timezone).slice(11,16),f.time,c.recurrence!.end);
+    // The model's refused single-date reading is superseded: the journal merge must not drop the derived day for it.
+    if(first){f.date=first;rejectedTemporal.splice(0,rejectedTemporal.length,...rejectedTemporal.filter(r=>r.field!=="date"));codes.push("RECURRENCE_FIRST_DAY");}
+  }
   const conflicts=schedulingTemporalConflicts(f);
   const rejectedMissing=rejectedTemporal.filter(r=>r.field!=="period"&&!f[r.field]);
   const unresolvedTemporal=(c.draft?.temporal_missing??[]).filter(field=>!f[field]);
@@ -433,7 +455,8 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   // V2: a reference it could not settle alone is a card of the real options (a read's rows, several services), never a pick.
   if(!notice&&refs?.card&&!f[refs.card.kind]){notice=refs.card.kind==="service_ref"?"Qual serviço? Selecione uma opção real.":"Qual agendamento? Selecione uma opção real.";
     c.candidates={kind:refs.card.kind,items:refs.card.items.map(item=>({...item}))};}
-  if(!notice&&askAlteration){notice=alterationAskQuestion(askAlteration);c.waiting_for=askAlteration;}
+  if(!notice&&askAlteration){notice=c.service_change_open&&askAlteration==="service_changes"?openServiceChangeQuestion(shown("customer_name","customer_ref")):alterationAskQuestion(askAlteration);c.waiting_for=askAlteration;}
+  delete c.service_change_open;
   if(!notice&&askList){notice=askList.notice;c.waiting_for=askList.waiting_for;}
   const createOrAvailability=op==="appointment.create"||op==="availability.get";
   // Independent reads use separate tenant transactions. Final domain checks still share the confirmation transaction.
@@ -629,6 +652,9 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
     else{notice=`${f.professional_name??"Esse profissional"} não tem expediente em ${dayLabel(f.date)}. De que horas a que horas devo bloquear?`;c.waiting_for="time";codes.push("BLOCK_WHOLE_DAY_NO_HOURS");}
   }
   // P2a: an alteration with no destination said keeps the slot (no date/time required); its names must be resolved.
+  // Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): "todas as sextas (de outubro)" with no day said starts on the first such
+  // weekday from today (or from the month the words name); a series no longer possible from the draft's date is dropped (asked again).
+  if(f.series&&(c.recurrence?.status!=="SERIES"||!seriesEnabled()||!f.date||(seriesDates(f.date,f.series.step_days,f.series.until)?.length??0)<2)){delete f.series;if(c.recurrence?.status==="SERIES")c.recurrence={expression:c.recurrence.expression,status:"ASKED",noticed:true};}
   const required=schedulingRequiredFields(op,f);
   const missing=[...new Set([...required,...(c.draft?.temporal_missing??[])])].filter(k=>!requiredFieldHeld(f,k)||waiting.has(k));
   let snap:Awaited<ReturnType<typeof schedulingSnapshot>>|undefined;
@@ -718,7 +744,7 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   c.fields=c.draft.fields;
   // C2 (flag): a half-day reading the tenant's facts settled is said with the answer about that time and before Confirmar.
   const hoursLine=daypartByHoursEnabled()?(c.daypart_hours??[]).filter(item=>item.value!==undefined&&item.line&&f[item.field]===item.value).map(item=>item.line!).join(" "):"";
-  if(notice){c.message=`${notice}${hoursLine&&(review||c.waiting_for==="time")?`\n${hoursLine}`:""}`;return;}
+  if(notice){c.message=`${recurringLine(c,op)}${notice}${hoursLine&&(review||c.waiting_for==="time")?`\n${hoursLine}`:""}`;return;}
   if(missing.length){const labels=schedulingMissingLabels;
     // A professional is resolved from the service; do not ask before the service is known.
     const ask=missing.filter(k=>(k!=="professional_ref"||!!schedulingServiceRefs(f)||op==="schedule.block")&&!waiting.has(k));
@@ -735,6 +761,24 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   // P3c (flag): a stated recurrence is never prepared as one silent occurrence. Its first occurrence (now fully known and checked)
   // is offered as a one-option card; only the owner's yes (a click, or a verified pick of that option) goes on to the ordinary
   // proposal and Confirmar. Nothing is proposed meanwhile.
+  // Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): the first date is free and checked: "até quando?" (when no end was said), then
+  // the series card with the free dates and those left out; only the owner's pick of it (or of "só a primeira") goes on.
+  if(recurrencePending(c.recurrence,op)&&seriesCovers(c,op)&&snap&&!snap.overbook&&!snap.exception){
+    const rule=seriesRule(c.recurrence!.expression)!,first=snap.date,time=snap.startLocal.slice(11,16);
+    if(rule.weekday===null||weekdayOfDateKey(first)===rule.weekday){
+      const end=c.recurrence!.until?{until:c.recurrence!.until}:c.recurrence!.end,until=end?seriesUntil(end,first,rule.step_days):undefined;
+      const dates=until?seriesDates(first,rule.step_days,until):undefined;
+      if(!until||!dates||dates.length<2){
+        const asked=seriesEndQuestion(rule.step_days,first,time),why=end&&until&&!dates?`Isso passa de ${SERIES_MAX} datas. `:end?"Esse fim não deixa outra data depois da primeira. ":"";
+        c.recurrence={...c.recurrence!,noticed:true};delete c.recurrence.until;
+        c.candidates=asked.card;c.waiting_for=RECURRENCE_CARD;c.message=`${why}${asked.message}${hoursLine?`\n${hoursLine}`:""}`;codes.push("RECURRENCE_SERIES_END_ASKED");return;
+      }
+      const preview=await timed(c.metrics,"availability",()=>withTenant(actor,tx=>schedulingSnapshot(tx,actor,{...f,series:{step_days:rule.step_days,until}})));
+      const asked=seriesQuestion({step_days:rule.step_days,until,first,occurrences:preview.series!.occurrences,skipped:preview.series!.skipped},time);
+      c.recurrence={...c.recurrence!,noticed:true,until};
+      c.candidates=asked.card;c.waiting_for=RECURRENCE_CARD;c.message=`${asked.message}${hoursLine?`\n${hoursLine}`:""}`;codes.push("RECURRENCE_SERIES_ASKED");return;
+    }
+  }
   if(recurrencePending(c.recurrence,op)){
     // Review B: a move or a cancellation names the one appointment it would change (its start before the move) and the destination.
     const origin=isSchedulingMutation(op)?mutationSnap?.before_start:undefined,start=op==="appointment.cancel"?origin:op==="appointment.change"?mutationSnap?.startLocal:undefined;
@@ -754,6 +798,14 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   const registered=(role:"customer_name"|"professional_name"|"service_name",ref:"customer_ref"|"professional_ref"|"service_ref")=>f[ref]?c.resolved_names?.[f[ref]!]??c.selected_names?.[role]??f[role]:undefined;
   // C32 (flag): ONE customer and no day said: that customer's next PENDING/CONFIRMED appointments, with the professional/service
   // said as filters (a small limit, and "há mais" when there are more). Without a customer the day is still asked.
+  // Owner 07/10: the week read (its range, PENDING/CONFIRMED only), by day, for the professional, customer or service said, or the salon.
+  if(c.read_week&&f.date===c.read_week.from){
+    const week=c.read_week,filter={...(f.customer_ref?{customer_ref:f.customer_ref}:{}),...(f.professional_ref?{professional_ref:f.professional_ref}:{}),...(f.service_ref?{service_ref:f.service_ref}:{})};
+    const rows=await timed(c.metrics,"appointments",()=>withTenant(actor,tx=>listSchedulingAppointmentsRange(tx,actor,{from:week.from,to:week.to,...filter})));
+    c.appointments=rows.slice(0,DAY_LIST_LIMIT);if(rows.length>DAY_LIST_LIMIT)c.read_partial="SUMMARY";codes.push("READ_WEEK");
+    const who=registered("professional_name","professional_ref")??registered("customer_name","customer_ref");
+    c.message=weekReadMessage(week,who,c.appointments,rows.length>DAY_LIST_LIMIT);return;
+  }
   if(readsV2&&!f.date){
     if(!f.customer_ref){c.waiting_for="date";c.message=`Informe ${schedulingMissingLabels.date}.`;return;}
     const next=await timed(c.metrics,"appointments",()=>upcomingAppointments(actor,f.customer_ref!,{professional_ref:f.professional_ref,service_ref:f.service_ref}));
@@ -887,6 +939,18 @@ async function applySchedulingInterpretationMutable(actor:ServiceActor,c:Schedul
   // Review B: an adjective of the construction inside the owner's own names of this action ("pacote mensal") is that name.
   const recurring=recurrenceFromTurn(c.recurrence,operation,sourceMessage,[raw.service_name,...service_names??[],raw.customer_name,raw.professional_name,
     c.fields.service_name,...c.fields.service_names??[],c.fields.customer_name,c.fields.professional_name]);if(recurring.state)c.recurrence=recurring.state;
+  // Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): the end this turn's words give the series ("de outubro", "até dia 30", "por 6 semanas").
+  if(sourceMessage&&recurrencePending(c.recurrence,operation)&&seriesCovers(c,operation)){
+    const timezone=await withTenant(actor,tx=>schedulingTimezone(tx,actor)),stated=statedRecurrence(sourceMessage);
+    const end=seriesEnd(sourceMessage,dateKeyInTimeZone(new Date(),timezone),stated?.end);
+    if(end){c.recurrence={...c.recurrence!,end};delete c.recurrence.until;}
+    if(seriesStartSaid(sourceMessage))c.recurrence={...c.recurrence!,start_said:true};
+  }
+  // Owner 07/10: a read naming a week ("essa semana", "semana que vem") reads its range; another day said this turn replaces it.
+  if((operation==="appointment.list"||operation==="appointment.read")&&readsV2Enabled()&&sourceMessage!==undefined){
+    const timezone=await withTenant(actor,tx=>schedulingTimezone(tx,actor)),week=weekRead(sourceMessage,dateKeyInTimeZone(new Date(),timezone));
+    if(week)c.read_week=week;else if(raw.date!=null||raw.day_offset!=null||raw.weekday!=null||temporal_evidence?.some(entry=>entry.field==="date"))delete c.read_week;
+  }
   // A3 (flag): the origin roles a chosen appointment filled, as they stand before this turn.
   const derived=originFromRef(c);
   // P2b (flag): the owner's service list, proven service by service (the backend never splits the owner's words itself). While
@@ -932,6 +996,10 @@ async function applySchedulingInterpretationMutable(actor:ServiceActor,c:Schedul
   }
   // P2a (flag): the NEW professional and the service delta, proven against the owner's words (never locators).
   const alteration=await groundAlteration(actor,c,operation,{target_professional_name,service_changes},sourceMessage,options.names??sourceMessage,raw.customer_name??c.fields.customer_name,codes);
+  // Owner 07/10: "altere o serviço da Adriana" with no service named is a service alteration still to be said (asked, slot kept), never a
+  // move asking a new day and clock.
+  if(operation==="appointment.change"&&alterAppointmentEnabled()&&!alteration.ask&&!service_changes?.length&&!c.fields.service_changes?.length&&!target_professional_name&&
+    !c.fields.target_professional_name&&serviceChangeRequested(sourceMessage)){alteration.ask="service_changes";c.service_change_open=true;codes.push("ALTER_SERVICE_ASKED");}
   if(alteration.unproven!==undefined){const set=new Set(c.unproven_names);if(alteration.unproven)set.add("target_professional_name");else set.delete("target_professional_name");c.unproven_names=set.size?[...set]:undefined;}
   // Review A: the answer to an open service card of the delta is a pick of that card (rechecked like a click), never a new delta.
   if(alteration.answer?.pick)await selectAlteration(actor,c.candidates!,c,alteration.answer.pick).catch(error=>{if(!(error instanceof Error&&error.message==="SELECTION_INVALID"))throw error;alteration.answer={unanswered:true};});
@@ -1252,8 +1320,20 @@ export async function selectScheduling(actor:ServiceActor,c:SchedulingState,ref:
   // P3c (flag): the recurrence card's one option, only while the action still owes that yes (the flag is read again): the first
   // occurrence goes on to the ordinary preparation (availability again, proposal, Confirmar). Nothing else is chosen here.
   if(selection.kind===RECURRENCE_CARD){
-    if(ref!==FIRST_ONLY_REF||!recurrencePending(c.recurrence,c.operation))throw Error("SELECTION_INVALID");
-    next.recurrence={...c.recurrence!,status:"FIRST_ONLY"};
+    if(!recurrencePending(c.recurrence,c.operation))throw Error("SELECTION_INVALID");
+    // Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): an end of the "até quando?" card asks the series card next; the series card's
+    // own option books every free date it listed (the proposal recomputes them and Confirmar re-checks them).
+    const rule=seriesCovers(c,c.operation!)?seriesRule(c.recurrence!.expression):undefined,until=ref.startsWith(SERIES_UNTIL_PREFIX)?ref.slice(SERIES_UNTIL_PREFIX.length):undefined;
+    if(until!==undefined){
+      if(!rule||!isDateKey(until))throw Error("SELECTION_INVALID");
+      next.recurrence={...c.recurrence!,until};delete next.recurrence.end;
+    }
+    else if(ref===SERIES_REF){
+      if(!rule||!c.recurrence!.until)throw Error("SELECTION_INVALID");
+      next.recurrence={...c.recurrence!,status:"SERIES"};next.fields={...next.fields,series:{step_days:rule.step_days,until:c.recurrence!.until}};
+    }
+    else if(ref===FIRST_ONLY_REF)next.recurrence={...c.recurrence!,status:"FIRST_ONLY"};
+    else throw Error("SELECTION_INVALID");
     try{await prepare(actor,next);commitScheduling(c,next);}catch(error){publishCommittedSchedulingDraft(c,next);throw error;}return;
   }
   // C5 (flag): the block-over-appointments card: rechecked against the block's fresh snapshot, then the ordinary preparation.

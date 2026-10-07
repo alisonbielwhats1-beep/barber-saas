@@ -282,6 +282,17 @@ async function dayWhere(tx:Tx,actor:ServiceActor,input:unknown) {
 export async function listSchedulingAppointments(tx:Tx,actor:ServiceActor,input:unknown) {
   return listAppointments(tx,actor,{where:await dayWhere(tx,actor,input),orderBy:[{startAt:"asc"},{id:"asc"}],take:51});
 }
+/** Owner 07/10 ("verifica a agenda da Beatriz para essa semana"): the PENDING/CONFIRMED appointments starting on the local days
+ * [from, to] (a week read), with the same tenant-checked filters as a day read; bounded like it (51 rows: one more says "há mais"). */
+const rangeInput=z.object({from:z.string().refine(isDateKey),to:z.string().refine(isDateKey),customer_ref:ref.optional(),professional_ref:ref.optional(),service_ref:ref.optional()}).strict();
+export async function listSchedulingAppointmentsRange(tx:Tx,actor:ServiceActor,input:unknown) {
+  const p=rangeInput.parse(input);
+  if(p.to<p.from||addCalendarDays(p.from,13)<p.to)throw Error("RANGE_INVALID");
+  const where=await dayWhere(tx,actor,{date:p.from,...(p.customer_ref?{customer_ref:p.customer_ref}:{}),...(p.professional_ref?{professional_ref:p.professional_ref}:{}),...(p.service_ref?{service_ref:p.service_ref}:{})});
+  const timezone=await schedulingTimezone(tx,actor);
+  return listAppointments(tx,actor,{where:{...where,status:{in:["PENDING","CONFIRMED"]},startAt:{gte:startOfDateInTimeZone(p.from,timezone),lt:endExclusiveOfDateInTimeZone(p.to,timezone)}},
+    orderBy:[{startAt:"asc"},{id:"asc"}],take:51});
+}
 /** P3b (flag SALON_SECRETARY_READS_V2): the same day query counted, never listed, when it holds more rows than a read shows: per
  * professional (count, first and last start, in start order) and per period; cancellations are counted apart. Names only (no
  * customer), tenant scoped, bounded (`more`: over 1000 rows). */

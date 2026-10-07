@@ -23,8 +23,11 @@ export type SchedulingServiceChange=z.infer<typeof serviceChange>;
  * resolves them into service_list_ref (parallel; null = not resolved yet). */
 const serviceListFields={service_names:z.array(z.string().trim().min(2).max(200)).min(1).max(10)};
 export const schedulingPatch = z.object({...schedulingFields,...schedulingExceptionFields,...alterationFields,...serviceListFields}).partial().strict();
+/** Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): the series the owner chose on the recurrence card for a create (backend only,
+ * never a model field): every `step_days` from the draft's date up to `until` (secretary-series.ts). */
+export const schedulingSeries = z.object({ step_days: z.union([z.literal(7), z.literal(14)]), until: z.string().refine(isDateKey) }).strict();
 export const schedulingResolved = z.object({
-  override_reason_source: overrideReasonSource, reason_source: reasonSource,
+  override_reason_source: overrideReasonSource, reason_source: reasonSource, series: schedulingSeries,
   ...schedulingFields, ...schedulingExceptionFields, appointment_ref:z.string().min(1).max(100), customer_ref: z.string().min(1).max(100), service_ref: z.string().min(1).max(100), professional_ref: z.string().min(1).max(100),
   ...alterationFields, target_professional_ref:z.string().min(1).max(100), service_changes_ref:z.array(z.string().min(1).max(100).nullable()).max(10),
   ...serviceListFields, service_list_ref:z.array(z.string().min(1).max(100).nullable()).max(10),

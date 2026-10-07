@@ -6,7 +6,7 @@ import { Mic, Square, Send, Volume2, CheckCircle2, AlertCircle, X } from 'lucide
 import { Button } from '@/components/ui/button';
 import type { SecretaryView } from '@/lib/salon-secretary';
 import type { ConfirmationGroup, PlanAction } from '@everflair/salon-secretary';
-import { acceptDictationSuggestion, actionDetails, actionSubject, actionTitle, candidatesOf, confirmationLabel, destinationFor, hasReceipt, humanMessage, legacyConfirmLabel,
+import { acceptDictationSuggestion, actionDetails, actionHeading, actionSubject, actionTitle, candidatesOf, confirmationLabel, destinationFor, hasReceipt, humanMessage, legacyConfirmLabel,
   operationLabels, planReleasedAppointments, planSummary, proposalOf, rawProposalOf, proposalExpired, receiptOf, reviewOf, reviewHeading, statusLabels, viewForAction, linkedDiscard } from '@/lib/secretary-ui';
 import type { DictationSuggestion } from '@/lib/secretary-voice-correction';
 import { startSecretary, sendSecretary, startAndSendSecretary, selectSecretaryCustomer, selectSecretaryService, confirmSecretary,
@@ -502,7 +502,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     // B7: named as the salon registered the subject once resolved ("Fábio Santos"), else with the owner's words.
     const subject = actionSubject(action, state);
     return <article key={action.key} aria-label={actionTitle(action, state)} className="rounded-xl border border-border bg-surface-1 p-3 space-y-2">
-      <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-semibold">{operationLabels[action.operation] ?? 'Ação'}{subject && <span className="mt-0.5 block font-normal">{subject}</span>}</h3>
+      <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-semibold">{actionHeading(action, state)}{subject && <span className="mt-0.5 block font-normal">{subject}</span>}</h3>
         {success ? <CheckCircle2 aria-label="Concluído" className="h-5 w-5 shrink-0 text-emerald-500" /> : failure ? <AlertCircle aria-label="Revisão necessária" className="h-5 w-5 shrink-0 text-amber-500" /> : null}</div>
       <p className="text-[13px] font-medium">{success ? 'Concluído' : action.status === 'DONE' ? 'Aguardando comprovante' : expiredKeys.has(action.key) ? 'Proposta expirada' : review ? 'Precisa ser revista' : waitsForGroup ? 'Pronta — será confirmada junto com as demais' : statusLabels[action.status]}</p>
       {details && !repeated && <ActionSummary text={details} />}
