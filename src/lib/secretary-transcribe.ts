@@ -57,9 +57,15 @@ export function transcribeConfig(env: Env = process.env) {
   if (env.SALON_SECRETARY_ALLOW_PAID_CALLS !== "true") throw Error("PAID_CALLS_DISABLED");
   const chosen = env.SALON_SECRETARY_TRANSCRIBE_MODEL?.trim() || TRANSCRIBE_DEFAULT_MODEL, legacy = Number(env.SALON_SECRETARY_TRANSCRIBE_BUDGET_USD || "0");
   if (!model(chosen) || !Number.isFinite(legacy) || legacy < 0 || legacy > 5) throw Error("TRANSCRIBE_CONFIGURATION_REQUIRED");
-  const budget = env.SALON_SECRETARY_MONTHLY_BUDGET_USD || legacy > 0 ? monthlyBudgetMicroUsd(env) / 1e6 : 0;
-  const salons = [...new Set((env.SALON_SECRETARY_TRANSCRIBE_SALONS ?? "").split(",").map(salon => salon.trim()).filter(Boolean))];
-  if (!salons.length || salons.length * budget > TRANSCRIBE_SERVER.programCapUsd) throw Error("TRANSCRIBE_CONFIGURATION_REQUIRED");
+  // Open to owners only inside the Production pilot (the same conditions as secretary-production-pilot.ts); there the monthly
+  // wallet always applies (default US$ 5), so a missing setting never silently refuses every recording.
+  const open = env.SALON_SECRETARY_OPEN_TO_OWNERS === "true" && env.VERCEL_ENV === "production" && env.SALON_SECRETARY_ENABLED === "true"
+    && env.SALON_SECRETARY_PRODUCTION_PILOT === "true";
+  const budget = open || env.SALON_SECRETARY_MONTHLY_BUDGET_USD || legacy > 0 ? monthlyBudgetMicroUsd(env) / 1e6 : 0;
+  // Owner 07/10/2026: open to every owner (SALON_SECRETARY_OPEN_TO_OWNERS), the voice follows the Secretária's own admission and
+  // each salon is bounded by its monthly wallet and its prepaid credit; without it, only the listed salons, within the program cap.
+  const salons: TranscribeSalons = open ? "ALL" : [...new Set((env.SALON_SECRETARY_TRANSCRIBE_SALONS ?? "").split(",").map(salon => salon.trim()).filter(Boolean))];
+  if (salons !== "ALL" && (!salons.length || salons.length * budget > TRANSCRIBE_SERVER.programCapUsd)) throw Error("TRANSCRIBE_CONFIGURATION_REQUIRED");
   // Owner, 06/10/2026: the voice has its own OpenAI project ("Transcribe do Everflair"), apart from the Luna reserve and the
   // evaluation runs. Its own key and project, both or neither; neither falls back to the Secretary's key and project.
   const ownKey = env.SALON_SECRETARY_TRANSCRIBE_OPENAI_API_KEY?.trim(), ownProject = env.SALON_SECRETARY_TRANSCRIBE_OPENAI_PROJECT?.trim();
@@ -150,14 +156,16 @@ export function transcriptionGuardedFetch(fetchFn: typeof fetch, chosen: string,
     return fetchFn(input, init);
   };
 }
-export type TranscriptionReservation = { worstCaseMicroUsd: number; budgetMicroUsd: number; model: string; bytes: number; salons: readonly string[] };
+/** The salons the voice is released to: a list, or every salon the Secretária admits (open to owners, 07/10/2026). */
+export type TranscribeSalons = readonly string[] | "ALL";
+export type TranscriptionReservation = { worstCaseMicroUsd: number; budgetMicroUsd: number; model: string; bytes: number; salons: TranscribeSalons };
 /** The wallet: only a listed salon (the program cap); under a per-salon advisory lock, this month's spend of the salon (its time
  * zone; model calls, settled recordings at their reported cost and unsettled ones at their worst case, unreadable rows at the
  * largest reservation; secretary-spend.ts) plus this call's worst case must fit the budget. The reservation row (codes and
  * numbers only) is appended before the network. A month past the row bound fails closed. */
 export async function reserveTranscriptionBudget(tx: Tx, actor: ServiceActor, input: TranscriptionReservation, now = new Date()) {
   // A salon outside the list has its own code: the voice is on, just not released for this salon (owner, 06/10, Studio Martinelli).
-  if (!input.salons?.includes(actor.salonId)) throw Error("TRANSCRIBE_SALON_NOT_ENABLED");
+  if (input.salons !== "ALL" && !input.salons?.includes(actor.salonId)) throw Error("TRANSCRIBE_SALON_NOT_ENABLED");
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${TRANSCRIBE_AUDIT_ENTITY}:${actor.salonId}`}, 0))`;
   const spend = await salonSpend(tx, actor.salonId, now), spent = spend.month.totalMicroUsd;
   if (spend.overflow || spent + input.worstCaseMicroUsd > input.budgetMicroUsd) throw Error("TRANSCRIBE_BUDGET");
@@ -173,6 +181,11 @@ export const TRANSCRIBE_TOKEN_PRICES: Readonly<Record<"gpt-4o-mini-transcribe" |
 /** List price per minute of the models billed by duration (OpenAI pricing page, 06/10/2026). */
 export const TRANSCRIBE_MINUTE_PRICES: Readonly<Record<string, number>> = { "gpt-transcribe": 0.0045 };
 const count = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+/** A call whose answer never came back (timeout, dropped connection): its declared length at the model's per-minute rate (the
+ * ceiling for a model billed by tokens), rounded up. */
+export function transcriptionEstimateMicroUsd(seconds: number, chosen: string) {
+  return Math.ceil(Math.max(seconds, 1) / 60 * (TRANSCRIBE_MINUTE_PRICES[chosen] ?? TRANSCRIBE_LIMITS.upperUsdPerMinute) * 1e6);
+}
 /** The provider-reported cost of one call, in micro-USD (rounded up); undefined when no usage came back. */
 export function transcriptionUsageMicroUsd(usage: unknown, chosen: string): number | undefined {
   const u = usage as { type?: unknown; input_tokens?: unknown; output_tokens?: unknown; seconds?: unknown; input_token_details?: { audio_tokens?: unknown; text_tokens?: unknown } } | null;
@@ -186,7 +199,9 @@ export function transcriptionUsageMicroUsd(usage: unknown, chosen: string): numb
 }
 /** `reservationId`: the RESERVE row this call settles, so the salon's wallet (secretary-spend.ts) counts the reported cost instead
  * of the worst case once the call is settled. */
-export type TranscriptionSettlement = { reservedMicroUsd: number; actualMicroUsd: number | null; seconds: number; bytes: number; model: string; reservationId?: string };
+/** `failed`: the call returned no text (timeout, dropped connection, unreadable answer, provider error): its cost still counts in
+ * the salon's caps, but the customer's credit is never charged for a recording that gave nothing (owner rule, 07/10/2026). */
+export type TranscriptionSettlement = { reservedMicroUsd: number; actualMicroUsd: number | null; seconds: number; bytes: number; model: string; reservationId?: string; failed?: true };
 /** After the call: one USAGE row (numbers and codes only) with the reported cost, the declared seconds and the file size;
  * when the reported cost passes the reservation, the difference is appended as one more RESERVE (kind OVERRUN), so the
  * month's budget counts the real length of the audio (the open risk of a file longer than its size bound). Never refunds. */
@@ -213,21 +228,36 @@ export async function transcribeSecretaryAudio(input: { audio: unknown; seconds:
   if (worstCaseMicroUsd > config.budgetMicroUsd) throw Error("TRANSCRIBE_BUDGET");
   const reserved = await input.reserve({ worstCaseMicroUsd, budgetMicroUsd: config.budgetMicroUsd, model: config.model, bytes: input.audio.size, salons: config.salons });
   const reservationId = (reserved as { reservationId?: unknown } | undefined)?.reservationId;
-  const response = await transcriptionGuardedFetch(input.fetchFn ?? globalThis.fetch, config.model, env)(url, init);
+  const settle = async (actualMicroUsd: number | null, failed = false) => {
+    if (!input.settle) return;
+    try { await input.settle({ reservedMicroUsd: worstCaseMicroUsd, actualMicroUsd, seconds: input.seconds as number, bytes: (input.audio as Blob).size,
+      model: config.model, ...(typeof reservationId === "string" ? { reservationId } : {}), ...(failed ? { failed: true as const } : {}) }); }
+    catch { console.error("SECRETARY_TRANSCRIBE_SETTLE_FAILED"); }
+  };
+  let response: Response;
+  try { response = await transcriptionGuardedFetch(input.fetchFn ?? globalThis.fetch, config.model, env)(url, init); }
+  catch (error) {
+    // Validation review 07/10/2026: a failed call never keeps its worst-case reservation in the caps forever. A refusal of the guard
+    // (nothing left this server) costs nothing; a timeout or a dropped connection may have been billed, so it is settled at its
+    // declared length at the model's rate.
+    const code = error instanceof Error ? error.message : "";
+    await settle(/^TRANSCRIBE_/.test(code) ? 0 : transcriptionEstimateMicroUsd(input.seconds as number, config.model), true);
+    throw error;
+  }
   if (!response.ok) {
+    // The provider bills no failed call: the reservation is released (settled at zero) before the error is reported.
+    await settle(0, true);
     // Only the status and the provider's error code (never the body text or the audio): enough to tell a model the project
     // does not allow (404) from a key (401) or a limit (429).
     let code: unknown = null; try { code = ((await response.json()) as { error?: { code?: unknown } })?.error?.code ?? null; } catch { /* no body */ }
     console.error("SECRETARY_TRANSCRIBE_PROVIDER_ERROR", JSON.stringify({ status: response.status, code: typeof code === "string" ? code.slice(0, 60) : null, model: config.model }));
     throw Error("TRANSCRIBE_FAILED");
   }
-  let json: unknown; try { json = await response.json(); } catch { throw Error("TRANSCRIBE_FAILED"); }
+  let json: unknown;
+  try { json = await response.json(); }
+  catch { await settle(transcriptionEstimateMicroUsd(input.seconds as number, config.model), true); throw Error("TRANSCRIBE_FAILED"); }
   // The call was billed whatever its text: the usage is recorded first.
-  if (input.settle) {
-    const settlement = { reservedMicroUsd: worstCaseMicroUsd, actualMicroUsd: transcriptionUsageMicroUsd((json as { usage?: unknown })?.usage, config.model) ?? null,
-      seconds: input.seconds as number, bytes: input.audio.size, model: config.model, ...(typeof reservationId === "string" ? { reservationId } : {}) };
-    try { await input.settle(settlement); } catch { console.error("SECRETARY_TRANSCRIBE_SETTLE_FAILED"); }
-  }
+  await settle(transcriptionUsageMicroUsd((json as { usage?: unknown })?.usage, config.model) ?? null);
   const raw = typeof (json as { text?: unknown })?.text === "string" ? (json as { text: string }).text.replace(/\s+/g, " ").trim().slice(0, 1000) : "";
   const text = withoutPromptEcho(raw);
   if (raw !== text) console.info("SECRETARY_TRANSCRIBE_PROMPT_ECHO", JSON.stringify({ kept_chars: text.length, dropped_chars: raw.length - text.length }));

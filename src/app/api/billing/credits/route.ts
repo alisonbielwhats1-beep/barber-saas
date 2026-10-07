@@ -17,9 +17,10 @@ const RECENT_PURCHASES = 12;
  * this salon's purchases still waiting for payment from Mercado Pago, as the webhook would. */
 export async function GET(request: Request) {
   try {
+    // Billing is the owner's (assertOwner below, in the transaction); the role only selects the open-to-owners rule.
     const ctx = await ownerContext(request);
     if (!creditsEnabled()) throw new BillingError("CREDITS_DISABLED", 503);
-    if (!secretaryAvailableTo(ctx)) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
+    if (!secretaryAvailableTo({ ...ctx, role: "OWNER" })) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
     const pending = await withTenant(ctx, async tx => {
       await assertOwner(tx, ctx);
       return tx.secretaryCreditPurchase.findMany({ where: { salonId: ctx.salonId, state: "AWAITING_PAYMENT" }, select: { id: true }, take: 5, orderBy: { createdAt: "desc" } });
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await ownerContext(request, true);
     // Never sold to a salon that cannot use the Secretária (owner, 06/10/2026).
-    if (!secretaryAvailableTo(ctx)) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
+    if (!secretaryAvailableTo({ ...ctx, role: "OWNER" })) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
     const key = z.string().uuid().parse(request.headers.get("idempotency-key"));
     const purchase = await createCreditPurchase(ctx, await readBillingBody(request), key);
     // A repeated key of a purchase already paid or past its link's expiry never reopens that checkout.
