@@ -35,9 +35,11 @@ describe("matriz de permissões do painel", () => {
       "utf8",
     );
 
-    for (const source of [sidebar, mobile, palette]) {
+    for (const source of [sidebar, palette]) {
       expect(source).toContain("MANAGEMENT_ROLES");
     }
+    // A gaveta do celular reaproveita a mesma árvore filtrada da barra lateral.
+    expect(mobile).toContain("<SidebarNav");
     expect(sidebar).toContain("roles: DASHBOARD_ROLES");
     expect(mobile).toContain("roles: DASHBOARD_ROLES");
     expect(sidebar).toContain("roles: FINANCIAL_ROLES");

@@ -1,8 +1,14 @@
 # Secretária — piloto em Produção (salão de apresentação)
 
+> **Atualização de 07/10/2026 (decisão do dono):** com `SALON_SECRETARY_OPEN_TO_OWNERS=true`, a Secretária e a voz ficam
+> liberadas automaticamente para **todo dono de salão**, sem lista manual: `SALON_SECRETARY_ALLOWED_ACTORS` e
+> `SALON_SECRETARY_TRANSCRIBE_SALONS` deixam de ser necessárias. `SALON_SECRETARY_BLOCKED_SALONS` tira um salão específico. O uso
+> é cobrado do crédito pré-pago (`docs/SECRETARY_CREDITS.md`), com franquia grátis mensal e os tetos diário e mensal por salão.
+> O relatório do HQ lista todo salão aprovado que usou a Secretária no mês ou tem compra em revisão.
+
 Decisão do dono em 05/10/2026: a Secretária vai para Produção **somente para o dono do salão de apresentação**
 (`everflair-apresentacao`, dados fictícios), com teto de gasto diário de **US$ 1** e todas as funções certificadas.
-Nenhum outro salão vê o botão nem consegue usar a Secretária.
+Nenhum outro salão via o botão nem conseguia usar a Secretária (até a liberação a todo dono de 07/10, acima).
 
 ## Como o código garante isso
 
@@ -10,16 +16,17 @@ Nenhum outro salão vê o botão nem consegue usar a Secretária.
   **e** `SALON_SECRETARY_PRODUCTION_PILOT=true`. Aí só os pares exatos salão+usuário de `SALON_SECRETARY_ALLOWED_ACTORS`
   (1 a 5) entram; lista ausente, vazia ou malformada recusa todo mundo.
 - Teto diário (`SALON_SECRETARY_DAILY_BUDGET_USD`, padrão US$ 1): antes de cada mensagem e de cada gravação, soma o gasto do
-  dia do salão (chamadas de modelo registradas pelos tokens, ao preço do cadastro de modelos, mais as reservas de voz). Ao
+  dia do salão (chamadas de modelo pelo custo real informado pelo OpenRouter mais 5,5% de taxa, ou pelos tokens ao preço do
+  cadastro quando não há custo informado, mais a voz). Ao
   atingir, a Secretária responde que o limite de hoje acabou.
 - Carteira mensal (decisão do dono em 06/10/2026, `src/lib/secretary-spend.ts`): além do teto diário, um teto mensal por salão
   (`SALON_SECRETARY_MONTHLY_BUDGET_USD`; sem ela vale o antigo teto da voz, `SALON_SECRETARY_TRANSCRIBE_BUDGET_USD`; sem nenhum, US$ 5) soma, no fuso do salão, as duas fontes pagas da Secretária: o modelo
   (DeepSeek, ou a reserva quando ela respondeu, ao preço dela) e a transcrição (GPT Transcribe, pelo custo informado depois da
   gravação; enquanto não acertada, pelo pior caso). A reserva de cada gravação consulta essa mesma carteira (não há mais teto separado da voz). O Jev não faz parte da Secretária. Ao atingir, ela responde que o limite do
   mês acabou. A 1ª mensagem de cada conversa também passa pelos tetos.
-- Relatório do HQ (`GET /api/hq/secretary-spend`, só leitura): custo do mês por salão do piloto, custo médio por pedido e a
-  margem simulada ao preço por pedido configurado (`SALON_SECRETARY_PRICE_PER_REQUEST_CENTS`, padrão 6; câmbio fixo
-  `SALON_SECRETARY_USD_BRL`, padrão 5,60). Serve para fixar o preço pré-pago com meta de 90% de margem; nada é cobrado.
+- Relatório do HQ (`GET /api/hq/secretary-spend`, só leitura): custo do mês por salão que usou a Secretária, custo médio por
+  pedido, compras de crédito em revisão e a margem simulada (`SALON_SECRETARY_PRICE_PER_REQUEST_CENTS`; câmbio fixo
+  `SALON_SECRETARY_USD_BRL`, padrão 5,60). Desde 06/10 o uso é cobrado do crédito pré-pago (`docs/SECRETARY_CREDITS.md`).
 - Fora do piloto, Produção continua fechada como antes (`secretary-rollout.ts`, `salon-secretary-runtime.ts`).
 - O modelo principal só responde com certificado Golden válido (`model-certificates.json`); a reserva (Luna) só entra se
   também tiver certificado.

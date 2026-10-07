@@ -31,9 +31,14 @@ describe("real cost (owner 06/10: x10 on the real cost)", () => {
     expect(callMicroUsd(deepseek)).toBeCloseTo(1_498.2);
     expect(callMicroUsd({ ...deepseek, cost_micro_usd: 600 })).toBeCloseTo(633);
   });
-  it("a reported cost far below the token price (under 20%) is not trusted: the table price is used", () => {
+  it("owner 07/10: any reported cost is the real cost, however far below the table (no 20% floor)", () => {
+    expect(callMicroUsd({ ...deepseek, cost_micro_usd: 200 })).toBeCloseTo(211);
+    expect(callMicroUsd({ ...deepseek, cost_micro_usd: 1 })).toBeCloseTo(1.055);
+  });
+  it("a missing or zero report falls back to the table: a call is never charged as free", () => {
     expect(callMicroUsd({ ...deepseek, cost_micro_usd: 0 })).toBeCloseTo(1_498.2);
-    expect(callMicroUsd({ ...deepseek, cost_micro_usd: 200 })).toBeCloseTo(1_498.2);
+    expect(callMicroUsd({ ...deepseek, cost_micro_usd: null })).toBeCloseTo(1_498.2);
+    expect(callMicroUsd(deepseek)).toBeCloseTo(1_498.2);
   });
 });
 

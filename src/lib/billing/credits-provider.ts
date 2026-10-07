@@ -7,6 +7,7 @@ import { decideCreditPayment, type PurchaseState } from "../secretary-credits-ru
 import { BillingError, SECRETARY_CREDIT_PACKS, secretaryCreditPack } from "./catalog";
 import { billingConfig, checkoutPaused } from "./config";
 import { assertOwner } from "./service";
+import { alertCreditReview } from "./credit-review-alert";
 import * as mp from "./provider";
 
 /** Owner decision 06/10/2026: Secretária packs bought once through Checkout Pro (Pix or card; no boleto, one installment),
@@ -104,7 +105,8 @@ export async function applyCreditPayment(purchase: SecretaryCreditPurchase, paym
   const config = billingConfig();
   const checked = validateCreditPayment(purchase, payment, config);
   if (config.mode === "test" && payment.live_mode) await mp.verifySellerAccount();
-  return withSalon(purchase.salonId, async tx => {
+  let review: string | null = null;
+  const decision = await withSalon(purchase.salonId, async tx => {
     await creditLock(tx, purchase.salonId);
     const fresh = await tx.secretaryCreditPurchase.findUniqueOrThrow({ where: { id: purchase.id } });
     const totals = await paymentTotals(tx, purchase.salonId, payment.id);
@@ -119,8 +121,12 @@ export async function applyCreditPayment(purchase: SecretaryCreditPurchase, paym
     if (!sameState || (ownPayment && (fresh.refundedCents !== checked.refundedCents || (!fresh.paidAt && checked.paidAt))))
       await tx.secretaryCreditPurchase.update({ where: { id: fresh.id }, data: { state: decision.state, providerPaymentId: decision.providerPaymentId, lastError: decision.error ?? fresh.lastError,
         ...(ownPayment ? { refundedCents: checked.refundedCents, ...(checked.paidAt && !fresh.paidAt ? { paidAt: checked.paidAt } : {}) } : {}) } });
+    if (decision.state === "REVIEW" && fresh.state !== "REVIEW") review = decision.error ?? "REVIEW";
     return decision;
   });
+  // After the commit: the alert never holds the salon's credit lock nor fails the payment.
+  if (review) await alertCreditReview({ salonId: purchase.salonId, purchaseId: purchase.id, reason: review });
+  return decision;
 }
 /** Applies a payment; one that does not match its purchase (amount, currency, account, mode) credits nothing and puts the
  * purchase in review, so the notice is acknowledged instead of retried forever. */
@@ -129,8 +135,17 @@ async function applyOrReview(purchase: SecretaryCreditPurchase, payment: mp.Remo
   catch (error) {
     if (!(error instanceof BillingError) || error.code !== "PAYMENT_MISMATCH") throw error;
     console.error("SECRETARY_CREDIT_PAYMENT_MISMATCH");
-    await withSalon(purchase.salonId, async tx => { await creditLock(tx, purchase.salonId);
-      await tx.secretaryCreditPurchase.update({ where: { id: purchase.id }, data: { state: "REVIEW", lastError: "PAYMENT_MISMATCH" } }); });
+    // A purchase already paid or refunded keeps its state (its credit or reversal stands): only the error is recorded. Validation
+    // review 07/10/2026: a late mismatched payment never turns PAID into REVIEW.
+    const firstNotice = await withSalon(purchase.salonId, async tx => { await creditLock(tx, purchase.salonId);
+      const fresh = await tx.secretaryCreditPurchase.findUniqueOrThrow({ where: { id: purchase.id } });
+      const settled = ["PAID", "REFUNDED"].includes(fresh.state);
+      if (fresh.lastError === "PAYMENT_MISMATCH" && (settled || fresh.state === "REVIEW")) return false;
+      await tx.secretaryCreditPurchase.update({ where: { id: purchase.id }, data: settled
+        ? { lastError: "PAYMENT_MISMATCH" } : { state: "REVIEW", lastError: "PAYMENT_MISMATCH" } });
+      return true; });
+    // Mercado Pago notifies one payment more than once: the admin is alerted once, on the first notice.
+    if (firstNotice) await alertCreditReview({ salonId: purchase.salonId, purchaseId: purchase.id, reason: "PAYMENT_MISMATCH" });
     return null;
   }
 }

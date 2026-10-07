@@ -1,5 +1,18 @@
 # Decisões de produto para as próximas fases
 
+## 07/10/2026 — Secretária liberada a todo dono de salão, sempre pelo custo real
+
+1. **Liberação automática:** sem lista manual por salão na Vercel. Com
+   `SALON_SECRETARY_OPEN_TO_OWNERS=true` (e o piloto de Produção ligado), todo
+   **dono** de salão usa a Secretária e a voz; gerente, recepção e profissional
+   não. O custo fica limitado pela franquia grátis, pelo crédito pré-pago e
+   pelos tetos diário e mensal de cada salão. `SALON_SECRETARY_BLOCKED_SALONS`
+   (ids separados por vírgula) tira um salão específico, para o caso raro que
+   precisar. A lista antiga de pares continua valendo.
+2. **Sempre o custo real:** qualquer custo informado pelo provedor é cobrado
+   como real (×10). Acabou o piso de 20% do preço de tabela; a tabela só vale
+   quando o provedor não informa custo nenhum.
+
 ## 06/10/2026 — custo e cobrança da Secretária
 
 A Secretária usa só dois serviços pagos: o DeepSeek V4.1 Flash (OpenRouter) para
@@ -23,8 +36,10 @@ de pedidos. Cada pedido desconta o próprio custo real (DeepSeek e cada
 gravação transcrita) vezes 10, então a margem de 90% vale em todo pedido. A
 quantidade de pedidos de um pacote é só uma estimativa ("cerca de"). A tela
 mostra apenas a barra e a porcentagem, sem valores, contagem ou dias. Os
-pacotes são R$ 15 (cerca de 185 pedidos), R$ 25 (cerca de 340), R$ 40 (cerca
-de 600) e R$ 80 (cerca de 1.300): pacote maior rende mais. Todo salão tem uma
+pacotes são R$ 15 (cerca de 120 pedidos), R$ 25 (cerca de 220), R$ 40 (cerca
+de 390) e R$ 80 (cerca de 840), pelo custo real medido no piloto (R$ 0,125 por
+pedido com o ×10): pacote maior rende mais. As estimativas iniciais (R$ 0,06
+por pedido, R$ 15 = 250 pedidos; depois 185/340/600/1.300) foram substituídas. Todo salão tem uma
 franquia grátis de cerca de 20 pedidos por mês, que não acumula. A recarga
 soma ao saldo, o crédito não expira e só o dono recarrega. Regras e passos:
 `docs/SECRETARY_CREDITS.md`.

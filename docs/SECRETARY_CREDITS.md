@@ -39,19 +39,29 @@ Fonte: `src/lib/secretary-credits-rules.ts`. Testes em `src/lib/__tests__/secret
   - **Custo real de cada chamada:** o valor que o OpenRouter informa em `usage.cost`, gravado em cada uso como
     `cost_micro_usd`, mais 5,5% de taxa da plataforma.
   - **Sem custo informado** (por exemplo, a reserva da OpenAI): usa os tokens pela tabela do provedor.
-  - **Custo informado abaixo de 20% do preço da tabela:** não é confiável, e vale a tabela.
+  - **Qualquer custo informado é o custo real** (decisão do dono em 07/10): não há mais piso de 20% da tabela, que cobrava até
+    cerca de 5,6× o real em chamadas quase todas em cache. Custo zero ou ausente usa a tabela, para nunca cobrar uma chamada
+    como grátis.
   - **Voz:** é o custo que a OpenAI informa, que já é o real.
   - Média real medida no piloto: US$ 0,0022 por pedido, que vira R$ 0,125. Desse custo, o modelo é US$ 0,0017 (já com a taxa) e a voz US$ 0,0005.
-  - O custo usa o preço mais alto dos fornecedores, então a margem nunca fica abaixo de 90%.
 - **Uma cobrança por chamada e por gravação** (correção da validação de 06/10):
   - Antes de cada pedido e logo depois dele, todas as chamadas do modelo do salão que ainda não foram cobradas são cobradas,
     cada uma uma vez só, pelo próprio registro (`call:<id>`).
   - Isso inclui a resposta a uma ação pendente (conversa "filha"), a correção automática e a mensagem que falhou depois da
-    chamada: a chamada custou, então é cobrada. O que escapar por uma queda é cobrado no pedido seguinte.
+    chamada: a chamada custou, então é cobrada. O que escapar por uma queda depois de a chamada terminar é cobrado no pedido
+    seguinte; uma chamada interrompida antes de gravar o fim (processo derrubado) não tem registro e não é cobrada.
+  - **Salão movimentado** (correção da validação de 07/10): a varredura lê só as chamadas ainda não cobradas, das mais antigas
+    para as mais novas, em lotes de 50 por transação e até 20 lotes por varredura. Antes, ela lia as 500 mais antigas da janela,
+    inclusive as já cobradas, e deixava as novas sem cobrança num salão com mais de 500 chamadas em 48 h; um acúmulo grande
+    também podia estourar o tempo da transação e recusar todos os pedidos.
   - Chamada sem tokens informados é cobrada como uma chamada média (US$ 0,003).
   - Chamadas de antes do lançamento (a noite de testes do piloto) e com mais de 48 h não são cobradas.
   - Cada gravação é cobrada uma vez (`voice:<id>`), mesmo que não seja enviada, antes do registro de auditoria. Sem custo
     informado, cobra pela duração, a US$ 0,006 por minuto.
+  - **Gravação que falha** (correção da validação de 07/10): erro devolvido pela OpenAI libera a reserva e não cobra nada (a
+    OpenAI não cobra a chamada recusada); tempo esgotado, conexão caída ou resposta ilegível podem ter sido cobrados, então
+    valem a duração declarada ao preço por minuto do modelo, só no teto do salão: o crédito do cliente nunca paga uma gravação que não devolveu texto. Antes, a reserva do pior caso ficava no teto para sempre, e umas
+    37 falhas seguidas esgotavam o US$ 1 do dia, travando também o texto.
   - Câmbio fora de 1 a 20 bloqueia todo pedido em vez de cobrar zero.
 - **Barra:**
   - Quem já comprou vê o crédito pago: o saldo dividido pelo saldo logo depois da última recarga. A franquia que sobrou entra
@@ -65,6 +75,10 @@ Fonte: `src/lib/secretary-credits-rules.ts`. Testes em `src/lib/__tests__/secret
   - uma compra em revisão continua em revisão até alguém resolver à mão;
   - o mesmo pagamento nunca credita duas vezes;
   - um segundo pagamento da mesma compra, ou um pagamento divergente, vai para revisão;
+  - **alerta** (validação de 07/10): toda compra que entra em revisão manda um e-mail ao administrador da plataforma
+    (`PLATFORM_ADMIN_NOTIFICATION_EMAIL`, com o Resend configurado), só com ids e códigos, e o dono do salão vê no cartão que o
+    pagamento está em conferência. O relatório do HQ mostra `purchases_in_review` por salão;
+  - um pagamento divergente que chega depois não tira do estado "Pago" uma compra já paga: o crédito dela continua;
   - aprovação depois de a compra expirar ainda credita;
   - compra não paga expira em 24 h, com 1 h de tolerância.
 

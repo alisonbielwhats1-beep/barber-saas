@@ -69,31 +69,61 @@ export const CHARGE_LOOKBACK_MS = 48 * 3600_000;
 export const CHARGING_STARTS_AT = new Date("2026-10-06T15:00:00Z");
 /** A call that succeeded without reported usage is charged as an average model call (never free). */
 export const UNREPORTED_CALL_MICRO_USD = 3_000;
+/** How many calls one sweep transaction charges (each is one insert; the batch stays far under the 5 s transaction limit). */
+export const CHARGE_BATCH = 50;
+/** How many batches one sweep runs at most; whatever is left is charged by the next sweep (before and after every request). */
+export const CHARGE_MAX_ROUNDS = 20;
+/** The most finished calls one sweep reads from the 48 h window (the daily cap allows a few hundred a day). */
+export const CHARGE_WINDOW_ROWS = 5_000;
 /** Charges every model call of the salon not charged yet: a message's own calls, those of a follow-up answered in a child
  * conversation, a repair, a call whose message then failed, or one left behind by a crash. Each call is charged once, by its
- * own record (call:<id>), in one transaction under the salon's credit lock: the month's free allowance first, then the paid
- * credit. Returns how many calls were charged. */
+ * own record (call:<id>), under the salon's credit lock: the month's free allowance first, then the paid credit. Validation
+ * review 07/10/2026: only the calls still uncharged fill a batch (the oldest first), in batches of CHARGE_BATCH per
+ * transaction, so a busy salon never leaves its newest calls behind already-charged ones, and a backlog never fails the
+ * request with a transaction timeout. Returns how many calls were charged. */
 export async function chargePendingCalls(actor: Actor, env: Env = process.env, now = new Date()) {
   if (!creditsEnabled(env)) return 0;
   const fx = creditUsdBrl(env);
+  let charged = 0;
+  for (let round = 0; round < CHARGE_MAX_ROUNDS; round++) {
+    const batch = await chargeBatch(actor, fx, now);
+    charged += batch.charged;
+    if (!batch.more) break;
+  }
+  return charged;
+}
+async function chargeBatch(actor: Actor, fx: number, now: Date) {
   return withTenant(actor, async tx => {
     await creditLock(tx, actor.salonId);
     const calls = await tx.auditLog.findMany({ where: { salonId: actor.salonId, entityType: SECRETARY_USAGE_ENTITY, action: "MODEL_CALL_FINISHED",
-      createdAt: { gte: new Date(Math.max(now.getTime() - CHARGE_LOOKBACK_MS, CHARGING_STARTS_AT.getTime())) } }, select: { entityId: true, metadata: true }, orderBy: { createdAt: "asc" }, take: 500 });
-    if (!calls.length) return 0;
-    const keys = calls.map(call => `call:${call.entityId}`);
-    const done = new Set((await tx.secretaryCreditLedger.findMany({ where: { salonId: actor.salonId, requestKey: { in: keys } }, select: { requestKey: true } })).map(row => row.requestKey));
-    let freeUsed = await freeUsedThisMonth(tx, actor.salonId, now), charged = 0;
-    for (const call of calls) {
-      const key = `call:${call.entityId}`, metadata = (call.metadata ?? {}) as Record<string, unknown>;
-      if (done.has(key)) continue;
-      const micro = callMicroUsd(metadata) || (metadata.status === "SUCCEEDED" ? UNREPORTED_CALL_MICRO_USD : 0), cost = costUnits(micro, fx);
-      if (cost <= 0) continue;
-      const { free, paid } = splitCost(cost, freeUsed);
-      await appendCredit(tx, { salonId: actor.salonId, kind: "USAGE", units: paid === 0 ? 0 : -paid, freeUnits: free, requestKey: key, actorUserId: actor.userId });
-      freeUsed += free; charged++;
+      createdAt: { gte: new Date(Math.max(now.getTime() - CHARGE_LOOKBACK_MS, CHARGING_STARTS_AT.getTime())) } },
+      select: { entityId: true, metadata: true }, orderBy: { createdAt: "asc" }, take: CHARGE_WINDOW_ROWS });
+    const priced = calls.map(call => {
+      const metadata = (call.metadata ?? {}) as Record<string, unknown>;
+      const micro = callMicroUsd(metadata) || (metadata.status === "SUCCEEDED" ? UNREPORTED_CALL_MICRO_USD : 0);
+      return { key: `call:${call.entityId}`, cost: costUnits(micro, fx) };
+    }).filter(call => call.cost > 0);
+    if (!priced.length) return { charged: 0, more: false };
+    const done = new Set<string>();
+    for (let at = 0; at < priced.length; at += 1_000) {
+      const rows = await tx.secretaryCreditLedger.findMany({ where: { salonId: actor.salonId, requestKey: { in: priced.slice(at, at + 1_000).map(call => call.key) } },
+        select: { requestKey: true } });
+      for (const row of rows) done.add(row.requestKey);
     }
-    return charged;
+    // One row per key even if a call record were ever written twice (the unique key would fail the whole sweep).
+    const pending = [...new Map(priced.filter(call => !done.has(call.key)).map(call => [call.key, call])).values()];
+    const batch = pending.slice(0, CHARGE_BATCH);
+    if (!batch.length) return { charged: 0, more: false };
+    // Under the lock nothing else writes this salon's ledger: the running point is kept in memory, one insert per call.
+    let freeUsed = await freeUsedThisMonth(tx, actor.salonId, now), point = await latestPoint(tx, actor.salonId);
+    for (const call of batch) {
+      const { free, paid } = splitCost(call.cost, freeUsed), units = paid === 0 ? 0 : -paid;
+      point = nextPoint(point, "USAGE", units);
+      await tx.secretaryCreditLedger.create({ data: { salonId: actor.salonId, kind: "USAGE", units, freeUnits: free, requestKey: call.key,
+        actorUserId: actor.userId, ...point } });
+      freeUsed += free;
+    }
+    return { charged: batch.length, more: pending.length > batch.length };
   });
 }
 /** After a recording was transcribed (sent or not): its reported cost (the reservation's worst case when none came back). */
