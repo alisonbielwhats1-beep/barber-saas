@@ -87,6 +87,7 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
         <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
+            type="search" inputMode="search" enterKeyHint="search" autoComplete="off"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar produto ou marca…"

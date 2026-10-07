@@ -61,7 +61,7 @@ export function BottomNav({
   return (
     <nav
       aria-label="Navegação principal do cliente"
-      className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[480px] border-t border-border/80 bg-card/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] backdrop-blur md:max-w-4xl md:px-6 lg:max-w-6xl lg:rounded-t-2xl lg:border-x lg:px-8"
+      className="app-tabbar fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[480px] border-t border-border/80 bg-card/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] backdrop-blur md:max-w-4xl md:px-6 lg:max-w-6xl lg:rounded-t-2xl lg:border-x lg:px-8"
     >
       <div className="grid grid-cols-5 items-end gap-1">
       {items.map((it) => {
@@ -75,15 +75,17 @@ export function BottomNav({
             aria-current={active ? "page" : undefined}
             aria-label={badgeCount > 0 ? `${it.label}, ${badgeCount} não lidas` : it.label}
             className={cn(
-              "group flex min-h-14 min-w-0 flex-col items-center justify-end gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "app-tabbar-item group flex min-h-14 min-w-0 flex-col items-center justify-end gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               active ? "text-primary" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <span
               className={cn(
                 "relative grid h-8 w-8 place-items-center rounded-full transition-colors",
+                // Pílula ativa larga e toque com retorno, como nas abas de aplicativo; "Agendar" segue em destaque.
+                !prominent && "app-tabbar-icon w-12",
                 active && !prominent && "bg-primary/15",
-                prominent && "h-11 w-11 bg-primary text-primary-foreground shadow-lg shadow-primary/20",
+                prominent && "press h-11 w-11 bg-primary text-primary-foreground shadow-lg shadow-primary/20",
               )}
             >
               <it.icon aria-hidden="true" className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />

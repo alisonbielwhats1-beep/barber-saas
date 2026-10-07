@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "../form-dialog";
 import { createClient, updateClient } from "./actions";
+import { SelectSheet } from "@/components/ui/select-sheet";
 
 type Props = {
   client?: {
@@ -131,12 +132,9 @@ export function ClientForm({ client }: Props) {
             </div>
             <div>
               <label htmlFor="client-form-gender" className="mb-1 block text-sm font-medium">Gênero</label>
-              <select id="client-form-gender" aria-label="Gênero" name="gender" defaultValue={client?.gender ?? ""} className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="">Não informado</option>
-                <option value="FEMALE">Feminino</option>
-                <option value="MALE">Masculino</option>
-                <option value="OTHER">Outro</option>
-              </select>
+              <SelectSheet id="client-form-gender" aria-label="Gênero" name="gender" title="Gênero" defaultValue={client?.gender ?? ""} placeholder="Não informado"
+                options={[{ value: "FEMALE", label: "Feminino" }, { value: "MALE", label: "Masculino" }, { value: "OTHER", label: "Outro" }]}
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm" />
             </div>
           </div>
           <div>

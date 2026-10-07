@@ -15,20 +15,68 @@ const DialogReservesCloseContext = React.createContext(false);
 /** Quem define o próprio preenchimento (p-0, p-4, pr-0…) cuida sozinho do espaço do botão X. */
 const OWN_PADDING = /(^| )p[xr]?-/;
 
+/** A downward drag longer than this (or a quick flick) closes a mobile sheet. */
+const SHEET_DISMISS_PX = 96;
+const SHEET_DISMISS_VELOCITY = 0.55;
+
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { mobileSheet?: boolean }
->(({ className, children, style, onScroll, mobileSheet = false, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /** Below 768px the dialog is a bottom sheet with a grabber (default). `false` keeps it centred. */
+    mobileSheet?: boolean;
+  }
+>(({ className, children, style, onScroll, mobileSheet = true, ...props }, ref) => {
   const theme = React.useContext(DialogThemeContext);
   const closeButton = React.useRef<HTMLButtonElement>(null);
+  const content = React.useRef<HTMLDivElement | null>(null);
+  const drag = React.useRef<{ startY: number; lastY: number; lastT: number; velocity: number } | null>(null);
+  const setRefs = React.useCallback((node: HTMLDivElement | null) => {
+    content.current = node;
+    if (typeof ref === "function") ref(node);
+    else if (ref) ref.current = node;
+  }, [ref]);
   // No celular o conteúdo usa a largura toda (pr-6); o 64px do X (pr-16) só vale de sm para cima.
   // O título e a descrição se afastam do X pelo DialogHeader (pr-10), não pela janela inteira.
   const reservesClose = !OWN_PADDING.test(className ?? "");
+
+  // Arrastar a alça para baixo fecha o painel como o X: mesma saída, mesmas confirmações de descarte.
+  function settle(node: HTMLDivElement) {
+    node.style.transition = "translate 220ms cubic-bezier(0.32, 0.72, 0, 1)";
+    node.style.translate = "0 0";
+  }
+  function onGrabStart(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { startY: event.clientY, lastY: event.clientY, lastT: event.timeStamp, velocity: 0 };
+  }
+  function onGrabMove(event: React.PointerEvent<HTMLDivElement>) {
+    const state = drag.current, node = content.current;
+    if (!state || !node) return;
+    const elapsed = Math.max(1, event.timeStamp - state.lastT);
+    state.velocity = (event.clientY - state.lastY) / elapsed;
+    state.lastY = event.clientY;
+    state.lastT = event.timeStamp;
+    const offset = Math.max(0, event.clientY - state.startY);
+    node.style.transition = "none";
+    node.style.translate = `0 ${offset}px`;
+  }
+  function onGrabEnd() {
+    const state = drag.current, node = content.current;
+    drag.current = null;
+    if (!state || !node) return;
+    const offset = state.lastY - state.startY;
+    if (offset > SHEET_DISMISS_PX || (offset > 24 && state.velocity > SHEET_DISMISS_VELOCITY)) {
+      closeButton.current?.click();
+      // Quem pede confirmação antes de fechar (formulário com alterações) mantém o painel aberto: ele volta ao lugar.
+      window.setTimeout(() => { if (node.dataset.state === "open") settle(node); }, 60);
+    } else settle(node);
+  }
+
   return (
   <DialogPrimitive.Portal>
     <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
     <DialogPrimitive.Content
-      ref={ref}
+      ref={setRefs}
       data-theme={theme}
       data-mobile-sheet={mobileSheet || undefined}
       className={cn(
@@ -58,6 +106,8 @@ export const DialogContent = React.forwardRef<
       }}
     >
       <DialogReservesCloseContext.Provider value={reservesClose}>{children}</DialogReservesCloseContext.Provider>
+      {/* Depois do conteúdo: seletores ":first-child" das janelas continuam valendo. Posição absoluta no topo. */}
+      {mobileSheet && <div data-sheet-grabber aria-hidden="true" onPointerDown={onGrabStart} onPointerMove={onGrabMove} onPointerUp={onGrabEnd} onPointerCancel={onGrabEnd} />}
       <DialogPrimitive.Close
         ref={closeButton}
         type="button"

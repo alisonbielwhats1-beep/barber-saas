@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { recordCampaignInteraction } from "./actions";
+import { SelectSheet } from "@/components/ui/select-sheet";
 
 type Target = {
   id: string;
@@ -183,15 +184,15 @@ export function MarketingCampaigns({
       <div className="lg:col-span-1">
         <div className="lg:hidden">
           <label htmlFor="mobile-campaign" className="mb-2 block text-[12px] font-semibold">Escolha a campanha</label>
-          <select
+          <SelectSheet
             id="mobile-campaign"
             aria-label="Escolher campanha"
+            title="Escolha a campanha"
             value={active}
-            onChange={(event) => setActive(event.target.value)}
+            onValueChange={setActive}
+            options={campaigns.map((campaign) => ({ value: campaign.key, label: `${campaign.title} (${campaign.targets.length})`, description: campaign.description }))}
             className="h-12 w-full rounded-xl border border-border bg-card px-3 text-[14px] font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {campaigns.map((campaign) => <option key={campaign.key} value={campaign.key}>{campaign.title} ({campaign.targets.length})</option>)}
-          </select>
+          />
           <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
             <p className="text-[12px] font-semibold">{current.title}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{current.description}</p>
@@ -235,7 +236,7 @@ export function MarketingCampaigns({
               <span>{selected.size} de {current.targets.length} destinatários selecionados</span>
               <span className="flex gap-3 text-xs font-medium"><button disabled={!enabled} onClick={() => selectTargets(current.targets.map((target) => target.id))} className="min-h-11 text-primary disabled:opacity-40">Todos</button><button disabled={!enabled} onClick={() => selectTargets([])} className="min-h-11 text-muted-foreground disabled:opacity-40">Nenhum</button></span>
             </div>
-            <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-3"><Search className="h-3.5 w-3.5 text-muted-foreground" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, telefone ou serviço" className="w-full bg-transparent text-[12px] outline-none" /></div>
+            <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-3"><Search className="h-3.5 w-3.5 text-muted-foreground" /><input type="search" inputMode="search" enterKeyHint="search" autoComplete="off" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, telefone ou serviço" className="w-full bg-transparent text-[12px] outline-none" /></div>
           </div>
 
           {current.targets.length === 0 ? (

@@ -51,7 +51,7 @@ export function ProfileForm({
           </div>
           <div>
             <label htmlFor="profile-phone" className="mb-1 block text-xs font-medium">Telefone</label>
-            <Input id="profile-phone" name="phone" defaultValue={profile.phone ?? ""} placeholder="(11) 90000-0000" />
+            <Input id="profile-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" defaultValue={profile.phone ?? ""} placeholder="(11) 90000-0000" />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium">E-mail</label>

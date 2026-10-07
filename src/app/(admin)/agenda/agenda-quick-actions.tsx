@@ -1,7 +1,9 @@
 "use client";
 
-import type { Ref } from "react";
+import { useState, type Ref } from "react";
 import { Ban, CalendarOff, CalendarPlus, ChevronDown, Plus, Coffee, Settings2, MousePointer2 } from "lucide-react";
+import { ActionSheet, type SheetAction } from "@/components/ui/action-sheet";
+import { useIsMobile } from "@/components/ui/use-media-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +38,38 @@ export function AgendaQuickActions({
   onManageAvailability,
   onSelectBlock,
 }: AgendaQuickActionsProps) {
+  const mobile = useIsMobile();
+  const [sheetOpen, setSheetOpen] = useState(false);
   if (!canCreateAppointment && !canManageAvailability) return null;
+
+  // Celular: o mesmo "+" flutuante abre uma folha de ações com as mesmas opções do menu do computador.
+  if (mobile) {
+    const actions: SheetAction[] = [];
+    if (canCreateAppointment) actions.push({ key: "appointment", label: "Novo agendamento", description: "Escolha cliente, serviço e horário.", icon: CalendarPlus, tone: "primary", onSelect: onNewAppointment });
+    if (canManageAvailability) {
+      actions.push({ key: "block", label: "Novo bloqueio de horário", description: "Indisponibilize um intervalo desta data.", icon: Ban, onSelect: onNewBlock });
+      actions.push({ key: "day-off", label: "Adicionar folga", description: "Reserve o dia inteiro para quem não atenderá.", icon: CalendarOff, onSelect: onNewDayOff });
+      if (onWeeklyPause) actions.push({ key: "pause", label: "Pausa recorrente", icon: Coffee, onSelect: onWeeklyPause });
+      if (onSelectBlock) actions.push({ key: "select", label: "Selecionar intervalo na grade", icon: MousePointer2, onSelect: onSelectBlock });
+      if (onManageAvailability) actions.push({ key: "manage", label: "Expediente e bloqueios", icon: Settings2, onSelect: onManageAvailability });
+    }
+    return (
+      <>
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={disabled}
+          aria-label="Abrir ações rápidas da agenda"
+          aria-haspopup="dialog"
+          onClick={() => setSheetOpen(true)}
+          className="app-fab press fixed z-40 inline-flex items-center justify-center bg-primary text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40 print:hidden"
+        >
+          <Plus aria-hidden="true" className="h-6 w-6" />
+        </button>
+        <ActionSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Criar na agenda" actions={actions} />
+      </>
+    );
+  }
 
   return (
     <DropdownMenu>
@@ -46,7 +79,7 @@ export function AgendaQuickActions({
           type="button"
           disabled={disabled}
           aria-label="Abrir ações rápidas da agenda"
-          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(.75rem+var(--safe-right))] z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40 lg:static lg:z-auto lg:h-auto lg:w-auto lg:min-h-11 lg:gap-1.5 lg:rounded-lg lg:px-4 lg:py-2 lg:text-[13px] lg:font-semibold lg:shadow-none print:hidden"
+          className="app-fab fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(.75rem+var(--safe-right))] z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40 lg:static lg:z-auto lg:h-auto lg:w-auto lg:min-h-11 lg:gap-1.5 lg:rounded-lg lg:px-4 lg:py-2 lg:text-[13px] lg:font-semibold lg:shadow-none print:hidden"
         >
           <Plus aria-hidden="true" className="h-5 w-5 lg:h-4 lg:w-4" />
           <span className="sr-only lg:not-sr-only">Novo</span>

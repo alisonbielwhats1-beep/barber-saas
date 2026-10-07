@@ -293,7 +293,7 @@ function ClientPicker({ open, title, summary, clients, pending, error, onClose, 
   return <Dialog open={open} onOpenChange={o => !o && onClose()}>
     <DialogContent className="max-h-[80dvh] overflow-y-auto">
       <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{summary}</DialogDescription></DialogHeader>
-      <input aria-label="Buscar cliente" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar cliente…" disabled={pending} className="min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm" autoFocus />
+      <input type="search" inputMode="search" enterKeyHint="search" autoComplete="off" aria-label="Buscar cliente" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar cliente…" disabled={pending} className="min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm" autoFocus />
       <div className="max-h-72 space-y-1 overflow-y-auto" role="group" aria-label="Selecionar cliente">
         {filtered.map(c => <button type="button" key={c.id} disabled={pending} aria-pressed={selected === c.id} onClick={() => setSelected(c.id)} className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-card-hover focus-visible:ring-2 focus-visible:ring-ring">{c.name}{selected === c.id && <Check aria-hidden className="h-4 w-4 text-primary" />}</button>)}
         {filtered.length === 0 && <p role="status" className="py-4 text-sm">Nenhum cliente encontrado.</p>}

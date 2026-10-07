@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
+import { SelectSheet } from "@/components/ui/select-sheet";
 
 const ORDER: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
@@ -22,9 +23,8 @@ export function RangeFilter({ current, compact = false, clearCalendar = false }:
   }
 
   if (compact) return <div className="flex min-h-11 w-full items-center gap-2 rounded-lg bg-surface-1 px-3">
-    <select aria-label="Período" value={current} disabled={pending} onChange={event => select(event.target.value as RangeKey)} className="min-h-11 w-full bg-transparent text-center text-sm font-medium">
-      {ORDER.map(range => <option key={range} value={range}>{RANGE_LABELS[range]}</option>)}
-    </select>
+    <SelectSheet aria-label="Período" title="Período" value={current} disabled={pending} onValueChange={value => select(value as RangeKey)}
+      options={ORDER.map(range => ({ value: range, label: RANGE_LABELS[range] }))} className="min-h-11 w-full bg-transparent text-center text-sm font-medium" />
     {pending && <Loader2 className="h-4 w-4 animate-spin" aria-label="Atualizando período" />}
   </div>;
 

@@ -1,0 +1,129 @@
+/*
+ * App-like mobile layer (07/10/2026). Shared by the establishment panel and the
+ * client app. Desktop (≥ 768px for sheets, ≥ 1024px for the tab bar) is untouched.
+ * See docs/MOBILE_APP_EXPERIENCE_2026-10-07.md.
+ */
+
+html {
+  /* Own pressed states replace the grey flash of mobile browsers. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Touch feedback ─────────────────────────────────────────────────────── */
+.press {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.press:not(:disabled):active { transform: scale(0.96); }
+/* Full-width rows dim instead of shrinking (a scaled row looks broken). */
+.press-row { transition: background-color 120ms ease-out; }
+.press-row:not(:disabled):active { background-color: hsl(var(--card-hover)); }
+@media (prefers-reduced-motion: reduce) {
+  .press:not(:disabled):active { transform: none; opacity: 0.8; }
+}
+
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ── Bottom sheets (every dialog below 768px) ───────────────────────────── */
+@keyframes app-sheet-in { from { translate: 0 100%; } to { translate: 0 0; } }
+@keyframes app-sheet-out { to { translate: 0 100%; } }
+
+@media (max-width: 767px) {
+  [data-mobile-sheet="true"] {
+    left: calc(var(--app-viewport-left, 0px) + var(--app-viewport-width, 100vw) / 2) !important;
+    width: var(--app-viewport-width, 100vw) !important;
+    max-width: none !important;
+    border-width: 1px 0 0 !important;
+    border-radius: 1.5rem 1.5rem 0 0 !important;
+    padding-left: max(1.25rem, var(--safe-left, 0px));
+    padding-right: max(1.25rem, var(--safe-right, 0px));
+    box-shadow: 0 -12px 40px hsl(0 0% 0% / 0.32);
+  }
+  /* No fill after opening: the drag-to-close offset is an inline style and must win once the entrance ends. */
+  [data-mobile-sheet="true"][data-state="open"] {
+    animation: app-sheet-in 340ms cubic-bezier(0.32, 0.72, 0, 1) backwards !important;
+  }
+  [data-mobile-sheet="true"][data-state="closed"] {
+    animation: app-sheet-out 220ms cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+  }
+  [data-mobile-sheet="true"] > [data-sheet-grabber] { display: flex; }
+}
+[data-sheet-grabber] {
+  display: none;
+  position: absolute;
+  /* Leaves the corners free: the X (top right) stays tappable. */
+  inset: 0 3.5rem auto 3.5rem;
+  z-index: 11;
+  height: 1.5rem;
+  justify-content: center;
+  padding-top: 0.5rem;
+  touch-action: none;
+  cursor: grab;
+}
+[data-sheet-grabber]::before {
+  content: "";
+  width: 2.5rem;
+  height: 0.3125rem;
+  border-radius: 9999px;
+  background: hsl(var(--muted-foreground) / 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-mobile-sheet="true"][data-state] { animation-duration: 0.01ms !important; }
+}
+
+/* ── Panel shell: tab bar, compact top bar, floating action ─────────────── */
+@media (max-width: 1023px) {
+  .admin-shell { --mobile-dock: 4rem; }
+}
+.app-tabbar {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.app-tabbar-item[aria-current="page"] .app-tabbar-icon,
+.app-tabbar-item[data-active="true"] .app-tabbar-icon {
+  background: hsl(var(--primary) / 0.16);
+  color: hsl(var(--primary));
+}
+.app-tabbar-icon {
+  transition: background-color 200ms ease-out, color 200ms ease-out, transform 160ms ease-out;
+}
+.app-tabbar-item:active .app-tabbar-icon { transform: scale(0.9); }
+@media (prefers-reduced-motion: reduce) {
+  .app-tabbar-item:active .app-tabbar-icon { transform: none; }
+}
+/* Landscape phones: icon and label share a row so the bar costs 48px. */
+@media (max-height: 500px) and (max-width: 1023px) {
+  .app-tabbar-item { min-height: 3rem; flex-direction: row; gap: 0.375rem; padding-block: 0; }
+  .admin-shell { --mobile-dock: 3rem; }
+}
+
+.app-topbar {
+  backdrop-filter: saturate(1.4) blur(18px);
+  -webkit-backdrop-filter: saturate(1.4) blur(18px);
+}
+.app-topbar-title {
+  transition: opacity 180ms ease-out, translate 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.app-topbar[data-condensed="false"] .app-topbar-title { opacity: 0; translate: 0 6px; }
+.app-topbar[data-condensed="true"] { border-bottom-color: hsl(var(--border)); }
+
+/* One floating action per screen, always in the same place above the tab bar. */
+@media (max-width: 1023px) {
+  .app-fab {
+    position: fixed;
+    right: max(1rem, var(--safe-right, 0px));
+    bottom: calc(var(--mobile-dock, 4rem) + 1rem + var(--safe-bottom, 0px));
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    min-height: 3.5rem;
+    padding: 0;
+    border-radius: 1.125rem;
+    box-shadow: 0 10px 28px hsl(var(--primary) / 0.32), 0 2px 6px hsl(0 0% 0% / 0.24);
+  }
+  .app-fab:not(:disabled):active { transform: scale(0.94); }
+}

@@ -20,6 +20,7 @@ import { formatMoney } from "@/lib/utils";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { createExpense, toggleExpensePaid, deleteExpense } from "./actions";
+import { SelectSheet } from "@/components/ui/select-sheet";
 
 export type ExpenseRow = {
   id: string;
@@ -175,18 +176,13 @@ export function ExpenseManager({ expenses, timezone }: { expenses: ExpenseRow[];
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="expense-category" className="mb-1 block text-sm font-medium">Categoria</label>
-                <select id="expense-category" name="category" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <SelectSheet id="expense-category" name="category" title="Categoria" options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                  className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm" />
               </div>
               <div>
                 <label htmlFor="expense-kind" className="mb-1 block text-sm font-medium">Tipo</label>
-                <select id="expense-kind" name="kind" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="VARIABLE">Variável</option>
-                  <option value="FIXED">Fixa</option>
-                </select>
+                <SelectSheet id="expense-kind" name="kind" title="Tipo" options={[{ value: "VARIABLE", label: "Variável" }, { value: "FIXED", label: "Fixa" }]}
+                  className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm" />
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm">

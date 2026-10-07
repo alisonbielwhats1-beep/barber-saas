@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "./mobile-app.css";
 import "@/components/brand.css";
 import { Providers } from "./providers";
 import { PWA_APPLE_ICON, PWA_FAVICON } from "@/lib/pwa-icons";

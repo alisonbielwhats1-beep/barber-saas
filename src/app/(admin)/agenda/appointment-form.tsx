@@ -391,7 +391,7 @@ export function AppointmentDialog({
                 <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => { setMode("new"); lastRequest.current++; setLoadingLast(false); resetAttempt(); }} aria-label="Novo cliente">+ Novo cliente</Button>
               </> : <>
                 <label className="grid gap-1 text-sm">Nome<Input name="clientName" required minLength={2} value={clientName} onChange={e => setClientName(e.target.value)} autoComplete="name" /></label>
-                <label className="grid gap-1 text-sm">WhatsApp (opcional)<Input name="clientPhone" type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="(11) 91234-5678" /></label>
+                <label className="grid gap-1 text-sm">WhatsApp (opcional)<Input name="clientPhone" type="tel" inputMode="tel" autoComplete="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="(11) 91234-5678" /></label>
                 <p className="text-xs text-muted-foreground">O cliente será cadastrado ao confirmar o agendamento.</p>
                 <Button type="button" variant="outline" onClick={() => { setMode("existing"); resetAttempt(); }}>Escolher cliente existente</Button>
               </>}

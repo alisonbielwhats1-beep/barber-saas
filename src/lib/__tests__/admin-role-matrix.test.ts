@@ -27,7 +27,7 @@ describe("matriz de permissões do painel", () => {
       "utf8",
     );
     const mobile = readFileSync(
-      join(process.cwd(), "src/app/(admin)/mobile-nav.tsx"),
+      join(process.cwd(), "src/app/(admin)/mobile-navigation.ts"),
       "utf8",
     );
     const palette = readFileSync(
@@ -38,8 +38,10 @@ describe("matriz de permissões do painel", () => {
     for (const source of [sidebar, palette]) {
       expect(source).toContain("MANAGEMENT_ROLES");
     }
-    // A gaveta do celular reaproveita a mesma árvore filtrada da barra lateral.
-    expect(mobile).toContain("<SidebarNav");
+    // O "Mais" do celular deriva da mesma árvore da barra lateral, filtrada pelo mesmo canSee.
+    expect(mobile).toContain("DESKTOP_AREAS");
+    expect(mobile).toContain("CONTEXT_AREAS");
+    expect(mobile).toContain("canSee(");
     expect(sidebar).toContain("roles: DASHBOARD_ROLES");
     expect(mobile).toContain("roles: DASHBOARD_ROLES");
     expect(sidebar).toContain("roles: FINANCIAL_ROLES");

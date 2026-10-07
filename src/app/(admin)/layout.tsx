@@ -10,6 +10,7 @@ import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 import { AdminMobileHeader } from "./admin-mobile-header";
+import { MobileTopBar } from "./mobile-top-bar";
 import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { billingEnabled } from "@/lib/billing/config";
 import { billingCapacityLabel } from "@/lib/billing/presentation";
@@ -96,12 +97,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <PlanShortcut {...planShortcut} href={planHref} />
         </header>}
         <AdminMobileHeader role={role} plan={planShortcut} planHref={planHref} />
+        <MobileTopBar />
         {/* O espaço final cobre a barra inferior, o "+" de criar (84px) e, quando existe, o botão da Secretária (192px). */}
         <div className={`mx-auto w-full min-w-0 max-w-[1680px] p-4 ${SecretaryDock ? "pb-52" : "pb-36"} sm:p-5 md:p-6 lg:pb-6`}>{children}</div>
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin}
-        accountControls={<div className="space-y-3"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact {...planShortcut} href={planHref} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /></div>}
+        accountControls={<div className="space-y-3 rounded-2xl bg-card p-3 ring-1 ring-inset ring-border"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact {...planShortcut} href={planHref} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /></div>}
         accountFooter={<SidebarFooter inline plan={planLabel} />}
       />
       <CommandPalette role={role} />

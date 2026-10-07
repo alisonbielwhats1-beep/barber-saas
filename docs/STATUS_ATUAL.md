@@ -1,5 +1,17 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-07 — Celular com cara de aplicativo (em revisão, não publicado)
+
+Branch `claude/wizardly-moore-26816c`, pedido do responsável: transformar o uso no celular numa experiência de aplicativo,
+sem mudar regras, servidor, APIs nem banco. Painel abaixo de 1024 px: barra de abas Hoje · Agenda · Clientes · Avisos · Mais,
+"Mais" como painel que sobe de baixo com listas agrupadas, barra superior compacta com voltar e título que aparece ao rolar,
+toda janela vira painel inferior com alça e arrastar para fechar, confirmações como folha de ação, Hoje com controle segmentado
+e uma ação principal por cartão ("⋯" para o resto), "+" único de 56 px, deslizar aviso para marcar como lido, esqueletos por tela,
+teclados certos em busca e telefone e seletores em painel. Computador inalterado (só os filtros de Hoje ganharam trilho segmentado).
+App do cliente: só acabamento da barra inferior; tela inicial intocada (decisão de 06/10). Detalhes, limites e próximas fases em
+[MOBILE_APP_EXPERIENCE_2026-10-07.md](MOBILE_APP_EXPERIENCE_2026-10-07.md). Sem migration, sem flag, sem deploy; merge só depois
+da conferência visual do dono no Preview (como em "Verde de volta", 06/10).
+
 ## 2026-10-05 — Secretária: trava de serviço repetido, janela de decisão e manhã/noite na remarcação
 
 Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`DECISOES_PRODUTO.md`).

@@ -38,7 +38,8 @@
 .client-directory .admin-catalog-tools > div:has(> input) { flex-basis: 100%; border-radius: 12px; }
 .client-directory [aria-label="Filtros de clientes"] > button { flex-shrink: 0; }
 @media (max-width: 767px) {
-  .admin-client-create { position: fixed; right: 20px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30; width: 52px; height: 52px; padding: 0; border-radius: 50%; box-shadow: 0 6px 20px hsl(var(--background) / .3); }
+  /* Same floating action as the agenda "+": one size and place on every screen (07/10). */
+  .admin-client-create { position: fixed; right: max(1rem, var(--safe-right, 0px)); bottom: calc(var(--mobile-dock, 4rem) + 1rem + var(--safe-bottom, 0px)); z-index: 40; width: 56px; height: 56px; min-height: 56px; padding: 0; border-radius: 18px; box-shadow: 0 10px 28px hsl(var(--primary) / .32), 0 2px 6px hsl(0 0% 0% / .24); }
 }
 .admin-page-layout:has(.client-directory, .admin-directory-page) { animation: none; transform: none; }
 .admin-client-detail { padding: 24px; border-radius: 20px; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 16px; }
@@ -55,8 +56,9 @@
 .client-directory .admin-catalog-tools > div:has(> input) { flex: 1; flex-basis: 0; width: auto; }
 .admin-directory-page > header > div > p { display: none; }
 @media (max-width: 767px) {
-  .admin-directory-create { position: fixed; right: max(20px, var(--safe-right, 0px)); bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30; width: 52px; height: 52px; padding: 0; border-radius: 50%; box-shadow: 0 6px 20px hsl(var(--background) / .3); }
-  .admin-page-layout header button:is(.admin-client-create, .admin-directory-create) { border-radius: 50%; }
+  .admin-directory-create { position: fixed; right: max(1rem, var(--safe-right, 0px)); bottom: calc(var(--mobile-dock, 4rem) + 1rem + var(--safe-bottom, 0px)); z-index: 40; width: 56px; height: 56px; min-height: 56px; padding: 0; border-radius: 18px; box-shadow: 0 10px 28px hsl(var(--primary) / .32), 0 2px 6px hsl(0 0% 0% / .24); }
+  .admin-page-layout header button:is(.admin-client-create, .admin-directory-create) { border-radius: 18px; }
+  :is(.admin-client-create, .admin-directory-create):not(:disabled):active { transform: scale(.94); }
 }
 .admin-professional-detail { padding-top: 48px; }
 .admin-guided-dialog { display: flex; flex-direction: column; gap: 0; overflow: hidden; padding: 0; height: min(760px, calc(var(--app-viewport-height, 100dvh) - 1rem)); max-width: 34rem; }
@@ -83,7 +85,8 @@
 .admin-summary-page > header { border-bottom: 0 !important; }
 .admin-summary-page > header > div:first-child > div:first-child { display: none; }
 @media (max-width: 639px) {
-  .admin-page-layout > :not(.agenda-workspace) > header h1 { font-size: 20px; }
+  /* Large title, like an app screen; the compact bar above repeats it once it scrolls away. */
+  .admin-page-layout > :not(.agenda-workspace) > header h1 { font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 700; }
   .admin-catalog-tools > .admin-list-tools-trigger { position: absolute; right: 0; top: -52px; background: transparent; }
   .client-directory .admin-catalog-tools > div:has(> input) { flex-basis: 100%; }
   .admin-page-layout:has(.admin-catalog-tools) > div > header { padding-right: 44px; }
@@ -130,4 +133,10 @@
 /* Phones in landscape: icon and label share a row, so the bottom bar costs 44px instead of 62px. */
 @media (max-height: 500px) and (max-width: 1023px) {
   .admin-mobile-bar-item { min-height: 44px; flex-direction: row; justify-content: center; gap: 8px; padding-block: 0; }
+}
+
+/* Phones: page headers read as app screens (no web divider, smaller kicker hidden). */
+@media (max-width: 767px) {
+  .admin-page-layout > :not(.agenda-workspace) > header { border-bottom: 0; padding-bottom: 4px; }
+  .admin-page-layout > :not(.agenda-workspace) > header > div > p:first-child:not(:only-child):is(.uppercase) { display: none; }
 }

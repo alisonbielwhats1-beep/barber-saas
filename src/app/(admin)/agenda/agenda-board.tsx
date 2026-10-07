@@ -53,6 +53,7 @@ import { DateNavigator } from "./date-navigator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedule-visibility";
 import { AgendaQuickActions } from "./agenda-quick-actions";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { WeeklyPausePanel } from "./weekly-pause-panel";
 import { minuteAtSlotPointer } from "./agenda-slot-pointer";
 import { AgendaWeekStrip } from "./agenda-week-strip";
@@ -472,8 +473,9 @@ export function AgendaBoard({
       </header>
 
       {view === "day" && <AgendaWeekStrip date={date} today={today} onSelect={goToDay} />}
-      <div role="group" aria-label="Visualização da agenda" className="agenda-mobile-views flex gap-2 sm:hidden">
-        {([['day','Dia'],['week','Semana'],['month','Mês'],['list','Lista']] as const).map(([kind,label]) => <button key={kind} type="button" aria-pressed={view === kind} onClick={() => setView(kind)} className="min-h-11 flex-1 rounded-full text-[13px] font-medium">{label}</button>)}
+      <div className="agenda-mobile-views sm:hidden">
+        <SegmentedControl ariaLabel="Visualização da agenda" value={view} onChange={setView}
+          options={[{ value: "day", label: "Dia" }, { value: "week", label: "Semana" }, { value: "month", label: "Mês" }, { value: "list", label: "Lista" }]} />
       </div>
 
       {activeFilterCount > 0 && (
@@ -503,6 +505,7 @@ export function AgendaBoard({
         <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
           <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
           <input
+            type="search" inputMode="search" enterKeyHint="search" autoComplete="off"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Buscar cliente ou telefone"

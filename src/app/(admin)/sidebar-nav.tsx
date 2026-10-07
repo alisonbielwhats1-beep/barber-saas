@@ -53,11 +53,11 @@ export const DESKTOP_AREAS: DesktopArea[] = [
   { href: "/notificacoes", label: "Notificações", icon: Bell, activePaths: ["/notificacoes"] },
 ];
 
-function matchesPath(pathname: string, path: string) {
+export function matchesPath(pathname: string, path: string) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-function canSee(item: { roles?: readonly string[] }, role: string) {
+export function canSee(item: { roles?: readonly string[] }, role: string) {
   return !item.roles || item.roles.includes(role);
 }
 
@@ -157,9 +157,9 @@ export function SidebarNav({
   );
 }
 
-type ContextLink = { href: string; label: string; path?: string; segment?: string; status?: string; roles?: readonly string[] };
+export type ContextLink = { href: string; label: string; path?: string; segment?: string; status?: string; roles?: readonly string[] };
 
-const CONTEXT_AREAS: Array<{ title: string; paths: readonly string[]; links: ContextLink[] }> = [
+export const CONTEXT_AREAS: Array<{ title: string; paths: readonly string[]; links: ContextLink[] }> = [
   {
     title: "Clientes",
     paths: ["/clientes"],

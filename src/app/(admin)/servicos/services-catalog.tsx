@@ -126,6 +126,7 @@ export function ServicesCatalog({
         <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-0">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
+            type="search" inputMode="search" enterKeyHint="search" autoComplete="off"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar serviço…"

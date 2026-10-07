@@ -10,7 +10,6 @@
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
     padding-bottom: max(1rem, var(--safe-bottom, 0px));
-    animation: none !important;
   }
 }
 input:is([type="time"], [type="date"]) { min-width: 0; max-width: 100%; }

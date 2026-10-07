@@ -84,27 +84,28 @@ export default async function HojePage({
   const nextDate = addCalendarDays(result.dateKey, 1);
   const nextAppointment = result.rows.find(item => ["PENDING", "CONFIRMED"].includes(item.status) && new Date(item.startAt).getTime() >= initialNow.getTime());
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="flex flex-col gap-6 max-md:gap-5">
+      <header className="flex flex-wrap items-end justify-between gap-3 md:gap-4">
         <div>
-          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-primary">Operação</p>
+          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-primary max-md:hidden">Operação</p>
           <h1 className="text-[26px] font-semibold tracking-tight">Hoje</h1>
           <p className="mt-1 text-sm text-muted-foreground first-letter:uppercase">{dateLabel}</p>
         </div>
+        {/* No celular: botões redondos de dia anterior/próximo e um atalho curto para a agenda. */}
         <div className="flex flex-wrap gap-2">
-          <Link href={`/hoje?date=${previousDate}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium transition hover:bg-card-hover">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Anterior
+          <Link href={`/hoje?date=${previousDate}`} className="press inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium transition hover:bg-card-hover max-md:w-11 max-md:justify-center max-md:px-0">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> <span className="max-md:sr-only">Anterior</span>
           </Link>
           {result.dateKey !== result.todayKey && (
-            <Link href="/hoje" className="inline-flex min-h-11 items-center rounded-full border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-primary">Hoje</Link>
+            <Link href="/hoje" className="press inline-flex min-h-11 items-center rounded-full border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-primary">Hoje</Link>
           )}
           {result.dateKey !== result.todayKey && nextDate <= result.todayKey && (
-            <Link href={`/hoje?date=${nextDate}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium transition hover:bg-card-hover">
-              Próximo <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            <Link href={`/hoje?date=${nextDate}`} className="press inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium transition hover:bg-card-hover max-md:w-11 max-md:justify-center max-md:px-0">
+              <span className="max-md:sr-only">Próximo</span> <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           )}
-          <Link href={`/agenda?date=${result.dateKey}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium transition hover:bg-card-hover">
-            Agenda completa <CalendarRange className="h-4 w-4" aria-hidden="true" />
+          <Link href={`/agenda?date=${result.dateKey}`} className="press inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium transition hover:bg-card-hover max-md:w-11 max-md:justify-center max-md:px-0">
+            <span className="max-md:sr-only">Agenda completa</span> <CalendarRange className="h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
       </header>
@@ -114,7 +115,8 @@ export default async function HojePage({
         <div className="mt-3 flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words text-lg font-semibold">{nextAppointment.clientName}</h2><p className="mt-1 text-sm text-muted-foreground">{nextAppointment.serviceName}</p><p className="mt-1 text-[13px] text-muted-foreground">Com {nextAppointment.professionalName}</p></div><p className="shrink-0 text-xl font-semibold tabular-nums">{formatInTimeZone(new Date(nextAppointment.startAt), result.salon.timezone, "HH:mm")}</p></div>
         <Link href={"/agenda?date=" + result.dateKey} className="mt-4 flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda do dia</Link>
       </section>}
-      {["OWNER", "MANAGER"].includes(ctx.role) && <ReceiptWorkspace date={result.dateKey} />}
+      {/* No celular o recebimento em lote vem depois da lista do dia, que é o que se consulta primeiro. */}
+      {["OWNER", "MANAGER"].includes(ctx.role) && <div className="max-md:order-last"><ReceiptWorkspace date={result.dateKey} /></div>}
 
       <HojeView
         colorScope={`${ctx.salonId}:${ctx.userId}`}

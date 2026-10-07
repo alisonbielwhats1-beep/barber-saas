@@ -181,7 +181,7 @@ export function ClientsCrm({
       <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-0 md:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar clientes…" className="h-11 w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
+          <input type="search" inputMode="search" enterKeyHint="search" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar clientes…" className="h-11 w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
         </div>
         {segment !== "all" && <div className="order-3 flex w-full gap-2 overflow-x-auto" role="group" aria-label="Filtros de clientes">
           <Seg active onClick={() => setSegment("all")}>{({vip:"VIP",birthday:"Aniversariantes",lapsed:"Sumidos",recurring:"Recorrentes"})[segment]} ×</Seg>
