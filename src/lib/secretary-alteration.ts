@@ -442,12 +442,30 @@ export async function selectAlteration(actor: ServiceActor, selection: NonNullab
 export const alteringChange = (operation: string | undefined, f: SchedulingFields) => operation === "appointment.change" && alterAppointmentEnabled() && schedulingAlteration(f);
 
 /** Owner 07/10 ("Altere o serviço da Adriana Melo." became "Para qual dia e horário…"): the owner's words ask for another service of an
- * appointment ("altera/muda/troca/substitui o serviço", "outro serviço") without naming it. Read from the words only: the change is
- * then asked as a service alteration (the slot kept), never as a move that needs a new day and clock. */
+ * appointment without naming it. Read from the words only (closed list): the change is then asked as a service alteration (the slot
+ * kept), never as a move that needs a new day and clock.
+ * - a change verb (alterar, mudar, trocar, substituir, modificar, editar, corrigir, ajustar) before the service noun (serviço,
+ *   procedimento, tratamento), with up to three words between and no clause break ("muda só o serviço", "troca a Ana de serviço");
+ * - "outro serviço/procedimento/tratamento";
+ * - what the customer does: "mudar/trocar o que ela vai fazer", "vai fazer outra coisa";
+ * - "o serviço (está) errado", "serviço errado".
+ * Never when the clause denies it ("não muda o serviço, só o horário", "sem trocar o serviço"): a negator up to two words before the
+ * matched words. "atendimento" is not a service noun here ("muda o atendimento da Ana pra sexta" is a move). */
+const SERVICE_NOUN = "(?:servicos?|procedimentos?|tratamentos?)";
+const SERVICE_CHANGE_PATTERNS = [
+  new RegExp(`\\b(?:alter|mud|troc|substitu|modific|edit|corrig|ajust)\\w*\\s+(?:[^\\s,.;!?]+\\s+){0,3}?${SERVICE_NOUN}\\b`, "g"),
+  new RegExp(`\\boutr[oa]s?\\s+${SERVICE_NOUN}\\b`, "g"),
+  /\b(?:alter|mud|troc|substitu|modific|corrig|ajust)\w*\s+(?:o\s+)?que\s+(?:\S+\s+){0,3}?(?:vai|ia|iria)\s+fazer\b/g,
+  /\b(?:vai|quer|prefere|resolveu|decidiu)\s+(?:\S+\s+)?fazer\s+outra\s+coisa\b/g,
+  new RegExp(`\\b${SERVICE_NOUN}\\s+(?:[^\\s,.;!?]+\\s+){0,2}?(?:esta\\s+|ta\\s+|ficou\\s+|foi\\s+)?(?:errad[oa]s?|trocad[oa]s?)\\b`, "g"),
+];
 export function serviceChangeRequested(text: string | undefined) {
   if (!text) return false;
   const folded = text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ");
-  return /\b(?:alter\w*|mud\w*|troc\w*|substitu\w*)\s+(?:(?:o|os|a|as)\s+)?servicos?\b/.test(folded) || /\boutros? servicos?\b/.test(folded);
+  return SERVICE_CHANGE_PATTERNS.some(pattern => [...folded.matchAll(pattern)].some(match => {
+    const before = folded.slice(0, match.index).split(/[,.;!?]/).at(-1)!.trim().split(" ").slice(-2);
+    return !before.some(word => ["nao", "n", "nem", "sem", "nunca", "jamais"].includes(word));
+  }));
 }
 /** The question for a service alteration whose new service was not said (no "não consegui confirmar": nothing was said to confirm). */
 export const openServiceChangeQuestion = (customer: string | undefined) =>

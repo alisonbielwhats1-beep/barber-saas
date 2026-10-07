@@ -73,6 +73,7 @@ vi.mock("../reschedule-proposals", async original => ({ ...await original<object
     return db.accounts.includes(a.customer_ref) && !same ? { requiresAcceptance: true, proposalId: "rp-1" } : { requiresAcceptance: false };
   },
 }));
+import { serviceChangeRequested } from "../secretary-alteration";
 import { applySchedulingInterpretation, schedulingState, selectScheduling, type SchedulingState } from "../secretary-scheduling";
 import { confirmAppointmentCreate } from "../scheduling-actions";
 import { withTenant } from "../prisma-tenant";
@@ -273,6 +274,17 @@ describe("services: replace, add, remove (backlog 0b)", () => {
     await confirm(c);
     expect(db.executed).toEqual([expect.objectContaining({ professionalId: "p-jonas", serviceIds: ["s-barba", "s-pezinho"], startLocal: "2026-10-01T14:00" })]);
   });
+  it.each([
+    "Altere o serviço da Adriana Melo.", "muda o serviço da Ana", "troca o procedimento da Bia", "quero trocar o tratamento da Carla", "modifica o serviço do João",
+    "corrige o serviço da Rosa", "ajusta o serviço do Fábio", "edita o serviço da Amanda", "troca a Ana de serviço", "muda só o serviço da Luana",
+    "a Luana vai fazer outro serviço", "coloca outro procedimento pra Bia", "muda o que a Ana vai fazer", "troca o que ela ia fazer",
+    "a Ana vai fazer outra coisa", "a cliente resolveu fazer outra coisa", "o serviço da Ana está errado", "lançaram o serviço errado da Bia", "serviço trocado na Carla",
+  ])("asks the new service: %j", text => { expect(serviceChangeRequested(text)).toBe(true); });
+  it.each([
+    "muda o horário da Ana para sexta", "remarca a Bia para amanhã", "muda o atendimento da Ana pra sexta", "não muda o serviço, só o horário da Ana",
+    "remarca a Ana sem trocar o serviço", "nem mexe no serviço, só passa pra sexta", "muda a Ana pra sexta, mesmo serviço", "mantém o serviço e muda o dia",
+    "muda o dia, o serviço continua", "a Ana vai fazer corte", "cancela o serviço da Ana",
+  ])("never asks a service for a move or another request: %j", text => { expect(serviceChangeRequested(text)).toBe(false); });
   it("owner 07/10: 'Altere o serviço da Luana.' with no service named asks which service (slot kept), never a new day and clock", async () => {
     const c = fresh();
     const codes = await turn(c, { customer_name: "Luana" }, "Altere o serviço da Luana.");

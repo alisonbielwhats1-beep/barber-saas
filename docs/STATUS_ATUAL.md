@@ -23,7 +23,9 @@ as sextas de outubro, oito e meia da manhã").
 - **Dois casos do dono (07/10, sem flag nova; valem em Produção ao mesclar):**
   - "Altere o serviço da Adriana Melo." pedia dia e horário (virava remarcação). Agora, quando as palavras pedem troca de serviço
     sem dizer qual, a Secretária pergunta "Qual serviço Adriana Melo vai fazer no lugar?" e mantém o horário; o cartão diz
-    "Alterar agendamento". Demo: "barba" → ALTERAR AGENDAMENTO, Corte Completo → Barba, mesmo horário.
+    "Alterar agendamento". Demo: "barba" → ALTERAR AGENDAMENTO, Corte Completo → Barba, mesmo horário. Frases aceitas (lista fechada,
+    `serviceChangeRequested`): alterar/mudar/trocar/substituir/modificar/editar/corrigir/ajustar + serviço/procedimento/tratamento,
+    "outro serviço", "muda o que ela vai fazer", "vai fazer outra coisa", "serviço errado"; nunca com negação ("não muda o serviço").
   - "Verifica a agenda da Beatriz Costa para essa semana." recusava a data. Agora "essa/esta semana" (hoje a domingo) e "semana que
     vem/próxima semana" (segunda a domingo) leem o intervalo, por dia, só pendentes e confirmados, do profissional, cliente ou salão
     (`weekRead`/`listSchedulingAppointmentsRange`). Demo: semana do Ricardo e próxima semana do João corretas.
