@@ -11,6 +11,8 @@ telemetria de códigos (sem nomes nem texto).
 | `SALON_SECRETARY_TRANSCRIBE_ENABLED` | desligada | Microfone grava áudio e usa a transcrição GPT em vez do reconhecimento do navegador |
 | `SALON_SECRETARY_CUSTOMER_OVERLAP_GUARD` | desligada | C7: marcação nova que se sobrepõe a um horário do mesmo cliente vira pergunta (seção 5) |
 | `SALON_SECRETARY_NAME_ALIASES` | desligada | D1: um nome que o dono ensinou com um clique vira proposta para confirmar (`SECRETARY_PERSISTED_STATE_AND_ALIASES.md`) |
+| `SALON_SECRETARY_SERVICE_ABBREVIATIONS` | desligada | 07/10: serviço cadastrado abreviado ("Combo Masc: …") achado pelo nome dito por extenso ("combo masculino"), e pela categoria de mesmo nome (seção 6) |
+| `SALON_SECRETARY_SERVICE_PICK_GUARD` | desligada | 07/10: a secretária só escolhe um serviço sozinha quando não há outra leitura no cadastro do salão (seção 7) |
 
 ## 1. Sugestões de nomes (`SALON_SECRETARY_NAME_SUGGESTIONS=true`)
 
@@ -253,3 +255,56 @@ mudar o existente, peça para remarcar.`
   (`planReleasedAppointments`).
 - Com `SALON_SECRETARY_CUSTOMER_OVERLAP_GUARD=true` (desligada por padrão), um horário do mesmo cliente que se sobrepõe
   ao novo vira pergunta de horário, sem proposta.
+
+## 6. Serviço abreviado no cadastro (`SALON_SECRETARY_SERVICE_ABBREVIATIONS=true`, 07/10/2026)
+
+Caso real: no Studio Martinelli os combos se chamam `Combo Masc: Corte + barba + hidratação` (categoria
+`Combo Masculino`). "combo masc" achava; "combo masculino" respondia "Não encontrei esse serviço neste salão", porque a busca
+procura a frase inteira dentro do nome e nunca olha a categoria.
+
+Com a flag, **só quando a busca de sempre não achou nada** (`listSchedulingServices` em `src/lib/scheduling-catalog.ts`):
+
+- As palavras ditas precisam aparecer **em sequência e na mesma ordem** no nome (maiúsculas, acentos, pontuação, artigo inicial
+  e "de/da/do" à parte). Duas palavras são a mesma quando são iguais ou quando uma começa a outra e a menor tem 3+ letras:
+  abreviação ("masc" = "masculino", "hidrat" = "hidratação", "progr" = "progressiva") ou plural ("unhas" = "unha").
+- Entram também os serviços cuja **categoria** tem exatamente as palavras ditas (mesma regra): "combo masculino" traz os
+  "Combo Masc: …" e o "Corte Masculino + Sobrancelha na Navalha", que está na categoria Combo Masculino.
+- Nenhuma palavra vira outra ("design e henna" continua sem achar "Design com henna"; "pé mão" sem achar "Pé e mão"); 2 letras
+  não abreviam nada ("pe" não é "pedicure"); ordem trocada não acha.
+- O resultado segue as regras de sempre: vários (até 20) viram card para o dono escolher; mais de 20 pedem um nome mais
+  específico; um só é escolhido e o nome cadastrado completo aparece no resumo antes de Confirmar.
+
+Vale para qualquer salão sem lista fixa de abreviações. Não muda o prompt, o banco nem as sugestões de nomes parecidos.
+Fora daqui: o caminho do agente C5 (`agentPreloadSubjects`) ainda não usa essa regra.
+
+## 7. Regra para escolher um serviço sozinha (`SALON_SECRETARY_SERVICE_PICK_GUARD=true`, 07/10/2026)
+
+Objetivo: reduzir a chance de erro em qualquer salão, sem depender do nome ou do tipo de serviço. A regra só usa o cadastro do
+próprio salão; nenhuma lista de sinônimos ou de segmento.
+
+**A secretária só escolhe um serviço sem perguntar quando:**
+
+1. o que foi dito é o nome inteiro do serviço (acento, maiúscula, pontuação e "de/da/do" à parte), **ou**
+2. as palavras ditas estão no nome **e** incluem a primeira palavra do nome (o que o serviço é: "Corte", "Escova", "Spa"),
+   **e** nenhum outro serviço ativo do salão tem todas essas palavras (mesma palavra ou o plural, em qualquer ordem).
+
+**Em qualquer outro caso, pergunta:**
+
+- outro serviço também tem as palavras ditas → lista com todos ("corte masculino" mostra "Corte Masculino + Sobrancelha na
+  Navalha" e "Corte de cabelo masculino");
+- o dono disse só um detalhe do serviço ("mão" em "Spa das mãos", "henna" em "Designer de sobrancelha com henna") → não escolhe;
+  as sugestões mostram a opção para um clique;
+- pelo som, só escolhe sozinha quando o nome **inteiro** soa igual; parte do nome vira opção para clicar.
+
+Vale em todos os lugares que buscam serviço (marcar, alterar, lote, lista de serviços), porque fica dentro de
+`listSchedulingServices` (`src/lib/scheduling-catalog.ts`) e da escolha pelo som (`src/lib/secretary-scheduling.ts`).
+
+Medição (`src/lib/__tests__/service-name-bank.test.ts`, flags da demo + abreviação): escolhas erradas sozinha 2 → **0**;
+achou 86% → 86%; 17 frases que eram escolhidas direto passam a pedir um clique (a maioria estava certa: é o preço da regra). O
+resumo com o nome completo antes do Confirmar continua sendo a última trava. O teste falha se a trava voltar a escolher errado
+sozinha ou perder um acerto.
+
+O banco tem 227 frases em 10 cardápios lidos em Production em 07/10 (só nomes e categorias). O repositório é público: no Git
+ficam só os 7 cardápios cujos nomes já estão no código (seeds, modelos de segmento) e um inventado (168 frases); os outros 3
+ficam em `src/lib/__tests__/fixtures/service-name-bank.local.ts`, ignorado pelo Git, e entram na medição quando o arquivo existe.
+`SERVICE_BANK_REPORT=<arquivo.md>` grava o relatório.
