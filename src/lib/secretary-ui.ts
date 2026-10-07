@@ -72,9 +72,17 @@ const alters = (operation: string | undefined, fields: unknown) => {
   const f = (fields ?? {}) as Record<string, unknown>;
   return operation === 'appointment.change' && (f.target_professional_name != null || f.target_professional_ref != null || f.service_changes != null);
 };
+/** The action's heading: "Alterar agendamento" for a change of who attends or of services (said, held by the adapter, or the service
+ * still being asked: owner 07/10, "Altere o serviço da Adriana" showed "Mudar horário"), else the operation's label. */
+export function actionHeading(action: PlanAction, root?: SecretaryView) {
+  const scheduling = root ? viewForAction(root, action)?.state?.scheduling : undefined;
+  const altering = alters(action.operation, action.fields) || action.operation === 'appointment.change' && !!scheduling &&
+    (alters(action.operation, scheduling.fields) || scheduling.waiting_for === 'service_changes' || scheduling.waiting_for === 'target_professional_name');
+  return altering ? 'Alterar agendamento' : operationLabels[action.operation] ?? 'Ação';
+}
 export function actionTitle(action: PlanAction, root?: SecretaryView) {
   const subject = actionSubject(action, root);
-  return `${alters(action.operation, action.fields) ? 'Alterar agendamento' : operationLabels[action.operation] ?? 'Ação'}${subject ? ` — ${subject}` : ''}`;
+  return `${actionHeading(action, root)}${subject ? ` — ${subject}` : ''}`;
 }
 /** B7 timeline: one read-only line per action of a plan ("Mudar horário — Fábio Santos: aguardando confirmação"). */
 export function planSummary(plan: { actions: readonly PlanAction[] }, root?: SecretaryView) {

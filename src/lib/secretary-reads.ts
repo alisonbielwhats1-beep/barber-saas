@@ -1,7 +1,8 @@
 import { readsV2Enabled } from "@everflair/salon-secretary";
 import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
-import { getSchedulingAvailability, listSchedulingProfessionals, listUpcomingCustomerAppointments, summarizeSchedulingAppointments } from "./scheduling-catalog";
+import { getSchedulingAvailability, listSchedulingAppointmentsRange, listSchedulingProfessionals, listUpcomingCustomerAppointments, summarizeSchedulingAppointments } from "./scheduling-catalog";
+import { addCalendarDays, weekdayOfDateKey } from "./time";
 import { formatClock, formatDay, formatLocal } from "./secretary-datetime-format";
 
 /** P3b (flag SALON_SECRETARY_READS_V2, default off): the frequent read-only answers (packages/salon-secretary/src/reads-v2.ts).
@@ -85,4 +86,31 @@ export function availabilityAcrossMessage(rows: readonly AcrossRow[], filter: { 
   return [...(at ? [at] : []), `Horários livres para ${filter.service} em ${scope}:`,
     ...listed.map(row => `${row.professional.name}: ${row.slots.map(slot => formatClock(slot.startLocal.slice(11, 16))).join(", ")}${row.more ? " e há mais" : ""}`),
     ...(none.length ? [`Sem horário livre ${filter.time ? `a partir das ${formatClock(filter.time)}` : filter.period ? "nesse período" : "nesse dia"}: ${join(none)}.`] : []), "A consulta não reserva o horário."].join("\n");
+}
+
+/** Owner 07/10 ("verifica a agenda da Beatriz Costa para essa semana" was refused: a read held one day only): a week the owner's words
+ * name for a read. "essa/esta/nesta/desta semana" or "da semana" is from today to Sunday; "semana que vem", "próxima semana" or "semana
+ * seguinte" is next Monday to Sunday. Never with a weekday or a day written ("sexta dessa semana" is that Friday), nor "fim de semana". */
+export type WeekRead = { from: string; to: string; label: string };
+export function weekRead(text: string | undefined, today: string): WeekRead | undefined {
+  if (!text) return undefined;
+  const folded = text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ");
+  if (/\b(?:fim|final|fins|finais) de semana\b/.test(folded) || /\b(?:domingo|segunda|terca|quarta|quinta|sexta|sabado|hoje|amanha)\b|\bdia \d|\d{1,2}\/\d{1,2}/.test(folded)) return undefined;
+  const weekday = weekdayOfDateKey(today), sunday = addCalendarDays(today, (7 - weekday) % 7);
+  if (/\bsemana que vem\b|\b(?:a |na |da |para a |pra )?proxima semana\b|\bsemana seguinte\b/.test(folded))
+    return { from: addCalendarDays(sunday, 1), to: addCalendarDays(sunday, 7), label: "na semana que vem" };
+  if (/\b(?:essa|esta|nessa|nesta|dessa|desta) semana\b|\b(?:agenda|horarios|agendamentos|atendimentos) da semana\b/.test(folded))
+    return { from: today, to: sunday, label: "nesta semana" };
+  return undefined;
+}
+type RangeRow = Awaited<ReturnType<typeof listSchedulingAppointmentsRange>>[number];
+/** The week read said by day: "Agenda de Beatriz Costa nesta semana (qua, 07/10 a dom, 11/10):", then each day with its rows
+ * ("10h — Amanda Souza (Escova) com Tatiana Rocha · pendente"); a bounded read says that more exist. */
+export function weekReadMessage(week: WeekRead, who: string | undefined, rows: readonly RangeRow[], more: boolean) {
+  const span = `${week.label} (${formatDay(week.from)} a ${formatDay(week.to)})`;
+  if (!rows.length) return `${who ? `${who} não tem agendamentos` : "Nenhum agendamento"} ${span}.`;
+  const days = [...new Set(rows.map(row => row.start_local.slice(0, 10)))];
+  const line = (row: RangeRow) => `${formatClock(row.start_local.slice(11, 16))} — ${row.customer_name} (${row.services.map(s => s.serviceName).join(", ")}) com ${row.professional_name}${row.status === "PENDING" ? " · pendente" : ""}`;
+  return [`${who ? `Agenda de ${who}` : "Agenda"} ${span}:`, ...days.flatMap(day => [formatDay(day), ...rows.filter(row => row.start_local.startsWith(day)).map(line)]),
+    ...(more ? [`Há mais agendamentos ${week.label}; mostrei os ${rows.length} primeiros. Diga o dia ou o profissional para ver o resto.`] : [])].join("\n");
 }

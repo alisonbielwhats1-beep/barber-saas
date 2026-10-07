@@ -273,6 +273,19 @@ describe("services: replace, add, remove (backlog 0b)", () => {
     await confirm(c);
     expect(db.executed).toEqual([expect.objectContaining({ professionalId: "p-jonas", serviceIds: ["s-barba", "s-pezinho"], startLocal: "2026-10-01T14:00" })]);
   });
+  it("owner 07/10: 'Altere o serviço da Luana.' with no service named asks which service (slot kept), never a new day and clock", async () => {
+    const c = fresh();
+    const codes = await turn(c, { customer_name: "Luana" }, "Altere o serviço da Luana.");
+    expect(codes).toContain("ALTER_SERVICE_ASKED");
+    expect(c.waiting_for).toBe("service_changes");
+    expect(c.message).toBe("Qual serviço Luana vai fazer no lugar? Se for para acrescentar ou tirar um serviço, diga qual.");
+    expect(c.message).not.toMatch(/dia|horário/); expect(c.proposal).toBeUndefined();
+    await turn(c, { service_changes: [{ mode: "SET", service_name: "barba" }] }, "barba");
+    expect(c.proposal!.action_snapshot).toMatchObject({ startLocal: "2026-10-01T14:00", services: [expect.objectContaining({ id: "s-barba" })] });
+    // A plain move ("muda o horário") and a named service are untouched.
+    for (const message of ["Muda o horário da Luana.", "Altera a Luana para sexta"]) expect(await turn(fresh(), { customer_name: "Luana" }, message)).not.toContain("ALTER_SERVICE_ASKED");
+    noWrite();
+  });
   it("'ela vai fazer barba também' adds to the same appointment (never a second one); 'tira a barba' removes; an account customer accepts it", async () => {
     const c = fresh();
     await turn(c, { customer_name: "Luana", service_changes: [{ mode: "INCLUDE", service_name: "barba" }] }, "A Luana vai fazer barba também");

@@ -440,3 +440,15 @@ export async function selectAlteration(actor: ServiceActor, selection: NonNullab
 }
 /** Whether a change alters who attends or the services (flag on). */
 export const alteringChange = (operation: string | undefined, f: SchedulingFields) => operation === "appointment.change" && alterAppointmentEnabled() && schedulingAlteration(f);
+
+/** Owner 07/10 ("Altere o serviço da Adriana Melo." became "Para qual dia e horário…"): the owner's words ask for another service of an
+ * appointment ("altera/muda/troca/substitui o serviço", "outro serviço") without naming it. Read from the words only: the change is
+ * then asked as a service alteration (the slot kept), never as a move that needs a new day and clock. */
+export function serviceChangeRequested(text: string | undefined) {
+  if (!text) return false;
+  const folded = text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ");
+  return /\b(?:alter\w*|mud\w*|troc\w*|substitu\w*)\s+(?:(?:o|os|a|as)\s+)?servicos?\b/.test(folded) || /\boutros? servicos?\b/.test(folded);
+}
+/** The question for a service alteration whose new service was not said (no "não consegui confirmar": nothing was said to confirm). */
+export const openServiceChangeQuestion = (customer: string | undefined) =>
+  `Qual serviço ${customer ? `${customer} vai fazer` : "entra"} no lugar? Se for para acrescentar ou tirar um serviço, diga qual.`;

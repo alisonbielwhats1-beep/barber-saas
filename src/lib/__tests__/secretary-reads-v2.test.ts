@@ -8,7 +8,7 @@ type Row = { appointment_ref: string; customer_ref: string; customer_name: strin
   services: { serviceName: string }[]; start_local: string; end_local: string; start_at: string; end_at: string; status: string; timezone: string; revision: number; priceCents: number };
 const db = vi.hoisted(() => ({ tx: undefined as unknown as Tx, day: [] as Row[], upcoming: [] as Row[], slots: {} as Record<string, { plan?: string; alternatives: string[] }>,
   availability: [] as { input: Record<string, unknown>; limit?: number }[], upcomingCalls: [] as Record<string, unknown>[], dayCalls: [] as Record<string, unknown>[],
-  summaryCalls: [] as Record<string, unknown>[], extraPros: 0, proDay: undefined as { date: string; today: boolean } | undefined, proDayCalls: [] as Record<string, unknown>[] }));
+  summaryCalls: [] as Record<string, unknown>[], rangeCalls: [] as Record<string, unknown>[], extraPros: 0, proDay: undefined as { date: string; today: boolean } | undefined, proDayCalls: [] as Record<string, unknown>[] }));
 const at = (local: string) => new Date(`${local}:00-03:00`).toISOString();
 const row = (ref: string, customer: [string, string], pro: [string, string], start: string, service: [string, string], status = "CONFIRMED"): Row => ({ appointment_ref: ref,
   customer_ref: customer[0], customer_name: customer[1], professional_ref: pro[0], professional_name: pro[1], service_ref: service[0], services: [{ serviceName: service[1] }],
@@ -41,6 +41,11 @@ vi.mock("../scheduling-catalog", async importOriginal => ({ ...await importOrigi
     return db.day.filter(r => r.start_local.startsWith(input.date) && (!input.professional_ref || r.professional_ref === input.professional_ref) && (!input.customer_ref || r.customer_ref === input.customer_ref) &&
       (!input.time || r.start_local.slice(11) === input.time) && inPeriod(r.start_local, input.period)).slice(0, 51);
   },
+  listSchedulingAppointmentsRange: async (_tx: unknown, _actor: unknown, input: { from: string; to: string; professional_ref?: string; customer_ref?: string }) => {
+    db.rangeCalls.push(input);
+    return db.day.filter(r => r.start_local.slice(0, 10) >= input.from && r.start_local.slice(0, 10) <= input.to && ["PENDING", "CONFIRMED"].includes(r.status) &&
+      (!input.professional_ref || r.professional_ref === input.professional_ref) && (!input.customer_ref || r.customer_ref === input.customer_ref)).slice(0, 51);
+  },
   summarizeSchedulingAppointments: async (_tx: unknown, _actor: unknown, input: Record<string, unknown>) => {
     db.summaryCalls.push(input);
     const rows = db.day.filter(r => r.start_local.startsWith(input.date as string) && (!input.professional_ref || r.professional_ref === input.professional_ref) && inPeriod(r.start_local, input.period as string | undefined));
@@ -63,6 +68,7 @@ vi.mock("../scheduling-entity-mentions", async importOriginal => ({ ...await imp
 vi.mock("../scheduling-mutations", async importOriginal => ({ ...await importOriginal<object>(), authorizeSchedulingOperation: async () => "OWNER" }));
 import { applySchedulingInterpretation, schedulingState, selectScheduling, type SchedulingState } from "../secretary-scheduling";
 import { pickReadRow } from "../secretary-same-as";
+import { weekRead } from "../secretary-reads";
 import { deferredReadAssessment } from "../secretary-action-plan";
 import { schedulingRequiredFields } from "../scheduling-contract";
 import { getOperationRequirements } from "../service-contract";
@@ -73,7 +79,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-29T15:00:00Z"));
   vi.stubEnv("SALON_SECRETARY_READS_V2", "true");
   journal.length = 0;
-  Object.assign(db, { day: [], upcoming: [], slots: {}, availability: [], upcomingCalls: [], dayCalls: [], summaryCalls: [], extraPros: 0, proDay: undefined, proDayCalls: [] });
+  Object.assign(db, { day: [], upcoming: [], slots: {}, availability: [], upcomingCalls: [], dayCalls: [], summaryCalls: [], rangeCalls: [], extraPros: 0, proDay: undefined, proDayCalls: [] });
   const filtered = (where: Record<string, unknown>) => journal.filter(r => Object.entries(where).every(([k, v]) => r[k] === v));
   db.tx = { $executeRaw: vi.fn(async () => 0), auditLog: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => { journal.push(structuredClone(data)); return data; }),
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => filtered(where)), findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => filtered(where)[0] ?? null) } } as unknown as Tx;
@@ -513,5 +519,40 @@ describe("D2 over a partial read (review): an ordinal from the end is not comput
     expect(pickReadRow(rows.slice(0, 1), "ela", new Date(), false)).toMatchObject({ kind: "CARD" });
     expect(pickReadRow(rows, "o último", new Date())).toMatchObject({ kind: "ROW", row: { appointment_ref: "u2" } });
     expect(pickReadRow(rows.slice(0, 1), "ela", new Date())).toMatchObject({ kind: "ROW" });
+  });
+});
+
+describe("owner 07/10: a week read ('verifica a agenda da Nara para essa semana')", () => {
+  const YUKI: [string, string] = ["c-yuki", "Yuki Sato"];
+  it("the week the words name (pure): this week to Sunday, next week Monday to Sunday; a weekday or a weekend is not a week", () => {
+    expect(weekRead("verifica a agenda da Beatriz Costa para essa semana", "2026-09-29")).toEqual({ from: "2026-09-29", to: "2026-10-04", label: "nesta semana" });
+    expect(weekRead("como está a agenda da semana que vem?", "2026-09-29")).toEqual({ from: "2026-10-05", to: "2026-10-11", label: "na semana que vem" });
+    expect(weekRead("e na próxima semana?", "2026-10-04")).toEqual({ from: "2026-10-05", to: "2026-10-11", label: "na semana que vem" });
+    for (const text of ["agenda da Nara na sexta dessa semana", "agenda do fim de semana", "agenda de amanhã", "agenda do dia 2 desta semana", "toda semana"]) expect(weekRead(text, "2026-09-29"), text).toBeUndefined();
+  });
+  it("a professional's week, by day, PENDING/CONFIRMED, even when the model's single-day reading of 'essa semana' is refused", async () => {
+    db.day = [row("w1", YUKI, PROS.nara, "2026-09-30T10:00", ["s-gel", SERVICES["s-gel"]]), row("w2", MARIA, PROS.nara, "2026-10-02T15:30", ["s-corte", SERVICES["s-corte"]], "PENDING"),
+      row("w3", HIROSHI, PROS.nara, "2026-10-01T09:00", ["s-gel", SERVICES["s-gel"]], "CANCELLED"), row("w4", MARIA, PROS.caio, "2026-09-30T11:00", ["s-corte", SERVICES["s-corte"]]),
+      row("w5", HIROSHI, PROS.nara, "2026-10-06T09:00", ["s-gel", SERVICES["s-gel"]])];
+    const state = await ask({ operation: "appointment.list", professional_name: "Nara", weekday: 1, temporal_evidence: [{ field: "date", text: "essa semana" }] }, "Verifica a agenda da Nara para essa semana.");
+    expect(lastCodes).toContain("READ_WEEK");
+    expect(db.rangeCalls).toEqual([{ from: "2026-09-29", to: "2026-10-04", professional_ref: "pro-nara" }]);
+    expect(state.message.split("\n")).toEqual(["Agenda de Nara nesta semana (ter, 29/09 a dom, 04/10):", "qua, 30/09", "10h — Yuki Sato (Esmaltação em gel) com Nara Quintela",
+      "sex, 02/10", "15h30 — Maria Eduarda Lopes (Corte masculino) com Nara Quintela · pendente"]);
+    expect(state.waiting_for).toBeUndefined(); nothingWritten(state);
+  });
+  it("a customer's week and the whole salon's next week; an empty week is said plainly", async () => {
+    db.day = [row("m1", MARIA, PROS.caio, "2026-10-01T10:00", ["s-corte", SERVICES["s-corte"]]), row("m2", HIROSHI, PROS.lia, "2026-10-06T14:00", ["s-gel", SERVICES["s-gel"]])];
+    const maria = await ask({ operation: "appointment.list", customer_name: "Maria Eduarda" }, "como está a semana da Maria Eduarda nesta semana?");
+    expect(maria.message).toBe("Agenda de Maria Eduarda Lopes nesta semana (ter, 29/09 a dom, 04/10):\nqui, 01/10\n10h — Maria Eduarda Lopes (Corte masculino) com Caio Brito");
+    const salon = await ask({ operation: "appointment.list" }, "me mostra a agenda da semana que vem");
+    expect(salon.message).toBe("Agenda na semana que vem (seg, 05/10 a dom, 11/10):\nter, 06/10\n14h — Hiroshi Tanaka (Esmaltação em gel) com Lia Moraes");
+    const none = await ask({ operation: "appointment.list", professional_name: "Jonas" }, "agenda do Jonas essa semana");
+    expect(none.message).toBe("Jonas não tem agendamentos nesta semana (ter, 29/09 a dom, 04/10).");
+  });
+  it("adversarial: a day said ('sexta dessa semana') is that day's read, never the week", async () => {
+    db.day = [row("d1", MARIA, PROS.nara, "2026-10-02T10:00", ["s-corte", SERVICES["s-corte"]])];
+    await ask({ operation: "appointment.list", professional_name: "Nara", weekday: 5, temporal_evidence: [{ field: "date", text: "sexta" }] }, "agenda da Nara na sexta dessa semana");
+    expect(lastCodes).not.toContain("READ_WEEK"); expect(db.rangeCalls).toEqual([]);
   });
 });

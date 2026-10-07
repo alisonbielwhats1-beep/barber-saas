@@ -20,8 +20,15 @@ as sextas de outubro, oito e meia da manhã").
 - **Banco da demo:** o cluster antigo em `%TEMP%` estava incompleto (a limpeza do Windows apagou arquivos). Novo cluster em
   `D:\Projetos\pgdata\everflair-service-mvp-20261007\data` (fora da Temp), porta 55441; iniciar com
   `pg_ctl -D <pasta> -o "-p 55441 -h 127.0.0.1" -w start`.
-- **Falta:** a flag fora do contrato certificado, então Produção só depois de recertificar com ela. Os testes de integração
-  (banco) não rodaram.
+- **Dois casos do dono (07/10, sem flag nova; valem em Produção ao mesclar):**
+  - "Altere o serviço da Adriana Melo." pedia dia e horário (virava remarcação). Agora, quando as palavras pedem troca de serviço
+    sem dizer qual, a Secretária pergunta "Qual serviço Adriana Melo vai fazer no lugar?" e mantém o horário; o cartão diz
+    "Alterar agendamento". Demo: "barba" → ALTERAR AGENDAMENTO, Corte Completo → Barba, mesmo horário.
+  - "Verifica a agenda da Beatriz Costa para essa semana." recusava a data. Agora "essa/esta semana" (hoje a domingo) e "semana que
+    vem/próxima semana" (segunda a domingo) leem o intervalo, por dia, só pendentes e confirmados, do profissional, cliente ou salão
+    (`weekRead`/`listSchedulingAppointmentsRange`). Demo: semana do Ricardo e próxima semana do João corretas.
+- **Falta:** a flag da série fora do contrato certificado, então ela só liga em Produção depois de recertificar. Os testes de
+  integração (banco) não rodaram.
 
 ## 2026-10-05 — Secretária: trava de serviço repetido, janela de decisão e manhã/noite na remarcação
 

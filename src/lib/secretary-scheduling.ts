@@ -21,7 +21,7 @@ import { EXCLUDED_VALUE, excludedClocks, polarityCodes } from "./scheduling-temp
 import { schedulingNegativeContext, withTemporalTurnDrafts } from './secretary-temporal-turn';
 import { clarificationContext } from "./secretary-clarification";
 import { secretaryFastPath } from "./secretary-fast-path";
-import { getSchedulingAppointment, getSchedulingAvailability, listSchedulingAppointments, listSchedulingProfessionals, listSchedulingServices, listUpcomingCustomerAppointments, professionalReadDay, schedulingSelfProfessional, schedulingTimezone, summarizeSchedulingAppointments, timed, type SchedulingMetrics } from "./scheduling-catalog";
+import { getSchedulingAppointment, getSchedulingAvailability, listSchedulingAppointments, listSchedulingAppointmentsRange, listSchedulingProfessionals, listSchedulingServices, listUpcomingCustomerAppointments, professionalReadDay, schedulingSelfProfessional, schedulingTimezone, summarizeSchedulingAppointments, timed, type SchedulingMetrics } from "./scheduling-catalog";
 import { dateKeyInTimeZone, isDateKey, localDateTimeToUtc, toLocalDateTime, weekdayOfDateKey } from "./time";
 import { upsertSchedulingDraft, proposeAppointmentCreate, proposeSchedulingAction, schedulingSnapshot, confirmAppointmentCreate, type SchedulingForgetField } from "./scheduling-actions";
 import { authorizeSchedulingOperation, isSchedulingMutation, locateSchedulingAppointments, inspectSchedulingMove, schedulingActionSnapshot } from "./scheduling-mutations";
@@ -35,13 +35,13 @@ import { temporalValueRoles, type SchedulingTemporalEvidence } from "@everflair/
 import { confirmQuestion, detailQuestion, nameSuggestionsEnabled, recordNameCheck, recordNameResolution, salonDirectoryNames, suggestedRows, suggestionQuestion, suggestSalonCustomers, suggestSchedulingProfessionals, suggestSchedulingServices, type Suggested } from "./entity-suggestions";
 import { ALIAS_REJECT_REF, aliasCard, aliasKey, aliasKindOf, aliasQuestion, aliasUsed, candidateSetHash, forgetAlias, learnAlias, nameAliasesEnabled, proposeAlias, type AliasRef } from "./secretary-name-aliases";
 import { requiredFieldHeld, schedulingRequiredFields, schedulingServiceRefs } from "./scheduling-contract";
-import { alterationAskQuestion, alterationMissingLabels, alteringChange, groundAlteration, resolveAlteration, selectAlteration, type AlterationField } from "./secretary-alteration";
+import { alterationAskQuestion, alterationMissingLabels, alteringChange, groundAlteration, openServiceChangeQuestion, resolveAlteration, selectAlteration, serviceChangeRequested, type AlterationField } from "./secretary-alteration";
 import { groundServiceList, listAnswer, resolveServiceList, selectServiceList, serviceListLabel, serviceListMissingLabels, unansweredServiceCard, isServiceListField, notPerformingAll, nobodyPerformsAll, singleServiceCombo } from "./secretary-multi-service";
 import { temporalFieldLabels } from "./scheduling-field-labels";
 import { secretaryCopyV2Enabled } from "./secretary-error-copy";
 import { alterAppointmentEnabled } from "../../packages/salon-secretary/src/alter-appointment";
 import { isFirstPersonReference } from "./secretary-first-person";
-import { readsV2Enabled, upcomingAppointments, upcomingMessage, daySummaryMessage, summaryOptions, availabilityAcross, availabilityAcrossMessage, periodLabel, ACROSS_MAX, SLOT_LIMIT, DAY_LIST_LIMIT } from "./secretary-reads";
+import { readsV2Enabled, upcomingAppointments, upcomingMessage, daySummaryMessage, summaryOptions, availabilityAcross, availabilityAcrossMessage, periodLabel, weekRead, weekReadMessage, ACROSS_MAX, SLOT_LIMIT, DAY_LIST_LIMIT, type WeekRead } from "./secretary-reads";
 import { recurrenceFromTurn, recurrenceNotice, recurrencePending, recurrenceQuestion, statedRecurrence, FIRST_ONLY_REF, RECURRENCE_CARD, type RecurrenceState } from "./secretary-recurrence";
 import { seriesDates, seriesEnabled, seriesEnd, seriesStartSaid, seriesEndQuestion, seriesFirstDay, seriesQuestion, seriesRule, seriesUntil, SERIES_MAX, SERIES_REF, SERIES_UNTIL_PREFIX } from "./secretary-series";
 import { blockOverlapChosen, blockOverlapGuardEnabled, blockOverlapQuestion, blockOverlapSelection, BLOCK_OVERLAP_CARD, type BlockOverlapChoice } from "./secretary-block-guard";
@@ -103,7 +103,7 @@ export type AlterSwap={professional:{ref:string;name?:string};target:{ref:string
 export type SchedulingState={combo_chosen?:string[];block_whole_day?:boolean;
   /** 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): the schedule exception the owner was asked about ("quer … mesmo assim?"),
    * bound to that slot and its causes; a consent only counts for this hash and before it expires. */
-  exception_pending?:{operation:"appointment.create"|"appointment.change";hash:string;causes:string[];expires_at:string};block_overlap?:BlockOverlapChoice;recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
+  exception_pending?:{operation:"appointment.create"|"appointment.change";hash:string;causes:string[];expires_at:string};block_overlap?:BlockOverlapChoice;recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";service_change_open?:true;read_week?:WeekRead;origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
   draft?:Awaited<ReturnType<typeof upsertSchedulingDraft>>;proposal?:Awaited<ReturnType<typeof proposeAppointmentCreate>>;receipt?:Awaited<ReturnType<typeof confirmAppointmentCreate>>;
   candidates?:{kind:"customer_ref"|"service_ref"|"professional_ref"|"appointment_ref"|"target_professional_ref"|"service_changes_ref"|"service_list_ref"|"service_combo_ref"|typeof RECURRENCE_CARD|typeof BLOCK_OVERLAP_CARD;items:{id:string;name:string}[];source?:"suggest"|"confirm"|"alias";alias_basis?:string};unproven_names?:("customer_name"|"professional_name"|"target_professional_name")[];
   alias_declined?:{kind:AliasRef;key:string}[];
@@ -386,6 +386,12 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   }
   // B1 (flag): the past reading dropped from this action's day is said before Confirmar and in a "not found".
   let pastLine=dateRulesV2Enabled()?(c.past_readings??[]).filter(item=>f[item.field]===item.date).map(item=>`“${item.expression}” é ${formatDay(item.date)} (${formatDay(item.dropped)} já passou).`).join(" "):"";
+  // Owner 07/10: a week the owner's words name for a read is its range (read below), not a single day to confirm: the model's day
+  // reading of "essa semana" (refused or a calendar conflict) never turns into "Para qual dia?".
+  if(c.read_week&&(op==="appointment.list"||op==="appointment.read")&&!held("date")){
+    f.date=c.read_week.from;rejectedTemporal.splice(0,rejectedTemporal.length,...rejectedTemporal.filter(r=>r.field!=="date"));
+    c.pending_calendar_conflicts=(c.pending_calendar_conflicts??c.draft?.pending_calendar_conflicts??[]).filter(item=>item.field!=="date");
+  }
   const calendarConflicts=c.pending_calendar_conflicts??c.draft?.pending_calendar_conflicts??[];
   if(sourceMissing.length){
     c.draft=await withTenant(actor,tx=>upsertSchedulingDraft(tx,actor,{operation:op,fields:f,...forget,pending_calendar_conflicts:calendarConflicts,pending_temporal_ambiguities:c.pending_temporal_ambiguities??c.draft?.pending_temporal_ambiguities??[],source_missing:sourceMissing,rejected_source:rejectedSource,rejected_temporal:rejectedTemporal,...(c.draft?{draft_ref:c.draft.draft_ref,expected_revision:c.draft.draft_revision}:{})}));
@@ -449,7 +455,8 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   // V2: a reference it could not settle alone is a card of the real options (a read's rows, several services), never a pick.
   if(!notice&&refs?.card&&!f[refs.card.kind]){notice=refs.card.kind==="service_ref"?"Qual serviço? Selecione uma opção real.":"Qual agendamento? Selecione uma opção real.";
     c.candidates={kind:refs.card.kind,items:refs.card.items.map(item=>({...item}))};}
-  if(!notice&&askAlteration){notice=alterationAskQuestion(askAlteration);c.waiting_for=askAlteration;}
+  if(!notice&&askAlteration){notice=c.service_change_open&&askAlteration==="service_changes"?openServiceChangeQuestion(shown("customer_name","customer_ref")):alterationAskQuestion(askAlteration);c.waiting_for=askAlteration;}
+  delete c.service_change_open;
   if(!notice&&askList){notice=askList.notice;c.waiting_for=askList.waiting_for;}
   const createOrAvailability=op==="appointment.create"||op==="availability.get";
   // Independent reads use separate tenant transactions. Final domain checks still share the confirmation transaction.
@@ -788,6 +795,14 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   const registered=(role:"customer_name"|"professional_name"|"service_name",ref:"customer_ref"|"professional_ref"|"service_ref")=>f[ref]?c.resolved_names?.[f[ref]!]??c.selected_names?.[role]??f[role]:undefined;
   // C32 (flag): ONE customer and no day said: that customer's next PENDING/CONFIRMED appointments, with the professional/service
   // said as filters (a small limit, and "há mais" when there are more). Without a customer the day is still asked.
+  // Owner 07/10: the week read (its range, PENDING/CONFIRMED only), by day, for the professional, customer or service said, or the salon.
+  if(c.read_week&&f.date===c.read_week.from){
+    const week=c.read_week,filter={...(f.customer_ref?{customer_ref:f.customer_ref}:{}),...(f.professional_ref?{professional_ref:f.professional_ref}:{}),...(f.service_ref?{service_ref:f.service_ref}:{})};
+    const rows=await timed(c.metrics,"appointments",()=>withTenant(actor,tx=>listSchedulingAppointmentsRange(tx,actor,{from:week.from,to:week.to,...filter})));
+    c.appointments=rows.slice(0,DAY_LIST_LIMIT);if(rows.length>DAY_LIST_LIMIT)c.read_partial="SUMMARY";codes.push("READ_WEEK");
+    const who=registered("professional_name","professional_ref")??registered("customer_name","customer_ref");
+    c.message=weekReadMessage(week,who,c.appointments,rows.length>DAY_LIST_LIMIT);return;
+  }
   if(readsV2&&!f.date){
     if(!f.customer_ref){c.waiting_for="date";c.message=`Informe ${schedulingMissingLabels.date}.`;return;}
     const next=await timed(c.metrics,"appointments",()=>upcomingAppointments(actor,f.customer_ref!,{professional_ref:f.professional_ref,service_ref:f.service_ref}));
@@ -928,6 +943,11 @@ async function applySchedulingInterpretationMutable(actor:ServiceActor,c:Schedul
     if(end){c.recurrence={...c.recurrence!,end};delete c.recurrence.until;}
     if(seriesStartSaid(sourceMessage))c.recurrence={...c.recurrence!,start_said:true};
   }
+  // Owner 07/10: a read naming a week ("essa semana", "semana que vem") reads its range; another day said this turn replaces it.
+  if((operation==="appointment.list"||operation==="appointment.read")&&readsV2Enabled()&&sourceMessage!==undefined){
+    const timezone=await withTenant(actor,tx=>schedulingTimezone(tx,actor)),week=weekRead(sourceMessage,dateKeyInTimeZone(new Date(),timezone));
+    if(week)c.read_week=week;else if(raw.date!=null||raw.day_offset!=null||raw.weekday!=null||temporal_evidence?.some(entry=>entry.field==="date"))delete c.read_week;
+  }
   // A3 (flag): the origin roles a chosen appointment filled, as they stand before this turn.
   const derived=originFromRef(c);
   // P2b (flag): the owner's service list, proven service by service (the backend never splits the owner's words itself). While
@@ -973,6 +993,10 @@ async function applySchedulingInterpretationMutable(actor:ServiceActor,c:Schedul
   }
   // P2a (flag): the NEW professional and the service delta, proven against the owner's words (never locators).
   const alteration=await groundAlteration(actor,c,operation,{target_professional_name,service_changes},sourceMessage,options.names??sourceMessage,raw.customer_name??c.fields.customer_name,codes);
+  // Owner 07/10: "altere o serviço da Adriana" with no service named is a service alteration still to be said (asked, slot kept), never a
+  // move asking a new day and clock.
+  if(operation==="appointment.change"&&alterAppointmentEnabled()&&!alteration.ask&&!service_changes?.length&&!c.fields.service_changes?.length&&!target_professional_name&&
+    !c.fields.target_professional_name&&serviceChangeRequested(sourceMessage)){alteration.ask="service_changes";c.service_change_open=true;codes.push("ALTER_SERVICE_ASKED");}
   if(alteration.unproven!==undefined){const set=new Set(c.unproven_names);if(alteration.unproven)set.add("target_professional_name");else set.delete("target_professional_name");c.unproven_names=set.size?[...set]:undefined;}
   // Review A: the answer to an open service card of the delta is a pick of that card (rechecked like a click), never a new delta.
   if(alteration.answer?.pick)await selectAlteration(actor,c.candidates!,c,alteration.answer.pick).catch(error=>{if(!(error instanceof Error&&error.message==="SELECTION_INVALID"))throw error;alteration.answer={unanswered:true};});
