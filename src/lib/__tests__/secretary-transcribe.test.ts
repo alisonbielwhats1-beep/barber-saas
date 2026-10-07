@@ -172,6 +172,37 @@ describe("phase 3a review: the billed length is bounded by the file, and the pro
   });
 });
 
+describe("open to owners and failed calls (validation review 07/10/2026)", () => {
+  it("open to owners: the voice follows the Secretária's admission, no salon list and no program cap", async () => {
+    const pilot = { VERCEL_ENV: "production", SALON_SECRETARY_ENABLED: "true", SALON_SECRETARY_PRODUCTION_PILOT: "true" };
+    const open = env({ ...pilot, SALON_SECRETARY_OPEN_TO_OWNERS: "true", SALON_SECRETARY_TRANSCRIBE_SALONS: "", SALON_SECRETARY_TRANSCRIBE_BUDGET_USD: "" });
+    expect(transcribeConfig(open).salons).toBe("ALL");
+    // Open: the monthly wallet always applies (default US$ 5), never a silent zero.
+    expect(transcribeConfig(open).budgetMicroUsd).toBe(5_000_000);
+    // Outside the Production pilot the flag opens nothing: the list is still required.
+    expect(() => transcribeConfig(env({ SALON_SECRETARY_OPEN_TO_OWNERS: "true", SALON_SECRETARY_TRANSCRIBE_SALONS: "" }))).toThrow("TRANSCRIBE_CONFIGURATION_REQUIRED");
+    const { tx } = walletTx([]);
+    expect(await reserveTranscriptionBudget(tx as never, { salonId: "qualquer-salao", userId: "dona" }, { worstCaseMicroUsd: WORST, budgetMicroUsd: 2 * WORST,
+      model: "gpt-4o-mini-transcribe", bytes: 1, salons: "ALL" }, new Date("2027-06-14T12:00:00Z"))).toEqual({ spentMicroUsd: WORST, reservationId: expect.any(String) });
+  });
+  it("a provider error releases the reservation (settled at zero) and still fails", async () => {
+    const settle = vi.fn(async () => undefined), fetchFn = vi.fn(async () => new Response(JSON.stringify({ error: { code: "rate_limit" } }), { status: 429 }));
+    await expect(transcribeSecretaryAudio({ audio: audio(), seconds: 6, directory, env: env(), fetchFn, reserve: free(), settle })).rejects.toThrow("TRANSCRIBE_FAILED");
+    expect(settle).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ actualMicroUsd: 0, seconds: 6, failed: true }));
+  });
+  it("a timeout or a dropped connection is settled at its declared length (it may have been billed), never kept at the worst case", async () => {
+    const settle = vi.fn(async () => undefined), fetchFn = vi.fn(async () => { throw new DOMException("The operation was aborted due to timeout", "TimeoutError"); });
+    await expect(transcribeSecretaryAudio({ audio: audio(), seconds: 6, directory, env: env(), fetchFn, reserve: free(), settle })).rejects.toThrow("timeout");
+    // 6 s at the mini model's ceiling (US$ 0,02 per minute) = 2 000 micro-USD.
+    expect(settle).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ actualMicroUsd: 2_000, failed: true }));
+  });
+  it("an answer that cannot be read was billed: settled at its declared length", async () => {
+    const settle = vi.fn(async () => undefined), fetchFn = vi.fn(async () => new Response("not json", { status: 200 }));
+    await expect(transcribeSecretaryAudio({ audio: audio(), seconds: 3, directory, env: env(), fetchFn, reserve: free(), settle })).rejects.toThrow("TRANSCRIBE_FAILED");
+    expect(settle).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ actualMicroUsd: 1_000, failed: true }));
+  });
+});
+
 describe("evaluation composition: program real-spend ledger, source 'transcribe' (sealed estimator 'transcriptions')", () => {
   const evaluationFetch = (network: typeof fetch, ledger: string) => guardPaidFetch("transcribe", network, { ledger, run: "transcribe:evaluation", item: "recording", estimator: transcriptionsEstimator });
   it("runtime bounds and the sealed estimator agree", () => {

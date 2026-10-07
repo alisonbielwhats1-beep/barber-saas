@@ -216,9 +216,12 @@ export async function transcribeSecretaryVoice(form: FormData): Promise<Transcri
         // Owner 06/10: a recording takes its real cost from the credit, sent or not; without reported usage, its length at the
         // full transcription rate (US$ 0,006 per minute = 100 micro-USD per second), never the worst-case reservation. Charged
         // first and on its own, so a failing audit row never skips it; a failed charge never loses the text.
-        try { await chargeRecording(actor, { recordingKey: settlement.reservationId ?? randomUUID(),
-          microUsd: settlement.actualMicroUsd ?? Math.ceil(Math.max(settlement.seconds, 1) * 100) }); }
-        catch { console.error("SECRETARY_CREDIT_DEBIT_FAILED"); }
+        // Owner 07/10: a recording that gave no text is never charged to the customer (its cost still counts in the caps).
+        if (!settlement.failed) {
+          try { await chargeRecording(actor, { recordingKey: settlement.reservationId ?? randomUUID(),
+            microUsd: settlement.actualMicroUsd ?? Math.ceil(Math.max(settlement.seconds, 1) * 100) }); }
+          catch { console.error("SECRETARY_CREDIT_DEBIT_FAILED"); }
+        }
         await withTenant(actor, tx => transcription.settleTranscriptionUsage(tx, actor, settlement));
       }) }))) };
   } catch (error) {
@@ -233,6 +236,8 @@ export async function transcribeSecretaryVoice(form: FormData): Promise<Transcri
       TRANSCRIBE_SALON_NOT_ENABLED: "A voz da Secretária ainda não foi liberada para este salão. Você pode digitar.",
       SECRETARY_CREDITS_EMPTY: "O crédito da Secretária acabou. O dono pode recarregar em Plano e assinatura.",
     };
+    // Validation review 07/10/2026: the caps and the access refusal read as in the chat, never as a generic transcription failure.
+    if (!messages[code] && ["SECRETARY_DAILY_BUDGET", "SECRETARY_MONTHLY_BUDGET", "SECRETARY_NOT_AVAILABLE"].includes(code)) messages[code] = secretaryErrorMessage(code).text;
     return { ok: false, code, error: messages[code] ?? "Não foi possível transcrever. Seu texto foi preservado; você pode digitar." };
   } finally {
     const audio = form.get("audio"), pipeline = timing.pipeline_ms;

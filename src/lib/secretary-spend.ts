@@ -36,19 +36,15 @@ const record = (value: unknown) => (value && typeof value === "object" && !Array
 
 /** OpenRouter's platform fee on the credit it sells (about 5,5%): part of the real cost of a call it reports. */
 export const OPENROUTER_FEE_MULTIPLIER = 1.055;
-/** A reported cost below this share of the table price is not trusted (the table price is used instead). */
-export const REPORTED_COST_FLOOR_SHARE = 0.2;
 /** Owner 06/10/2026: the real cost of one finished model call, in micro-USD. The provider-reported cost (OpenRouter `usage.cost`)
  * plus the platform fee when the call carries one; otherwise (OpenAI, or no report) the price from its recorded tokens at the
- * registry's rates (the model that answered, else the requested one, else the dearest registered rates). A reported cost far
- * below the token price is never trusted. */
+ * registry's rates (the model that answered, else the requested one, else the dearest registered rates). Owner 07/10/2026:
+ * always the real cost when one is reported (no floor at a share of the table, which charged cached calls up to ~5,6x their
+ * real cost); a missing or zero report falls back to the table, so a call is never charged as free. */
 export function callMicroUsd(metadata: unknown) {
-  const tabled = tableMicroUsd(metadata), reported = record(metadata).cost_micro_usd;
-  if (typeof reported === "number" && Number.isFinite(reported) && reported >= 0) {
-    const real = reported * OPENROUTER_FEE_MULTIPLIER;
-    if (real >= tabled * REPORTED_COST_FLOOR_SHARE) return real;
-  }
-  return tabled;
+  const reported = record(metadata).cost_micro_usd;
+  if (typeof reported === "number" && Number.isFinite(reported) && reported > 0) return reported * OPENROUTER_FEE_MULTIPLIER;
+  return tableMicroUsd(metadata);
 }
 /** The price of a call from its recorded tokens at the registry's (highest provider) rates. */
 export function tableMicroUsd(metadata: unknown) {
