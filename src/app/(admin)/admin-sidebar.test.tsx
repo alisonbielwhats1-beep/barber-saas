@@ -10,26 +10,42 @@ vi.mock("@/components/brand", () => ({
 vi.mock("./theme-toggle", () => ({ ThemeToggle: () => <button type="button">Tema</button> }));
 vi.mock("./salon-switcher", () => ({ SalonSwitcher: () => <div>Salão</div> }));
 vi.mock("./command-palette", () => ({ OpenCommandPaletteButton: () => <button type="button">Buscar</button> }));
-vi.mock("./sidebar-footer", () => ({ SidebarFooter: () => <div>Perfil</div> }));
+vi.mock("./sidebar-footer", () => ({ SidebarFooter: ({ compact }: { compact: boolean }) => <div data-testid="footer">{String(compact)}</div> }));
 vi.mock("./sidebar-nav", () => ({
-  SidebarNav: ({ collapsed }: { collapsed: boolean }) => <div data-testid="main-navigation">{String(collapsed)}</div>,
-  DesktopContextNav: () => <div data-testid="context-navigation" />,
+  SidebarNav: () => <nav aria-label="Navegação principal" />,
 }));
 
 import { AdminSidebar } from "./admin-sidebar";
 
 afterEach(cleanup);
 
+function renderSidebar() {
+  render(<AdminSidebar current={{ id: "salon-1", name: "Studio", role: "OWNER" }} memberships={[]} role="OWNER" plan="Pro" unreadNotifications={0} isPlatformAdmin={false} />);
+  return screen.getByRole("complementary", { name: "Menu do estabelecimento" });
+}
+
 describe("AdminSidebar", () => {
   it("entra recolhida e permite expansão explícita", () => {
-    render(<AdminSidebar current={{ id: "salon-1", name: "Studio", role: "OWNER" }} memberships={[]} role="OWNER" plan="Pro" unreadNotifications={0} isPlatformAdmin={false} />);
-
-    expect(screen.getByLabelText("Menu do estabelecimento")).toHaveAttribute("data-collapsed", "true");
-    expect(screen.getByTestId("main-navigation")).toHaveTextContent("true");
-    expect(screen.getByRole("button", { name: "Expandir menu" })).toBeInTheDocument();
+    const sidebar = renderSidebar();
+    expect(sidebar).toHaveAttribute("data-collapsed", "true");
+    expect(sidebar).toHaveAttribute("data-variant", "floating");
+    expect(screen.getByTestId("footer")).toHaveTextContent("true");
 
     fireEvent.click(screen.getByRole("button", { name: "Expandir menu" }));
-    expect(screen.getByLabelText("Menu do estabelecimento")).toHaveAttribute("data-collapsed", "false");
-    expect(screen.getByRole("button", { name: "Recolher menu" })).toBeInTheDocument();
+    expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    expect(screen.getByTestId("footer")).toHaveTextContent("false");
+    expect(screen.getByRole("button", { name: "Recolher menu" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("alterna com Ctrl+B, exceto enquanto se digita", () => {
+    const sidebar = renderSidebar();
+    fireEvent.keyDown(window, { key: "b", ctrlKey: true });
+    expect(sidebar).toHaveAttribute("data-collapsed", "false");
+
+    const input = document.createElement("input");
+    document.body.append(input);
+    fireEvent.keyDown(input, { key: "b", ctrlKey: true });
+    expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    input.remove();
   });
 });

@@ -21,7 +21,7 @@ import { EXCLUDED_VALUE, excludedClocks, polarityCodes } from "./scheduling-temp
 import { schedulingNegativeContext, withTemporalTurnDrafts } from './secretary-temporal-turn';
 import { clarificationContext } from "./secretary-clarification";
 import { secretaryFastPath } from "./secretary-fast-path";
-import { getSchedulingAppointment, getSchedulingAvailability, listSchedulingAppointments, listSchedulingAppointmentsRange, listSchedulingProfessionals, listSchedulingServices, listUpcomingCustomerAppointments, professionalReadDay, schedulingSelfProfessional, schedulingTimezone, summarizeSchedulingAppointments, timed, type SchedulingMetrics } from "./scheduling-catalog";
+import { getSchedulingAppointment, getSchedulingAvailability, listSchedulingAppointments, listSchedulingAppointmentsRange, listSchedulingProfessionals, listSchedulingServices, listUpcomingCustomerAppointments, professionalReadDay, servicePickGuardEnabled, schedulingSelfProfessional, schedulingTimezone, summarizeSchedulingAppointments, timed, type SchedulingMetrics } from "./scheduling-catalog";
 import { dateKeyInTimeZone, isDateKey, localDateTimeToUtc, toLocalDateTime, weekdayOfDateKey } from "./time";
 import { upsertSchedulingDraft, proposeAppointmentCreate, proposeSchedulingAction, schedulingSnapshot, confirmAppointmentCreate, type SchedulingForgetField } from "./scheduling-actions";
 import { authorizeSchedulingOperation, isSchedulingMutation, locateSchedulingAppointments, inspectSchedulingMove, schedulingActionSnapshot } from "./scheduling-mutations";
@@ -493,7 +493,10 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
         recordNameResolution(entity,found.status==="SUGGEST"?"SUGGEST":found.status==="NONE"?"NO_MATCH":"DETAIL",suggestedRows(found).length);
         // Owner 05/10 (flag SALON_SECRETARY_PHONETIC_NAMES): the one suggestion that sounds exactly like the name said (Walter → Valter
         // Souza, Isabella → Isabela Mattos) is taken; its full name is on the card before Confirmar. Never for a name the model wrote unlike the message.
-        const sound=found.status==="SUGGEST"&&phoneticNamesEnabled()&&!(kind==="customer_ref"&&unproven.has("customer_name"))?found.rows.filter(r=>samePhoneticName(query,r.name)):[];
+        // Owner 07/10 (flag SALON_SECRETARY_SERVICE_PICK_GUARD): a service is taken by its sound only when the WHOLE name sounds the
+        // same ("platinado" never takes "Descoloração global ou platinado masculino" alone): the card asks.
+        const whole=kind==="service_ref"&&servicePickGuardEnabled();
+        const sound=found.status==="SUGGEST"&&phoneticNamesEnabled()&&!(kind==="customer_ref"&&unproven.has("customer_name"))?found.rows.filter(r=>samePhoneticName(query,r.name)&&(!whole||samePhoneticName(r.name,query))):[];
         if(sound.length===1){f[kind]=sound[0].id;c.resolved_names={...c.resolved_names,[sound[0].id]:sound[0].name};codes.push("NAME_SOUND_MATCH");continue;}
         if(found.status==="SUGGEST"){notice=suggestionQuestion(query,found.rows.map(labelOf));c.candidates={kind,source:"suggest",items:found.rows.map(r=>({id:r.id,name:labelOf(r)})),...basis([])};continue;}
         if(found.status!=="NONE"){notice=detailQuestion(query,label);continue;}

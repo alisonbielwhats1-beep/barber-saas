@@ -1,5 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
+import { MotionGlobalConfig } from "motion/react";
+
+// Animações do motion terminam na hora: testes verificam estado, não tempo.
+MotionGlobalConfig.skipAnimations = true;
 vi.mock("server-only", () => ({}));
 
 if (typeof window !== "undefined" && !window.matchMedia) {

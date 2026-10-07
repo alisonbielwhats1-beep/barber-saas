@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Tx } from "../prisma-tenant";
-import { PROFESSIONAL_DAY_HORIZON, listSchedulingServices, professionalReadDay, serviceNameKey } from "../scheduling-catalog";
+import { PROFESSIONAL_DAY_HORIZON, listSchedulingServices, professionalReadDay, serviceNameKey, serviceWordsMatch } from "../scheduling-catalog";
 
 /** C4 round R-C, the tenant queries behind two owner decisions (offline fake transaction; Tuesday 29/09/2026 12h in São Paulo):
  * - rule 6: the day a read of ONE professional with no day said is about (scheduling-catalog professionalReadDay; flag
@@ -13,7 +13,7 @@ import { PROFESSIONAL_DAY_HORIZON, listSchedulingServices, professionalReadDay, 
 type Span = { startAt: Date; endAt: Date };
 const db = { access: "APPROVED", role: "OWNER", pro: true, left: null as null | { id: string }, anyHours: true,
   weekly: [] as { weekday: number; startMinutes: number; endMinutes: number }[], openings: [] as { dateKey: string; startMinutes: number; endMinutes: number }[],
-  closures: [] as Span[], offs: [] as Span[], services: [] as { id: string; name: string }[] };
+  closures: [] as Span[], offs: [] as Span[], services: [] as { id: string; name: string; category?: string | null }[] };
 let calls: Record<string, Record<string, unknown>[]> = {};
 const spy = <T,>(name: string, value: (args: Record<string, unknown>) => T) => vi.fn(async (args: Record<string, unknown>) => { (calls[name] ??= []).push(args); return value(args); });
 const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -37,7 +37,8 @@ const tx = () => ({
   service: { findMany: spy("services", args => {
     const where = args.where as { name?: { contains: string }; OR?: ({ name?: { contains: string }; id?: { in: string[] } })[] };
     const said = where.name ?? where.OR?.[0]?.name, ids = where.OR?.[1]?.id?.in ?? [];
-    return db.services.filter(row => !said || row.name.toLowerCase().includes(said.contains.toLowerCase()) || ids.includes(row.id)).map(row => service(row.id, row.name));
+    return db.services.filter(row => !said || row.name.toLowerCase().includes(said.contains.toLowerCase()) || ids.includes(row.id))
+      .map(row => ({ ...service(row.id, row.name), ...((args.select as Record<string, unknown>).category ? { category: row.category ?? null } : {}) }));
   }) },
 }) as unknown as Tx;
 const actor = { salonId: "salon-lume", userId: "user-lume" };
@@ -146,6 +147,90 @@ describe("a service said with or without 'de' (flag SALON_SECRETARY_MULTI_SERVIC
   it("flag off: the historical empty result (nothing else read)", async () => {
     vi.stubEnv("SALON_SECRETARY_MULTI_SERVICE", "false");
     expect(await listSchedulingServices(tx(), actor, "manutencao da fibra")).toEqual([]);
+    expect(calls.services).toHaveLength(1);
+  });
+});
+
+/** Owner 07/10 (flag SALON_SECRETARY_SERVICE_ABBREVIATIONS): the owner registers abbreviated ("Combo Masc: …") and says the
+ * whole word ("combo masculino"). Catalog shaped like a real studio's combos (scripts/seed-martinelli.ts). */
+describe("a service the catalog abbreviates (flag SALON_SECRETARY_SERVICE_ABBREVIATIONS)", () => {
+  const combos = [["svc-cb-hidr", "Combo Masc: Corte + barba + hidratação"], ["svc-cb-pent", "Combo Masc: Corte + barba + penteado"],
+    ["svc-cb-prog", "Combo Masc: Corte + progressiva + penteado"], ["svc-cb-botox", "Combo Masc. Corte + botox + barba"]] as const;
+  beforeEach(() => {
+    vi.stubEnv("SALON_SECRETARY_SERVICE_ABBREVIATIONS", "true");
+    db.services = [...combos.map(([id, name]) => ({ id, name, category: "Combo Masculino" })),
+      { id: "svc-cm-sobr", name: "Corte Masculino + Sobrancelha na Navalha", category: "Combo Masculino" },
+      { id: "svc-cf", name: "Combo Fem: Escova + hidratação", category: "Combo Feminino" },
+      { id: "svc-esc", name: "Escova Progr. curta", category: "Escova" }, { id: "svc-unha", name: "Unha gel", category: "Unhas" },
+      { id: "svc-pe", name: "Pé e mão", category: null }, { id: "svc-henna", name: "Design com henna", category: "Sobrancelha" },
+      { id: "svc-pedi", name: "Pedicure", category: null }];
+  });
+  const ids = async (said: string) => (await listSchedulingServices(tx(), actor, said)).map(row => row.id).sort();
+  it("the words of the name, a registered abbreviation counting as the whole word; the category of the same words joins them (a card)", async () => {
+    expect(await ids("combo masculino")).toEqual([...combos.map(([id]) => id), "svc-cm-sobr"].sort());
+    expect(await ids("combo masculino corte barba hidratação")).toEqual(["svc-cb-hidr"]);
+    expect(await ids("combo masculino corte progressiva")).toEqual(["svc-cb-prog"]);
+    expect(await ids("combo masculino corte botox")).toEqual(["svc-cb-botox"]);
+    expect(await ids("escova progressiva curta")).toEqual(["svc-esc"]);
+    expect(await ids("unhas gel")).toEqual(["svc-unha"]);
+  });
+  it("the rows keep the search projection and its bound (no category returned, at most 21)", async () => {
+    const [row] = await listSchedulingServices(tx(), actor, "combo masculino corte barba hidratacao");
+    expect(row).toEqual({ id: "svc-cb-hidr", name: "Combo Masc: Corte + barba + hidratação", durationMin: 60, priceCents: 9000, priceType: "FIXED" });
+    expect(calls.services.at(-1)!.where).toEqual({ salonId: "salon-lume", active: true });
+    db.services = Array.from({ length: 30 }, (_, i) => ({ id: `svc-${String(i).padStart(2, "0")}`, name: `Combo Masc: opção ${i}`, category: null }));
+    expect(await listSchedulingServices(tx(), actor, "combo masculino")).toHaveLength(21);
+  });
+  it("adversarial: never another word, another order, a 2-letter abbreviation or a word the name lacks", async () => {
+    expect(await ids("design e henna")).toEqual([]);
+    expect(await ids("pe mao")).toEqual([]);
+    expect(await ids("masculino combo")).toEqual([]);
+    expect(await ids("combo masculino escova")).toEqual([]);
+    expect(await ids("combo feminino escova")).toEqual(["svc-cf"]);
+    expect(serviceWordsMatch("pe", "Pedicure")).toBe(false);
+    expect(serviceWordsMatch("combo masculino", "Combo Masculino Premium", true)).toBe(false);
+  });
+  it("a search that finds something is the historical one (no second query)", async () => {
+    expect(await ids("combo masc")).toEqual(combos.map(([id]) => id).sort());
+    expect(calls.services).toHaveLength(1);
+  });
+  it("flag off: the historical empty result (nothing else read)", async () => {
+    vi.stubEnv("SALON_SECRETARY_SERVICE_ABBREVIATIONS", "false");
+    expect(await ids("combo masculino")).toEqual([]);
+    expect(calls.services).toHaveLength(1);
+  });
+});
+
+/** Owner 07/10 (flag SALON_SECRETARY_SERVICE_PICK_GUARD): one service found alone is taken only when it is the name said, or when
+ * the words said name what it is (its first word) and no other service holds them all; otherwise a card or the suggestions. */
+describe("one service found is taken alone only when nothing else reads the same (flag SALON_SECRETARY_SERVICE_PICK_GUARD)", () => {
+  beforeEach(() => {
+    vi.stubEnv("SALON_SECRETARY_SERVICE_PICK_GUARD", "true");
+    db.services = [{ id: "svc-combo", name: "Corte Masculino + Sobrancelha na Navalha" }, { id: "svc-corte", name: "Corte de cabelo masculino" },
+      { id: "svc-spa", name: "Spa das mãos" }, { id: "svc-mani", name: "Manicure" }, { id: "svc-luzes", name: "Luzes em cabelo masculino" },
+      { id: "svc-mao", name: "Mão simples" }];
+  });
+  const ids = async (said: string) => (await listSchedulingServices(tx(), actor, said)).map(row => row.id);
+  it("another service holding every word said joins the one found: a card, never the combo alone", async () => {
+    expect((await ids("corte masculino")).sort()).toEqual(["svc-combo", "svc-corte"]);
+    expect(calls.services.at(-1)!.where).toEqual({ salonId: "salon-lume", active: true });
+  });
+  it("a name said only by a detail of the service ('mão' in 'Spa das mãos') finds nothing here (the suggestions ask)", async () => {
+    db.services = db.services.filter(row => row.id !== "svc-mao");
+    expect(await ids("mão")).toEqual([]);
+  });
+  it("the whole name, or its first word with nothing else alike, is still taken alone (no extra click)", async () => {
+    expect(await ids("Manicure")).toEqual(["svc-mani"]);
+    expect(await ids("luzes")).toEqual(["svc-luzes"]);
+    expect(await ids("mão simples")).toEqual(["svc-mao"]);
+  });
+  it("several found: the historical rows, nothing else read", async () => {
+    expect((await ids("cabelo masculino")).sort()).toEqual(["svc-corte", "svc-luzes"]);
+    expect(calls.services).toHaveLength(1);
+  });
+  it("flag off: the one found is returned alone, as before", async () => {
+    vi.stubEnv("SALON_SECRETARY_SERVICE_PICK_GUARD", "false");
+    expect(await ids("corte masculino")).toEqual(["svc-combo"]);
     expect(calls.services).toHaveLength(1);
   });
 });

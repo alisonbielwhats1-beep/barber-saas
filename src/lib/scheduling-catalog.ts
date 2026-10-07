@@ -27,17 +27,62 @@ const ref=z.string().min(1).max(100);
 /** T03: shared real catalog, explicit minimal projection; no service mutation permission implied. */
 export async function listSchedulingServices(tx: Tx, actor: ServiceActor, input: unknown) {
   await assertSchedulingAccess(tx,actor);const q=query.parse(input);
+  const rows=await searchSchedulingServices(tx,actor,q);
+  return rows.length===1&&servicePickGuardEnabled()?guardSoleService(tx,actor,q,rows[0]):rows;
+}
+async function searchSchedulingServices(tx: Tx, actor: ServiceActor, q: string) {
   // Case- and accent-insensitive ("coloracao" finds "Coloração"); ambiguity still asks.
   const folded=foldedIds(await tx.$queryRaw`SELECT id FROM "Service" WHERE "salonId"=${actor.salonId} AND active AND lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(${foldedLikePattern(q)}, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\' ORDER BY name, id LIMIT 21`);
   const rows=await tx.service.findMany({where:{salonId:actor.salonId,active:true,...(folded.length?{OR:[{name:{contains:q,mode:"insensitive"}},{id:{in:folded}}]}:{name:{contains:q,mode:"insensitive"}})},
     select:serviceSelect,orderBy:[{name:"asc"},{id:"asc"}],take:21});
-  if(rows.length||!multiServiceEnabled())return rows;
+  const multi=multiServiceEnabled(),abbreviations=serviceAbbreviationsEnabled();
+  if(rows.length||(!multi&&!abbreviations))return rows;
+  const key=serviceNameKey(q);
+  if(!key)return [];
+  const all=abbreviations?await tx.service.findMany({where:{salonId:actor.salonId,active:true},select:{...serviceSelect,category:true},orderBy:[{name:"asc"},{id:"asc"}],take:1000}):
+    await tx.service.findMany({where:{salonId:actor.salonId,active:true},select:serviceSelect,orderBy:[{name:"asc"},{id:"asc"}],take:1000});
+  const bounded=(list:typeof all)=>list.slice(0,21).map(row=>({id:row.id,name:row.name,durationMin:row.durationMin,priceCents:row.priceCents,priceType:row.priceType}));
   // C4 (flag SALON_SECRETARY_MULTI_SERVICE): nothing holds the words as said: the services whose name is the same word for word
   // apart from "de" and its contractions (every such service; several still ask).
-  const key=serviceNameKey(q);
-  return key?(await tx.service.findMany({where:{salonId:actor.salonId,active:true},select:serviceSelect,orderBy:[{name:"asc"},{id:"asc"}],take:1000})).filter(row=>serviceNameKey(row.name)===key).slice(0,21):[];
+  const same=multi?all.filter(row=>serviceNameKey(row.name)===key):[];
+  if(same.length||!abbreviations)return bounded(same);
+  // Owner 07/10 (flag SALON_SECRETARY_SERVICE_ABBREVIATIONS): still nothing: the words said in a row of the name, a word the
+  // catalog abbreviates counting as said ("combo masculino" finds "Combo Masc: Corte + barba"), and the services of a category
+  // of the same words (Combo Masculino holds "Corte Masculino + Sobrancelha" too). Several still ask.
+  return bounded(all.filter(row=>serviceWordsMatch(q,row.name)||("category" in row&&typeof row.category==="string"&&serviceWordsMatch(q,row.category,true))));
 }
 const serviceSelect={id:true,name:true,durationMin:true,priceCents:true,priceType:true} as const;
+export const serviceAbbreviationsEnabled=(env: Record<string, string | undefined> = process.env)=>env.SALON_SECRETARY_SERVICE_ABBREVIATIONS==="true";
+export const servicePickGuardEnabled=(env: Record<string, string | undefined> = process.env)=>env.SALON_SECRETARY_SERVICE_PICK_GUARD==="true";
+/** Owner 07/10 (flag SALON_SECRETARY_SERVICE_PICK_GUARD): the one service a search found is taken alone only when it is the name
+ * said, or when the words said name what the service is (its first word) and no other service holds them all. Otherwise:
+ * - every other service holding all the words said (same word or its plural, any order) joins it in a card ("corte masculino"
+ *   found only "Corte Masculino + Sobrancelha na Navalha"; "Corte de cabelo masculino" is asked beside it);
+ * - a name said only by a detail of the service ("mão" in "Spa das mãos") finds nothing here: the suggestions ask. */
+async function guardSoleService(tx: Tx, actor: ServiceActor, q: string, row: Awaited<ReturnType<typeof searchSchedulingServices>>[number]) {
+  const key=serviceNameKey(q);
+  if(!key||serviceNameKey(row.name)===key)return [row];
+  const words=key.split(" ");
+  const all=await tx.service.findMany({where:{salonId:actor.salonId,active:true},select:serviceSelect,orderBy:[{name:"asc"},{id:"asc"}],take:1000});
+  const holds=(name:string)=>{const held=serviceNameKey(name).split(" ");return words.every(word=>held.some(other=>sameOrPlural(word,other)));};
+  const card=all.filter(other=>other.id===row.id||holds(other.name));
+  if(card.length>1)return card.slice(0,21);
+  const head=serviceNameKey(row.name).split(" ")[0];
+  return head&&words.some(word=>sameServiceWord(word,head))?[row]:[];
+}
+const sameOrPlural=(a:string,b:string)=>a===b||[`${a}s`,`${a}es`].includes(b)||[`${b}s`,`${b}es`].includes(a);
+/** Owner 07/10: one word said and one registered are the same word when equal, or when one starts the other and the shorter has
+ * 3+ letters: an abbreviation ("masc" for "masculino", "hidrat" for "hidratação", "progr" for "progressiva") or a plural ("unhas").
+ * Never another word ("e" is not "com"); 2 letters abbreviate nothing ("pe" is not "pedicure"). */
+const sameServiceWord=(said:string,held:string)=>said===held||(Math.min([...said].length,[...held].length)>=3&&(said.startsWith(held)||held.startsWith(said)));
+/** Owner 07/10: the words said, in order and in a row, inside the words of a name (the same words as serviceNameKey: case,
+ * accents, punctuation, a leading article and "de" aside), each one the same word as its registered one; `whole`: all of them. */
+export function serviceWordsMatch(said:string,name:string,whole=false){
+  const words=serviceNameKey(said).split(" ").filter(Boolean),held=serviceNameKey(name).split(" ").filter(Boolean);
+  if(!words.length||words.length>held.length||(whole&&words.length!==held.length))return false;
+  for(let start=0;start+words.length<=held.length;start++)if(words.every((word,i)=>sameServiceWord(word,held[start+i])))return true;
+  return false;
+}
 /** C4: a service name compared word by word, in order (case, accents and punctuation aside; a leading article is not part of
  * it), without the connective "de" and its contractions "da", "do", "das", "dos" ("manutenção da fibra" is "Manutenção de
  * fibra", "coloração de raiz" is "Coloração raiz"). No other word is dropped or equated ("e" included: "corte barba" is never
