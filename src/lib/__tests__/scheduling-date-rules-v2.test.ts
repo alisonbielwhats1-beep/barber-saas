@@ -324,3 +324,25 @@ describe("run-day matrix through the grounding: a mutation role never asks past-
     }
   });
 });
+
+describe("owner 07/10: a spoken month number and 'outra' with the week written", () => {
+  const WEDNESDAY_NIGHT = new Date("2026-10-07T04:40:00Z"); // Wednesday 07/10, 01h40 in São Paulo
+  const create = (message: string, evidence: SchedulingTemporalEvidence) => { rules(true); return ground(message, "appointment.create", evidence, { now: WEDNESDAY_NIGHT }); };
+  it("'dia 16 do 10' (and 'de 10', 'do mês 10') is 16/10, as '16/10' and '16 de outubro' already were", () => {
+    for (const text of ["dia 16 do 10", "dia 16 de 10", "dia 16 do mês 10"]) {
+      const run = create(`Marca o Edgar Lopes, sexta-feira, ${text}, às oito e meia, corte e barba.`, [c("date", `sexta-feira, ${text}`, dom(16, 10, null, 5)), c("time", "às oito e meia", clock(8, 30))]);
+      expect({ date: run.patch.date, time: run.patch.time, rejected: run.rejected }, text).toEqual({ date: "2026-10-16", time: "08:30", rejected: [] });
+    }
+  });
+  it("adversarial: a month number the quote does not write, a different one, or a number after 'do' that is no month stays refused", () => {
+    expect(create("Marca o Edgar dia 16 do 10 às 8h30", [c("date", "dia 16 do 10", dom(16, 11)), c("time", "às 8h30", clock(8, 30))]).patch.date).toBeUndefined();
+    expect(create("Marca o Edgar dia 16 às 8h30", [c("date", "dia 16", dom(16, 10)), c("time", "às 8h30", clock(8, 30))]).patch.date).toBeUndefined();
+    expect(create("Marca o Edgar dia 16 do 13 às 8h30", [c("date", "dia 16 do 13", dom(16, 10)), c("time", "às 8h30", clock(8, 30))]).patch.date).toBeUndefined();
+  });
+  it("'na outra sexta, na próxima semana' is next week's Friday; 'na outra sexta' alone is still a question", () => {
+    const next = (text: string) => [c("date", text, day({ kind: "WEEKDAY", weekday: 5, week: "NEXT_WEEK" }))];
+    expect(create("Na outra sexta, na próxima semana.", next("outra sexta, na próxima semana")).patch.date).toBe("2026-10-16");
+    expect(create("Na outra sexta.", next("outra sexta")).patch.date).toBeUndefined();
+    expect(create("Na outra sexta.", [c("date", "outra sexta", day({ kind: "WEEKDAY", weekday: 5, week: "AMBIGUOUS_NEXT" }))]).patch.date).toBeUndefined();
+  });
+});

@@ -331,8 +331,12 @@ function readBack(c:SchedulingState,f:SchedulingFields,op:string){
   const parts=[...(who?[`de ${who}`]:[]),...(day?[`em ${formatDay(day)}`]:[]),...(clock?[`às ${formatClock(clock)}`]:[])];
   return parts.length?parts.join(" "):undefined;
 }
-/** P3c (flag): said before a question about the first occurrence while a stated recurrence still owes the owner's yes. */
-const recurringLine=(c:SchedulingState,op:string)=>recurrencePending(c.recurrence,op)?`${recurrenceNotice(op,c.recurrence!.expression)} `:"";
+/** P3c (flag): said before a question about the first occurrence while a stated recurrence still owes the owner's yes. Once per
+ * statement: the following questions of the same action do not repeat it (the "só a primeira?" card still says it). */
+const recurringLine=(c:SchedulingState,op:string)=>{
+  if(!recurrencePending(c.recurrence,op)||c.recurrence!.noticed)return "";
+  c.recurrence={...c.recurrence!,noticed:true};return `${recurrenceNotice(op,c.recurrence.expression)} `;
+};
 /** `askAlteration` (P2a): an alteration part of this turn was not applied (negated or unproven): asked, nothing proposed.
  * `askList` (P2b): the service list of this turn was not applied, or named two professionals: asked, nothing proposed. */
 async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:TemporalRejection[]=[],rejectedSource:ReasonRejection[]=[],askService=false,excluded?:ReadonlySet<string>,codes:string[]=[],askAlteration?:AlterationField,

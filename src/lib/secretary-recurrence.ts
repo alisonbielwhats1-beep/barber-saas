@@ -79,8 +79,9 @@ export const recurrenceOperation = (operation: string | undefined) => (recurrenc
 /** The card kind and its one option (never an entity ref). */
 export const RECURRENCE_CARD = "recurrence_ref" as const;
 export const FIRST_ONLY_REF = "recurrence-first-only";
-/** `ASKED`: the owner stated a recurrence and has not said yes to one occurrence; `FIRST_ONLY`: they did (click or verified pick). */
-export type RecurrenceState = { expression: string; status: "ASKED" | "FIRST_ONLY" };
+/** `ASKED`: the owner stated a recurrence and has not said yes to one occurrence; `FIRST_ONLY`: they did (click or verified pick).
+ * `noticed`: the "Ainda não marco…" line was already said before a question of this statement (said once, not on every turn). */
+export type RecurrenceState = { expression: string; status: "ASKED" | "FIRST_ONLY"; noticed?: true };
 /** Interpretation step: this turn's own words for the action. A stated recurrence (re)opens the question, even after a yes. */
 export function recurrenceFromTurn(previous: RecurrenceState | undefined, operation: string | undefined, source: string | undefined,
   names: readonly (string | null | undefined)[] = []): { state?: RecurrenceState; stated: boolean } {
