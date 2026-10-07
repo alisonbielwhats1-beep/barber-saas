@@ -11,8 +11,17 @@ as sextas de outubro, oito e meia da manhã").
 - **Série recorrente** (decisão 51, flag `SALON_SECRETARY_RECURRING_SERIES`, padrão desligada): `secretary-series.ts` (leitura
   das palavras), `scheduling-actions.ts` (proposta com cada data e as puladas; gravação de todas no mesmo Confirmar com `seriesId`),
   cartões em `secretary-scheduling.ts`. Testes: `secretary-recurring-series.test.ts`, `scheduling-date-rules-v2.test.ts`.
-- **Falta:** teste no fluxo real (banco local + modelo); a flag fora do contrato certificado, então Produção só depois de
-  recertificar com ela. Os testes de integração (banco) não rodaram neste worktree.
+- **Demo local (07/10, banco descartável novo + DeepSeek real, flags certificadas + a da série):** "João Pereira todas as sextas
+  de outubro, nove e meia" → cartão com 09, 16, 23 e 30/10 → Confirmar → 4 marcações com o mesmo `seriesId`; "Fábio, sexta-feira,
+  dia 16 do 10, às dez e meia" marcado de primeira; "Carla toda sexta às 10h45" → "Até quando marco?" → "até o fim do mês"
+  (digitado) → "Ficam de fora: 16/10 (horário ocupado)" → "pode marcar as 3 datas" (digitado) → 3 marcações. A demo achou e
+  corrigiu: a leitura de data única do modelo apagava a primeira sexta calculada; e o aviso "Ainda não marco" vinha também da
+  camada de apresentação, que o repetia a cada turno (era o aviso repetido do vídeo).
+- **Banco da demo:** o cluster antigo em `%TEMP%` estava incompleto (a limpeza do Windows apagou arquivos). Novo cluster em
+  `D:\Projetos\pgdata\everflair-service-mvp-20261007\data` (fora da Temp), porta 55441; iniciar com
+  `pg_ctl -D <pasta> -o "-p 55441 -h 127.0.0.1" -w start`.
+- **Falta:** a flag fora do contrato certificado, então Produção só depois de recertificar com ela. Os testes de integração
+  (banco) não rodaram.
 
 ## 2026-10-05 — Secretária: trava de serviço repetido, janela de decisão e manhã/noite na remarcação
 

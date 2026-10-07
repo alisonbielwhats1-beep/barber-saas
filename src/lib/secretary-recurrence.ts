@@ -81,11 +81,12 @@ export const recurrenceOperation = (operation: string | undefined) => (recurrenc
 export const RECURRENCE_CARD = "recurrence_ref" as const;
 export const FIRST_ONLY_REF = "recurrence-first-only";
 /** `ASKED`: the owner stated a recurrence and has not said yes to one occurrence; `FIRST_ONLY`: they did (click or verified pick).
- * `noticed`: the "Ainda não marco…" line was already said before a question of this statement (said once, not on every turn). */
-export type RecurrenceState = { expression: string; status: "ASKED" | "FIRST_ONLY" | "SERIES"; noticed?: true;
+ * `noticed`: the "Ainda não marco…" line was already said before a question of this statement (said once, not on every turn);
+ * `noticed_rev`: the draft revision of the turn that said it (the plan's presentation says it on that turn only). */
+export type RecurrenceState = { expression: string; status: "ASKED" | "FIRST_ONLY" | "SERIES"; noticed?: true; noticed_rev?: number;
   /** Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): the end the owner's words gave the series, or the last day a card fixed;
    * `SERIES`: the owner picked the series (its dates are the draft's `series`). */
-  end?: SeriesEnd; until?: string };
+  end?: SeriesEnd; until?: string; start_said?: true };
 /** Interpretation step: this turn's own words for the action. A stated recurrence (re)opens the question, even after a yes. */
 export function recurrenceFromTurn(previous: RecurrenceState | undefined, operation: string | undefined, source: string | undefined,
   names: readonly (string | null | undefined)[] = []): { state?: RecurrenceState; stated: boolean } {

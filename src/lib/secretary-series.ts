@@ -128,3 +128,14 @@ export function seriesPreviewLines(series: { step_days: SeriesStep; occurrences:
   const dates = [first, ...series.occurrences.map(item => item.startLocal.slice(0, 10))];
   return `\nRepete: ${stepLabel(series.step_days)} · ${dates.length} datas: ${dates.map(short).join(", ")}${series.skipped.length ? `\nFicam de fora: ${seriesSkippedText(series.skipped)}` : ""}`;
 }
+/** Whether the owner's words name the series' start day themselves ("a partir do dia 16", "começando amanhã", "dia 16", "16/10",
+ * "16 de outubro", "hoje", "amanhã", "semana que vem", "próxima sexta"): then the first date is theirs (asked when missing), never derived.
+ * An end ("até dia 30", "até 30/10") is no start. */
+export function seriesStartSaid(text: string | undefined) {
+  if (!text) return false;
+  const folded = fold(text).replace(/\bate (?:o )?(?:dia )?\d{1,2}(?:\/\d{1,2}| de [a-z]+)?\b/g, " ");
+  return /\b(a partir|comec\w*|inici\w*|hoje|amanha|depois de amanha|semana que vem|proxim[ao]|dia \d{1,2}\b|\d{1,2}\/\d{1,2})/.test(folded) ||
+    new RegExp(`\b\d{1,2} de ${MONTH}\b`).test(folded);
+}
+/** Whether a stated recurrence of this operation is one the series books (the guard's "não marco" notice is then never said). */
+export const seriesSupports = (operation: string | undefined, expression: string) => operation === "appointment.create" && seriesEnabled() && !!seriesRule(expression);

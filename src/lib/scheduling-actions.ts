@@ -296,7 +296,7 @@ export function appointmentCreatePreview(s:Pick<z.infer<typeof snapshot>,"custom
   // Owner 07/10: a series names its dates (and those left out) after the first date's own lines; the price is per date.
   const series=s.series?seriesPreviewLines(s.series,s.startLocal.slice(0,10)):"";
   if(s.services)return `${appointmentListPreview({...s,services:s.services})}${series}`;
-  return `${s.series?"NOVOS AGENDAMENTOS (SÉRIE)":"NOVO AGENDAMENTO"}\nCliente: ${s.customer_name}\nServiço: ${s.service_name}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nPreço: ${s.priceType==="FROM"?"A partir de ":""}${(s.priceCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}${s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:""}${series}`;
+  return `${s.series?"NOVOS AGENDAMENTOS (SÉRIE)":"NOVO AGENDAMENTO"}\nCliente: ${s.customer_name}\nServiço: ${s.service_name}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\n${s.series?"Preço por data":"Preço"}: ${s.priceType==="FROM"?"A partir de ":""}${(s.priceCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}${s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:""}${series}`;
 }
 const brl=(cents:number)=>(cents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 /** P2b: a NEW booking with several services (one professional): every service with its own duration and price, then the

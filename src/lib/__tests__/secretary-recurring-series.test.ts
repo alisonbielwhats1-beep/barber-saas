@@ -109,7 +109,7 @@ describe("the series grammar (pure; the owner's words only)", () => {
   it("the proposal preview lists every date and those left out", () => {
     expect(appointmentCreatePreview({ customer_name: "Edgard Lopes", service_name: "Corte masculino", professional_name: "Nara Quintela", startLocal: "2026-10-09T08:30", endLocal: "2026-10-09T09:30",
       priceType: "FIXED", priceCents: 8000, series: { step_days: 7, until: "2026-10-31", occurrences: [{ startLocal: "2026-10-16T08:30", endLocal: "2026-10-16T09:30", quote: "q" }], skipped: [{ date: "2026-10-23", cause: "SALON_CLOSED" }] } }))
-      .toMatch(/^NOVOS AGENDAMENTOS \(SÉRIE\)\n[\s\S]*\nRepete: toda semana · 2 datas: 09\/10, 16\/10\nFicam de fora: 23\/10 \(salão fechado\)$/);
+      .toMatch(/^NOVOS AGENDAMENTOS \(SÉRIE\)\n[\s\S]*\nPreço por data: R\$\s80,00\nRepete: toda semana · 2 datas: 09\/10, 16\/10\nFicam de fora: 23\/10 \(salão fechado\)$/);
   });
 });
 
@@ -132,6 +132,22 @@ describe("the real scheduling adapter", () => {
     expect(c.fields.series).toEqual({ step_days: 7, until: "2026-10-31" });
     expect(c.proposal).toBeDefined(); expect(db.proposed).toBe(1);
     expect(db.snapshots.at(-1)).toMatchObject({ date: "2026-10-09", series: { step_days: 7, until: "2026-10-31" } });
+  });
+  it("demo 07/10: the model's refused single-date reading of the recurrence never drops the derived first Friday (card, pick, proposal)", async () => {
+    vi.stubEnv("SALON_SECRETARY_TEMPORAL_COMPONENTS", "true");
+    const c = schedulingState();
+    const said = { ...edgar, temporal_evidence: [{ field: "date" as const, text: "todas as sextas-feiras de outubro", component: { kind: "DAY_OF_MONTH", offset: null, weekday: 5, week: null, day: null, month: 10, year: null, days: null } },
+      { field: "time" as const, text: "oito e meia da manhã", component: { hour: 8, minute: 30, daypart: "MANHA" } }] };
+    await applySchedulingInterpretation(actor, c, said as Parameters<typeof applySchedulingInterpretation>[2], VIDEO);
+    expect(c.message).toMatch(/^Repetindo toda semana às 8h30, de sex, 09\/10 a sáb, 31\/10\./);
+    expect(c.fields.date).toBe("2026-10-09");
+    await selectScheduling(actor, c, SERIES_REF);
+    expect(c.fields).toMatchObject({ date: "2026-10-09", series: { step_days: 7, until: "2026-10-31" } }); expect(db.proposed).toBe(1);
+  });
+  it("a start day the owner says is never replaced by a derived one ('a partir do dia 16' read wrongly is asked)", async () => {
+    const c = schedulingState();
+    await applySchedulingInterpretation(actor, c, edgar, "marca o Edgar toda sexta a partir do dia 16, oito e meia da manhã, corte com a Nara");
+    expect(c.fields.date).toBeUndefined(); expect(c.message).not.toMatch(/^Repetindo/); expect(db.proposed).toBe(0);
   });
   it("no end said: 'até quando?' with shortcuts; the end picked shows the series card; 'só a primeira' still books one", async () => {
     const c = schedulingState();
