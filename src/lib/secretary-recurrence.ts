@@ -2,6 +2,7 @@ import { recurrenceGuardEnabled } from "../../packages/salon-secretary/src/recur
 import { formatDay, formatLocal, formatLocalRange } from "./secretary-datetime-format";
 import { unavailableCapabilityMessage } from "./secretary-capability-status";
 import { literalSpans } from "../../packages/salon-secretary/src/literal-match";
+import type { SeriesEnd } from "./secretary-series";
 
 /** P3c recurrence guard (flag SALON_SECRETARY_RECURRENCE_GUARD). The owner's own words for a create or a block (review B: and for a
  * change or a cancellation) are read for a stated recurrence, so the action is never prepared as one silent occurrence (it asks
@@ -81,7 +82,10 @@ export const RECURRENCE_CARD = "recurrence_ref" as const;
 export const FIRST_ONLY_REF = "recurrence-first-only";
 /** `ASKED`: the owner stated a recurrence and has not said yes to one occurrence; `FIRST_ONLY`: they did (click or verified pick).
  * `noticed`: the "Ainda não marco…" line was already said before a question of this statement (said once, not on every turn). */
-export type RecurrenceState = { expression: string; status: "ASKED" | "FIRST_ONLY"; noticed?: true };
+export type RecurrenceState = { expression: string; status: "ASKED" | "FIRST_ONLY" | "SERIES"; noticed?: true;
+  /** Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): the end the owner's words gave the series, or the last day a card fixed;
+   * `SERIES`: the owner picked the series (its dates are the draft's `series`). */
+  end?: SeriesEnd; until?: string };
 /** Interpretation step: this turn's own words for the action. A stated recurrence (re)opens the question, even after a yes. */
 export function recurrenceFromTurn(previous: RecurrenceState | undefined, operation: string | undefined, source: string | undefined,
   names: readonly (string | null | undefined)[] = []): { state?: RecurrenceState; stated: boolean } {

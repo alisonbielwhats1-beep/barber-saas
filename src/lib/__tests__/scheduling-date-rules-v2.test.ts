@@ -346,3 +346,19 @@ describe("owner 07/10: a spoken month number and 'outra' with the week written",
     expect(create("Na outra sexta.", [c("date", "outra sexta", day({ kind: "WEEKDAY", weekday: 5, week: "AMBIGUOUS_NEXT" }))]).patch.date).toBeUndefined();
   });
 });
+
+describe("owner 07/10: 'oito e meia da manhã' mid-sentence, and a month kept apart from the next clause", () => {
+  const NOON = new Date("2026-10-07T15:00:00Z");
+  const time = (message: string) => { rules(true); vi.stubEnv("SALON_SECRETARY_DAYPART_RULES_V2", "true");
+    return ground(message, "appointment.create", [c("time", "oito e meia da manhã", clock(8, 30, "MANHA"))], { now: NOON }); };
+  it("an hour with its part of the day and no 'às' is the clock, also right after a month and a comma", () => {
+    for (const message of ["Eu quero que você marque um horário para o Edgar Lopes todas as sextas-feiras de outubro, oito e meia da manhã, corte e sobrancelha na pinça.",
+      "marca o Edgar, oito e meia da manhã, corte", "marca o Edgar em outubro, oito e meia da manhã"])
+      expect({ time: time(message).patch.time, rejected: time(message).rejected }, message).toEqual({ time: "08:30", rejected: [] });
+  });
+  it("adversarial: a month and its day without a break are still a date ('8 de outubro', 'outubro 8')", () => {
+    rules(true);
+    for (const [message, text] of [["marca o Edgar dia 8 de outubro às 10h", "dia 8 de outubro"], ["marca o Edgar outubro 8 às 10h", "outubro 8"]])
+      expect(ground(message, "appointment.create", [c("date", text, dom(8, 10)), c("time", "às 10h", clock(10))], { now: NOON }).patch.date, message).toBe("2026-10-08");
+  });
+});

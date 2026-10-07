@@ -102,10 +102,12 @@ export function temporalFacts(text: string, fields: SchedulingFields, timezone: 
   const scalarText=maskTemporalSpans(text,components.map(part=>part.interval??part));
   // With the option, the minutes written after a unit clock are part of its atom (CLOCK_UNIT_MINUTES_CAPTURE: "10hs e meia", "10hs 30").
   for (const m of scalarText.matchAll(units ? new RegExp(`\\b(\\d{1,2})${CLOCK_UNIT_CAPTURE}${CLOCK_UNIT_MINUTES_CAPTURE}?\\b`, "g") : /\b(\d{1,2})(?:h(?:(\d{2}))?|:(\d{2}))\b/g)) { inspect(m.index!, "clock", m.index! + m[0].length); clocks.push(units ? unitClockValue(m[1], m[2], m[3], m[4], m[5]) : `${m[1].padStart(2, "0")}:${m[2] ?? m[3] ?? "00"}`); }
-  const clockPattern = new RegExp(`(?:\\b(?:as|pelas) |^\\s*)(${hourNumeral})(?:\\s*horas?)?(?: e (meia|${numeral})(?: minutos?)?)?\\b`, "g");
+  // Owner 07/10: mid-sentence, an hour with its part of the day and no lead ("…, oito e meia da manhã, …") is a clock too.
+  const clockPattern = new RegExp(`(?:\\b(?:as|pelas) |^\\s*|\\b(?=(?:${hourNumeral})(?:\\s*horas?)?(?: e (?:meia|${numeral})(?: minutos?)?)? d[ae] (?:manha|tarde|noite)\\b))(${hourNumeral})(?:\\s*horas?)?(?: e (meia|${numeral})(?: minutos?)?)?\\b`, "g");
   const wordClockText = scalarText.replace(units ? new RegExp(`\\b\\d{1,2}${CLOCK_UNIT_FORM}${CLOCK_UNIT_MINUTES_FORM}?\\b`, "g") : /\b\d{1,2}(?:h(?:\d{2})?|:\d{2})\b/g, match => " ".repeat(match.length));
   for (const m of wordClockText.matchAll(clockPattern)) {
-    if (!/\b(as|pelas)\b/.test(m[0]) && !/^[\s.!?,]*(?:(?:da|a) (?:manha|tarde|noite)[\s.!?,]*)?$/.test(wordClockText.slice(m.index! + m[0].length))) continue;
+    const rest = wordClockText.slice(m.index! + m[0].length);
+    if (!/\b(as|pelas)\b/.test(m[0]) && !/^[\s.!?,]*(?:(?:da|a) (?:manha|tarde|noite)[\s.!?,]*)?$/.test(rest) && !/^ d[ae] (?:manha|tarde|noite)\b/.test(rest)) continue;
     inspect(m.index!, "clock", m.index! + m[0].length);
     let hour = number(m[1]); const minute = m[2] === "meia" ? 30 : m[2] ? number(m[2]) : 0;
     // "dez e meia" must not be consumed as a compound number.

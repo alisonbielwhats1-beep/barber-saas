@@ -24,6 +24,7 @@ import { actionSnapshot, authorizeSchedulingOperation, executeSchedulingMutation
 import { applyTemporalRejections, reconcileSchedulingTemporal, temporalRejectionSchema, schedulingTemporalConflicts, assertSchedulingTemporalConsistency } from "./scheduling-temporal";
 
 import { reasonField, reasonRejection } from "./scheduling-literal-source";
+import { SERIES_MAX, seriesDates, seriesEnabled, seriesPreviewLines } from "./secretary-series";
 
 const journal=actionJournal("SECRETARY_SCHEDULING");
 /** `services` (P2b, flag SALON_SECRETARY_MULTI_SERVICE, only for 2+ services): every service of the ONE appointment in order,
@@ -32,14 +33,21 @@ const snapshotService=z.object({service_ref:z.string(),service_revision:z.string
 export const snapshot=z.object({customer_ref:z.string(),customer_name:z.string(),service_ref:z.string(),service_revision:z.string(),service_name:z.string(),professional_ref:z.string(),professional_name:z.string(),
   date:z.string(),startLocal:z.string(),endLocal:z.string(),timezone:z.string(),priceCents:z.number(),priceType:z.string(),durationMin:z.number(),quote:z.string(),overbook:z.object({reason:z.string().min(3).max(200),conflict_hash:z.string()}).strict().optional(),
   exception:z.object({causes:z.array(z.enum(SCHEDULE_EXCEPTION_CAUSES)).min(1),reason:z.string().min(3).max(200),reason_source:z.enum(["OWNER","DEFAULT"]),conflict_hash:z.string()}).strict().optional(),
-  services:z.array(snapshotService).min(2).max(10).optional()}).strict();
+  services:z.array(snapshotService).min(2).max(10).optional(),
+  /** Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): the series' other dates as the domain timed and priced each one now, and those
+   * left out with the domain's cause; the top-level slot is the first date. Never with an encaixe or an exception. */
+  series:z.object({step_days:z.union([z.literal(7),z.literal(14)]),until:z.string(),
+    occurrences:z.array(z.object({startLocal:z.string(),endLocal:z.string(),quote:z.string()}).strict()).max(SERIES_MAX-1),
+    skipped:z.array(z.object({date:z.string(),cause:z.string()}).strict()).max(SERIES_MAX-1)}).strict().optional()}).strict();
 /** The catalog services of a create snapshot, in order (one, or every service of a list). */
 export const snapshotServiceRefs=(s:Pick<z.infer<typeof snapshot>,"service_ref"|"services">)=>s.services?.map(item=>item.service_ref)??[s.service_ref];
 const draftSchema=z.object({draft_ref:z.string().uuid(),draft_revision:z.number().int().min(1).max(100),operation:schedulingOperation,
   fields:schedulingResolved,pending_temporal_ambiguities:pendingTemporalAmbiguities.optional(),pending_calendar_conflicts:pendingCalendarConflicts.optional(),source_missing:z.array(reasonField).optional(),temporal_missing:z.array(z.enum(["date","source_date","source_time","time","end_time","end_date"])).optional(),review:schedulingReviewSchema.optional(),snapshot:snapshot.optional(),action_snapshot:actionSnapshot.optional(),expires_at:z.string().datetime()}).strict();
 const proposalSchema=draftSchema.extend({proposal_ref:z.string().uuid(),payload_hash:z.string(),preview:z.string(),
   existing_bookings:z.array(z.object({appointment_ref:z.string(),start_local:z.string(),overlaps:z.boolean()}).strict()).max(6).optional()});
-const receiptSchema=z.object({proposal_ref:z.string().uuid(),draft_ref:z.string().uuid(),draft_revision:z.number(),appointment_ref:z.string().optional(),snapshot:snapshot.optional(),action_snapshot:actionSnapshot.optional(),block_ref:z.string().optional(),acceptance_ref:z.string().optional(),outcome:z.enum(["RESCHEDULED","PENDING_ACCEPTANCE","CANCELLED","BLOCKED"]).optional()}).strict();
+const receiptSchema=z.object({proposal_ref:z.string().uuid(),draft_ref:z.string().uuid(),draft_revision:z.number(),appointment_ref:z.string().optional(),snapshot:snapshot.optional(),action_snapshot:actionSnapshot.optional(),block_ref:z.string().optional(),acceptance_ref:z.string().optional(),outcome:z.enum(["RESCHEDULED","PENDING_ACCEPTANCE","CANCELLED","BLOCKED"]).optional(),
+  /** Owner 07/10: the series' other appointments, in date order (appointment_ref is the first). */
+  series_refs:z.array(z.string()).max(SERIES_MAX-1).optional()}).strict();
 const hash=(d:z.infer<typeof draftSchema>)=>createHash("sha256").update(JSON.stringify({operation:d.operation,fields:d.fields,snapshot:d.snapshot,action_snapshot:d.action_snapshot,temporal_missing:d.temporal_missing,source_missing:d.source_missing,pending_temporal_ambiguities:d.pending_temporal_ambiguities,pending_calendar_conflicts:d.pending_calendar_conflicts})).digest("hex");
 async function latest(tx:Tx,actor:ServiceActor,ref:string){
   const rows=await tx.auditLog.findMany({where:{...journal.scope(actor),entityId:ref,action:"DRAFT"},select:{metadata:true}});
@@ -63,6 +71,32 @@ export function conflictGrant(review:SchedulingReview|undefined,fields:{override
   return {overbook:{reason:fields.override_reason!.trim(),conflict_hash:createHash("sha256").update(JSON.stringify(review.conflicts)).digest("hex")}};
 }
 export async function schedulingSnapshot(tx:Tx,actor:ServiceActor,fields:z.infer<typeof schedulingResolved>,now=new Date(),projection?: {releasedAppointmentId:string}){
+  const first=await firstSnapshot(tx,actor,fields,now,projection);
+  return fields.series?snapshot.parse({...first,series:await seriesSnapshot(tx,actor,fields,first,now)}):first;
+}
+/** Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): each later date of the series at the same clock, with the same professional and
+ * services, read like the first one (getSchedulingAvailability: the exact start, one appointment, the domain's quote). A date the domain
+ * refuses, or where the customer already has an overlapping appointment, is skipped with its cause (the manual agenda skips them too);
+ * never an encaixe or an exception. Read only. */
+async function seriesSnapshot(tx:Tx,actor:ServiceActor,fields:z.infer<typeof schedulingResolved>,first:z.infer<typeof snapshot>,now:Date){
+  if(!seriesEnabled())throw Error("SERIES_DISABLED");
+  if(first.overbook||first.exception||fields.override_requested)throw Error("SERIES_EXCEPTION");
+  const series=fields.series!,dates=seriesDates(first.date,series.step_days,series.until);
+  if(!dates||dates.length<2)throw Error("NEEDS_INPUT");
+  const refs=snapshotServiceRefs(first),time=first.startLocal.slice(11,16);
+  const occurrences:{startLocal:string;endLocal:string;quote:string}[]=[],skipped:{date:string;cause:string}[]=[];
+  for(const date of dates.slice(1)){
+    const found=await getSchedulingAvailability(tx,actor,{service_ref:refs[0],...(refs.length>1?{service_refs:refs}:{}),professional_ref:first.professional_ref,date,time},now,undefined,undefined,1,true);
+    const plan=found.plan;
+    const fits=!!plan&&!!found.quote&&plan.startLocal===`${date}T${time}`&&plan.items.length===refs.length&&plan.items.every((item,index)=>item.serviceId===refs[index]&&item.professionalId===first.professional_ref)&&groupVisitItems(plan.items).length===1;
+    if(!fits){skipped.push({date,cause:found.review?.causes[0]??"SLOT_TAKEN"});continue;}
+    const slot={start:localDateTimeToUtc(plan!.startLocal,first.timezone),end:localDateTimeToUtc(plan!.endLocal,first.timezone)};
+    if((await listUpcomingCustomerAppointments(tx,actor,first.customer_ref,{overlapping:slot,now})).length){skipped.push({date,cause:"CUSTOMER_OVERLAP"});continue;}
+    occurrences.push({startLocal:plan!.startLocal,endLocal:plan!.endLocal,quote:found.quote!});
+  }
+  return {step_days:series.step_days,until:series.until,occurrences,skipped};
+}
+async function firstSnapshot(tx:Tx,actor:ServiceActor,fields:z.infer<typeof schedulingResolved>,now:Date,projection?: {releasedAppointmentId:string}){
   assertSchedulingExceptionScope(fields,"appointment.create");
   assertSchedulingTemporalConsistency(fields);
   // P2b: a service list is only ever planned with the flag on (a draft kept from before never executes with it off).
@@ -130,10 +164,23 @@ export async function executeSchedulingCreate(tx:Tx,actor:ServiceActor,s:z.infer
     return result.appointment.id;
   }
   // P2b: several services with one professional are one visit group, so still exactly one appointment (the guard below).
-  const result=await createVisit(tx,{salonId:actor.salonId,clientId:s.customer_ref,choices:snapshotServiceRefs(s).map(serviceId=>({serviceId,professionalId:s.professional_ref})),startLocal:s.startLocal,
-    idempotencyKey:key,quote:s.quote,manual:true,actor:{type:"STAFF",id:actor.userId,name:"Secretária — equipe autenticada"}});
+  return createOneVisit(tx,actor,s,{startLocal:s.startLocal,quote:s.quote,key,...(s.series?{seriesId:key}:{})});
+}
+async function createOneVisit(tx:Tx,actor:ServiceActor,s:z.infer<typeof snapshot>,at:{startLocal:string;quote:string;key:string;seriesId?:string}){
+  const result=await createVisit(tx,{salonId:actor.salonId,clientId:s.customer_ref,choices:snapshotServiceRefs(s).map(serviceId=>({serviceId,professionalId:s.professional_ref})),startLocal:at.startLocal,
+    idempotencyKey:at.key,quote:at.quote,manual:true,actor:{type:"STAFF",id:actor.userId,name:"Secretária — equipe autenticada"},...(at.seriesId?{seriesId:at.seriesId}:{})});
   if(result.appointmentIds.length!==1)throw Error("UNEXPECTED_APPOINTMENT_RESULT");
-  return result.appointmentIds[0];
+  return result.appointmentIds[0]!;
+}
+/** Owner 07/10 (flag SALON_SECRETARY_RECURRING_SERIES): the other dates of a confirmed series in this same transaction, grouped by the
+ * proposal's ref (Appointment.seriesId, as the manual agenda groups its series); a date taken meanwhile fails the whole confirmation
+ * (the domain's refusal, nothing half written) and the owner gets a fresh proposal. */
+async function executeSeriesOccurrences(tx:Tx,actor:ServiceActor,s:z.infer<typeof snapshot>,key:string){
+  if(!seriesEnabled())throw Error("SERIES_DISABLED");
+  if(s.overbook||s.exception)throw Error("SERIES_EXCEPTION");
+  const refs:string[]=[];
+  for(const [index,item] of s.series!.occurrences.entries())refs.push(await createOneVisit(tx,actor,s,{startLocal:item.startLocal,quote:item.quote,key:`${key}:${index+1}`,seriesId:key}));
+  return refs;
 }
 /** 05/10: the exception causes of a slot as the domain sees them now (the same collection the review used). A move passes its
  * own inspector (its snapshot services and the released appointment). */
@@ -196,6 +243,8 @@ export async function upsertSchedulingDraft(tx:Tx,actor:ServiceActor,input:unkno
   // P2b: the service list and its refs are the adapter's complete state too (never resurrected). The adapter holds one form of
   // the services at a time: a list replaces the single service, and a new list the professional (re-checked for every service).
   for(const key of ["service_names","service_list_ref"] as const)if(p.fields[key]===undefined)delete fields[key];
+  // Owner 07/10: a series the adapter no longer holds (dropped, or another day) is never resurrected.
+  if(p.fields.series===undefined)delete fields.series;
   if(p.fields.service_names!==undefined){
     for(const key of ["service_name","service_ref"] as const)if(p.fields[key]===undefined)delete fields[key];
     const changed=JSON.stringify(p.fields.service_names)!==JSON.stringify(old?.fields.service_names);
@@ -243,9 +292,11 @@ export async function proposeAppointmentCreate(tx:Tx,actor:ServiceActor,input:un
   await journal.append(tx,actor,"PROPOSAL",d.draft_ref,proposal,proposal.proposal_ref);return proposal;
 }
 /** The NEW booking preview (the model reads it as the action's previous response; part of the presentation digest). */
-export function appointmentCreatePreview(s:Pick<z.infer<typeof snapshot>,"customer_name"|"service_name"|"professional_name"|"startLocal"|"endLocal"|"priceType"|"priceCents"|"overbook"|"exception">&Partial<Pick<z.infer<typeof snapshot>,"services"|"durationMin">>){
-  if(s.services)return appointmentListPreview({...s,services:s.services});
-  return `NOVO AGENDAMENTO\nCliente: ${s.customer_name}\nServiço: ${s.service_name}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nPreço: ${s.priceType==="FROM"?"A partir de ":""}${(s.priceCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}${s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:""}`;
+export function appointmentCreatePreview(s:Pick<z.infer<typeof snapshot>,"customer_name"|"service_name"|"professional_name"|"startLocal"|"endLocal"|"priceType"|"priceCents"|"overbook"|"exception">&Partial<Pick<z.infer<typeof snapshot>,"services"|"durationMin"|"series">>){
+  // Owner 07/10: a series names its dates (and those left out) after the first date's own lines; the price is per date.
+  const series=s.series?seriesPreviewLines(s.series,s.startLocal.slice(0,10)):"";
+  if(s.services)return `${appointmentListPreview({...s,services:s.services})}${series}`;
+  return `${s.series?"NOVOS AGENDAMENTOS (SÉRIE)":"NOVO AGENDAMENTO"}\nCliente: ${s.customer_name}\nServiço: ${s.service_name}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nPreço: ${s.priceType==="FROM"?"A partir de ":""}${(s.priceCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}${s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:""}${series}`;
 }
 const brl=(cents:number)=>(cents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 /** P2b: a NEW booking with several services (one professional): every service with its own duration and price, then the
@@ -293,7 +344,9 @@ export async function confirmAppointmentCreate(tx:Tx,actor:ServiceActor,input:un
       const fresh=await schedulingSnapshot(tx,actor,d.fields);
       if(JSON.stringify(fresh)!==JSON.stringify(p.snapshot))throw Error("SCHEDULE_CHANGED");
       const appointment_ref=await executeSchedulingCreate(tx,actor,fresh,p.proposal_ref);
-      return receiptSchema.parse({proposal_ref:p.proposal_ref,draft_ref:d.draft_ref,draft_revision:d.draft_revision,appointment_ref,snapshot:fresh});
+      // Owner 07/10: the series' other dates, as proposed (the fresh snapshot equals it), one visit each under the professional's lock.
+      const series_refs=fresh.series?await executeSeriesOccurrences(tx,actor,fresh,p.proposal_ref):undefined;
+      return receiptSchema.parse({proposal_ref:p.proposal_ref,draft_ref:d.draft_ref,draft_revision:d.draft_revision,appointment_ref,snapshot:fresh,...(series_refs?{series_refs}:{})});
     },
   });
 }

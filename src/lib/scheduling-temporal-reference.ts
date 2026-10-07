@@ -111,7 +111,13 @@ function tokens(text: string): Tok[] {
   }
   const wordAt = (i: number) => out[i]?.k === "word" ? (out[i] as Word).w : undefined;
   // A month written with a dash ("2-Out", "1-Jan") is adjacent to its day.
-  const monthNear = (i: number, step: 1 | -1) => monthWords[wordAt(i + step) ?? (out[i + step]?.k === "dash" ? wordAt(i + 2 * step) ?? "" : "")] !== undefined;
+  const daypartAfter = (j: number) => (wordAt(j) === "da" || wordAt(j) === "de") && daypartWords[wordAt(j + 1) ?? ""] !== undefined;
+  // Owner 07/10: a clause break between them ("de outubro, oito e meia") keeps a month and a number apart.
+  const joined = (a: number, b: number) => !!out[a] && !!out[b] && !/[,.;!?]/.test(text.slice(Math.min(out[a]!.to, out[b]!.to), Math.max(out[a]!.at, out[b]!.at)));
+  const monthNear = (i: number, step: 1 | -1) => {
+    const k = wordAt(i + step) !== undefined ? i + step : out[i + step]?.k === "dash" ? i + 2 * step : -1;
+    return k >= 0 && monthWords[wordAt(k) ?? ""] !== undefined && joined(i, k);
+  };
   out.forEach((token, i) => {
     if (token.k !== "num" || token.bind !== "free") return;
     const before = wordAt(i - 1), next = wordAt(i + 1);
@@ -126,6 +132,8 @@ function tokens(text: string): Tok[] {
     // (not the second edge of "entre as 5 e 6").
     else if (before === "e" && (out[i - 2]?.k === "anchor" || out[i - 2]?.k === "num" && (out[i - 2] as Num).bind === "clock" || clockUnits.has(wordAt(i - 2) ?? "")) &&
       ![i - 3, i - 4, i - 5].some(j => wordAt(j) === "entre")) { token.bind = "clock"; token.part = "minute"; }
+    // Owner 07/10: an hour said with its part of the day and no lead ("…, oito e meia da manhã, …", "2 da tarde") is a clock too.
+    else if (!token.ordinal && token.n <= 23 && (daypartAfter(i + 1) || wordAt(i + 1) === "e" && out[i + 2]?.k === "num" && daypartAfter(i + 3))) { token.bind = "clock"; token.part = "hour"; }
     else if (token.n >= 1000 && token.n <= 2999) { token.bind = "date"; token.part = "year"; }
   });
   return out;

@@ -130,7 +130,8 @@ export function actionDetails(view: SecretaryView | undefined, action?: PlanActi
   if (view.scheduling?.receipt) {
     const receipt = view.scheduling.receipt, snapshot = receipt.action_snapshot ?? receipt.snapshot;
     const title = receipt.outcome === 'PENDING_ACCEPTANCE' ? 'Solicitação registrada. Aguarda aceite do cliente.'
-      : receipt.outcome === 'CANCELLED' ? 'Agendamento cancelado.' : receipt.outcome === 'BLOCKED' ? 'Bloqueio registrado.' : 'Horário registrado.';
+      : receipt.outcome === 'CANCELLED' ? 'Agendamento cancelado.' : receipt.outcome === 'BLOCKED' ? 'Bloqueio registrado.'
+      : receipt.series_refs?.length ? `${receipt.series_refs.length + 1} horários registrados (série).` : 'Horário registrado.';
     return `${title}${snapshot ? `\n${snapshot.customer_name ?? ''}\n${formatLocalRange(snapshot.startLocal, snapshot.endLocal, reference)}\n${snapshot.professional_name}` : ''}`;
   }
   if (view.communication?.receipt) return view.communication.delivery?.status === 'FAILED'

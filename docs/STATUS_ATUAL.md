@@ -1,5 +1,19 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-07 — Secretária: série recorrente e datas faladas
+
+Branch `claude/validate-scheduling-list-3a6ec3`, a partir de um vídeo do dono conversando com um cliente ("Edgar Lopes, todas
+as sextas de outubro, oito e meia da manhã").
+- **Datas e horas que eram recusadas** (sem flag, contrato do modelo inalterado): "dia 16 do 10" / "16 de 10" / "dia 16 do mês 10";
+  "na outra sexta, na próxima semana" ("na outra sexta" sozinha continua perguntada); "oito e meia da manhã" no meio da frase, sem
+  "às"; "…de outubro, oito e meia…" não junta mais o mês com o número depois da vírgula (lia "8 de outubro").
+- **Aviso "Ainda não marco horários recorrentes"** dito uma vez por pedido, não em toda pergunta seguinte.
+- **Série recorrente** (decisão 51, flag `SALON_SECRETARY_RECURRING_SERIES`, padrão desligada): `secretary-series.ts` (leitura
+  das palavras), `scheduling-actions.ts` (proposta com cada data e as puladas; gravação de todas no mesmo Confirmar com `seriesId`),
+  cartões em `secretary-scheduling.ts`. Testes: `secretary-recurring-series.test.ts`, `scheduling-date-rules-v2.test.ts`.
+- **Falta:** teste no fluxo real (banco local + modelo); a flag fora do contrato certificado, então Produção só depois de
+  recertificar com ela. Os testes de integração (banco) não rodaram neste worktree.
+
 ## 2026-10-05 — Secretária: trava de serviço repetido, janela de decisão e manhã/noite na remarcação
 
 Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`DECISOES_PRODUTO.md`).
