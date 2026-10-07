@@ -75,6 +75,8 @@ test.describe("@database preços variáveis e configurações", () => {
       const date = addCalendarDays(dateKeyInTimeZone(new Date(), salon.timezone), 2);
       await db.professionalOpening.create({ data: { salonId: salon.id, professionalId: pro.id, dateKey: date, startMinutes: 480, endMinutes: 1200, reason: "Teste isolado" } });
       await page.goto("/book/luna-hair");
+      // The home shows the first services only ("Ver mais"); the new one is found by name, as a client would.
+      await page.getByLabel("Buscar serviços").fill(name);
       const card = page.locator(`a[href$="service=${service.id}"]`);
       await expect(card).toContainText("A partir de");
       await expect(card).toContainText(note);
