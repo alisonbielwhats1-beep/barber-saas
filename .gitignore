@@ -21,3 +21,5 @@ test-results
 .vercel
 .env*
 tsconfig.tsbuildinfo
+# Cardápios reais de Production fora do código público (banco de nomes de serviço, ver service-name-bank.ts)
+src/lib/__tests__/fixtures/*.local.ts

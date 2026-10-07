@@ -27,6 +27,8 @@ Nada abaixo foi executado contra Supabase ou Vercel de Production. Cada item pre
 | `SALON_SECRETARY_PERSISTED_STATE` | `true` | **exige a migration 027 e o purge agendado** |
 | `SALON_SECRETARY_JEV_ROUTER_ENABLED` | `false` | |
 | `SALON_SECRETARY_NAME_ALIASES` | `false` | pronta, não medida na prova |
+| `SALON_SECRETARY_SERVICE_ABBREVIATIONS` | `false` | 07/10: "combo masculino" acha "Combo Masc: …" e a categoria (`SECRETARY_NAMES_AND_VOICE.md` seção 6); ligar é decisão do dono |
+| `SALON_SECRETARY_SERVICE_PICK_GUARD` | `false` | 07/10: só escolhe serviço sozinha sem outra leitura no cadastro (`SECRETARY_NAMES_AND_VOICE.md` seção 7); ligar é decisão do dono |
 | `SALON_SECRETARY_FEEDBACK` | `false` até a 026 | botões "foi útil / não era isso" |
 | `SALON_SECRETARY_VOICE_ENABLED`, `SALON_SECRETARY_VOICE_CORRECTION` | `true` | decisão do dono de 03/10/2026: falar em vez de digitar; exige `microphone=(self)` no cabeçalho (hoje só dev/test/Codespace) |
 | `SALON_SECRETARY_TRANSCRIBE_ENABLED` | `true` | transcrição GPT (`gpt-4o-mini-transcribe`), com `_BUDGET_USD` (2 na demo, máx. 5) e `_SALONS` = salões do piloto; validar antes no iPhone com o app instalado |
