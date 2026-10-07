@@ -46,6 +46,12 @@ export function SecretaryCreditsCard({ salonId, timezone, returnedFromCheckout =
     document.addEventListener("visibilitychange", seen); window.addEventListener("focus", seen);
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", seen); window.removeEventListener("focus", seen); };
   }, [load, waiting]);
+  // Back from the checkout through the browser's back button (page restored from its cache): the buttons work again.
+  useEffect(() => {
+    const restored = (event: PageTransitionEvent) => { if (event.persisted) setBuying(null); };
+    window.addEventListener("pageshow", restored);
+    return () => window.removeEventListener("pageshow", restored);
+  }, []);
   async function buy(pack: Pack) {
     if (buying) return;
     setBuying(pack.code); setError(null);
@@ -58,10 +64,10 @@ export function SecretaryCreditsCard({ salonId, timezone, returnedFromCheckout =
       const url = response.ok ? safeCheckout(body.checkoutUrl ?? null) : null;
       // Answered (even with a refusal): the next click is a new attempt. Only a lost connection keeps the same key.
       keys.current.delete(pack.code);
-      if (!url) { setError(billingErrors[body.error ?? ""] ?? "Não foi possível abrir o pagamento agora. Tente novamente."); return; }
+      if (!url) { setError(billingErrors[body.error ?? ""] ?? "Não foi possível abrir o pagamento agora. Tente novamente."); setBuying(null); return; }
+      // Leaving for the checkout: the buttons stay disabled until the page changes (a second click would open a second purchase).
       goToCheckout(url);
-    } catch { setError("Falha de conexão. Nada foi cobrado. Tente novamente."); }
-    finally { setBuying(null); }
+    } catch { setError("Falha de conexão. Nada foi cobrado. Tente novamente."); setBuying(null); }
   }
   const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: timezone }).format(new Date(value));
   return <section id="secretaria" aria-labelledby="secretaria-pedidos" className="space-y-4 rounded-2xl border border-border bg-surface-2 p-4 sm:p-6">
@@ -84,6 +90,7 @@ export function SecretaryCreditsCard({ salonId, timezone, returnedFromCheckout =
       </div>
       <p className="text-xs text-muted-foreground">Pix ou cartão pelo Mercado Pago. Cada pedido usa uma parte do crédito conforme o tamanho, por isso a quantidade de pedidos é uma estimativa. A recarga soma ao que você já tem, o crédito não expira e todo mês há uma franquia grátis.</p>
       {!data.buyable && <p className="text-sm text-muted-foreground">A compra online está pausada no momento. Seu crédito continua valendo.</p>}
+      {data.purchases.some(p => p.state === "REVIEW") && <p role="status" className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-sm">Um pagamento precisa de conferência antes de virar crédito. Nossa equipe já foi avisada e vai resolver com você: liberar o crédito ou estornar o valor.</p>}
       {data.purchases.length > 0 && <div className="space-y-1">
         <h3 className="text-sm font-semibold">Compras</h3>
         <ul className="divide-y divide-border rounded-lg border border-border text-sm">

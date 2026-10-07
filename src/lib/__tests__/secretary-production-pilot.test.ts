@@ -31,6 +31,24 @@ describe("Production pilot gate", () => {
       expect(() => assertPilotActor(owner, { ...pilot, SALON_SECRETARY_ALLOWED_ACTORS: list })).toThrow("SECRETARY_NOT_AVAILABLE");
     }
   });
+  it("owner 07/10: with SALON_SECRETARY_OPEN_TO_OWNERS every salon's owner is admitted, nobody else, without any list", () => {
+    const open = { ...pilot, SALON_SECRETARY_OPEN_TO_OWNERS: "true", SALON_SECRETARY_ALLOWED_ACTORS: undefined };
+    expect(() => assertSecretaryRolloutAccess({ salonId: "novo-salao", userId: "dona-nova", role: "OWNER" }, open)).not.toThrow();
+    for (const role of ["MANAGER", "RECEPTIONIST", "PROFESSIONAL", undefined])
+      expect(() => assertSecretaryRolloutAccess({ salonId: "novo-salao", userId: "outra", role }, open)).toThrow("SECRETARY_NOT_AVAILABLE");
+    // Without the flag an owner outside the list stays out, and the listed pairs keep working with it on.
+    expect(() => assertSecretaryRolloutAccess({ salonId: "novo-salao", userId: "dona-nova", role: "OWNER" }, pilot)).toThrow("SECRETARY_NOT_AVAILABLE");
+    expect(() => assertSecretaryRolloutAccess(owner, { ...open, SALON_SECRETARY_ALLOWED_ACTORS: JSON.stringify([owner]) })).not.toThrow();
+  });
+  it("a blocked salon stays out, its owner or a listed pair included", () => {
+    const open = { ...pilot, SALON_SECRETARY_OPEN_TO_OWNERS: "true", SALON_SECRETARY_BLOCKED_SALONS: " outro, salao-apresentacao " };
+    expect(() => assertSecretaryRolloutAccess({ ...owner, role: "OWNER" }, open)).toThrow("SECRETARY_NOT_AVAILABLE");
+    expect(() => assertSecretaryRolloutAccess({ salonId: "livre", userId: "dona", role: "OWNER" }, open)).not.toThrow();
+  });
+  it("open to owners never opens Production without the pilot flag", () => {
+    expect(() => assertSecretaryRolloutAccess({ ...owner, role: "OWNER" }, { ...pilot, SALON_SECRETARY_PRODUCTION_PILOT: undefined, SALON_SECRETARY_OPEN_TO_OWNERS: "true" }))
+      .toThrow("SECRETARY_NOT_AVAILABLE");
+  });
   it("keeps Production closed without the pilot flag (the historical gate)", () => {
     expect(() => assertSecretaryRolloutAccess(owner, { ...pilot, SALON_SECRETARY_PRODUCTION_PILOT: undefined })).toThrow("SECRETARY_NOT_AVAILABLE");
   });

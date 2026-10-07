@@ -22,6 +22,7 @@ type Edit = {
   method: "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "TRANSFER";
   extraServiceIds: string[];
   surcharge: string;
+  discount: string;
   reason: string;
   key: string;
 };
@@ -129,6 +130,7 @@ export function ReceiptWorkspace({
                 method: "PIX",
                 extraServiceIds: [],
                 surcharge: "",
+                discount: "",
                 reason: "",
                 key: crypto.randomUUID(),
               },
@@ -154,7 +156,8 @@ export function ReceiptWorkspace({
     const e = edits[row.id];
     return (
       row.baseCents +
-      money(e?.surcharge ?? "") +
+      money(e?.surcharge ?? "") -
+      money(e?.discount ?? "") +
       (e?.extraServiceIds ?? []).reduce(
         (sum, id) =>
           sum + (data?.services.find((s) => s.id === id)?.priceCents ?? 0),
@@ -181,11 +184,12 @@ export function ReceiptWorkspace({
           !Number.isSafeInteger(total(r)) ||
           total(r) < 0 ||
           total(r) > 100_000_000 ||
-          (money(edits[r.id]!.surcharge) > 0 &&
+          ((money(edits[r.id]!.surcharge) > 0 ||
+            money(edits[r.id]!.discount) > 0) &&
             edits[r.id]!.reason.trim().length < 3),
       )
     ) {
-      setError("Confira os valores e descreva os acréscimos.");
+      setError("Confira os valores e descreva os acréscimos e descontos.");
       return;
     }
     startTransition(async () => {
@@ -200,6 +204,7 @@ export function ReceiptWorkspace({
             method: edits[r.id]!.method,
             extraServiceIds: edits[r.id]!.extraServiceIds,
             surchargeCents: money(edits[r.id]!.surcharge),
+            discountCents: money(edits[r.id]!.discount),
             adjustmentReason: edits[r.id]!.reason,
             expectedTotalCents: total(r),
             products: r.products,
@@ -489,6 +494,14 @@ export function ReceiptWorkspace({
                 )}
                 {data.rows.map((row) => {
                   const e = edits[row.id]!;
+                  const hasSurcharge = money(e.surcharge) > 0;
+                  const hasDiscount = money(e.discount) > 0;
+                  const reasonLabel =
+                    hasSurcharge && hasDiscount
+                      ? "Motivo do acréscimo e do desconto"
+                      : hasDiscount
+                        ? "Motivo do desconto"
+                        : "Motivo do acréscimo";
                   return (
                     <article
                       key={row.id}
@@ -561,6 +574,18 @@ export function ReceiptWorkspace({
                             }
                           />
                         </label>
+                        <label className="grid gap-1 text-xs">
+                          Desconto (R$)
+                          <input
+                            className={`${field} w-28`}
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={e.discount}
+                            onChange={(event) =>
+                              edit(row.id, { discount: event.target.value })
+                            }
+                          />
+                        </label>
                         <strong className="pb-3">
                           Total{" "}
                           {Number.isFinite(total(row))
@@ -568,11 +593,11 @@ export function ReceiptWorkspace({
                             : "inválido"}
                         </strong>
                       </div>
-                      {money(e.surcharge) > 0 && (
+                      {(hasSurcharge || hasDiscount) && (
                         <input
                           className={`${field} mt-2 w-full`}
-                          aria-label={`Motivo do acréscimo de ${row.name}`}
-                          placeholder="Motivo do acréscimo"
+                          aria-label={`${reasonLabel} de ${row.name}`}
+                          placeholder={hasDiscount && !hasSurcharge ? "Ex.: serviço não realizado" : reasonLabel}
                           maxLength={300}
                           value={e.reason}
                           onChange={(event) =>

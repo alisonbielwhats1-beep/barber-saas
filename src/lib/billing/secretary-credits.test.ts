@@ -45,11 +45,18 @@ const table = (rows: () => Row[], unique: string[]) => ({
 const tx = {
   $executeRaw: async () => 0, $queryRaw: async () => { db.locks++; return [{ locked: 1 }]; },
   salon: { findUniqueOrThrow: async () => ({ timezone: "America/Sao_Paulo" }) },
-  auditLog: { findMany: async ({ where }: { where: Record<string, unknown> }) => db.calls.filter(r => pick(r, where)).map(r => ({ ...r })) },
+  // Honors orderBy createdAt and take, like the database: the sweep's page bound is part of what is tested (review 07/10/2026).
+  auditLog: { findMany: async ({ where, orderBy, take }: { where: Record<string, unknown>; orderBy?: { createdAt?: "asc" | "desc" }; take?: number }) => {
+    const found = db.calls.filter(r => pick(r, where)).map(r => ({ ...r }));
+    if (orderBy?.createdAt) found.sort((a, b) => ((a.createdAt as Date).getTime() - (b.createdAt as Date).getTime()) * (orderBy.createdAt === "desc" ? -1 : 1));
+    return take === undefined ? found : found.slice(0, take);
+  } },
   secretaryCreditLedger: table(ledger, ["requestKey"]), secretaryCreditPurchase: table(purchases, ["requestKey", "providerPaymentId", "preferenceId"]),
   membership: { findFirst: async () => db.owner ? { role: "OWNER" } : null },
 };
 vi.mock("../prisma-tenant", () => ({ withSalon: async (_s: string, fn: (t: unknown) => unknown) => fn(tx), withTenant: async (_c: unknown, fn: (t: unknown) => unknown) => fn(tx) }));
+const alerts = vi.hoisted(() => [] as { salonId: string; purchaseId: string; reason: string }[]);
+vi.mock("./credit-review-alert", () => ({ alertCreditReview: async (input: { salonId: string; purchaseId: string; reason: string }) => { alerts.push(input); return "sent"; } }));
 vi.mock("./provider", async original => {
   const real = await original<typeof import("./provider")>();
   return { ...real, mpRequest: vi.fn(), verifySellerAccount: vi.fn(async () => undefined) };
@@ -57,7 +64,7 @@ vi.mock("./provider", async original => {
 
 import * as mp from "./provider";
 import { applyCreditPayment, createCreditPurchase, CREDIT_SYNC_INTERVAL_MS, creditReference, receiveCreditPayment, reconcileCreditPurchase, syncPendingCreditPurchases, validateCreditPayment } from "./credits-provider";
-import { assertCanStartRequest, chargePendingCalls, chargeRecording, CHARGING_STARTS_AT, grantCredits, secretaryCreditView } from "../secretary-credits";
+import { assertCanStartRequest, CHARGE_BATCH, CHARGE_MAX_ROUNDS, chargePendingCalls, chargeRecording, CHARGING_STARTS_AT, grantCredits, secretaryCreditView } from "../secretary-credits";
 import { FREE_MONTHLY_UNITS } from "../secretary-credits-rules";
 
 const actor = { salonId: "salao-1", userId: "dono-1" };
@@ -67,7 +74,7 @@ const saved: Record<string, string | undefined> = {};
 beforeEach(() => {
   for (const [k, v] of Object.entries(env)) { saved[k] = process.env[k]; process.env[k] = v; }
   for (const k of ["VERCEL_ENV", "MERCADOPAGO_CHECKOUT_PAUSED", "SALON_SECRETARY_USD_BRL"]) { saved[k] = process.env[k]; delete process.env[k]; }
-  db.ledger = []; db.purchases = []; db.calls = []; db.seq = 0n; db.owner = true;
+  db.ledger = []; db.purchases = []; db.calls = []; db.seq = 0n; db.owner = true; alerts.length = 0;
   vi.mocked(mp.mpRequest).mockReset();
 });
 afterEach(() => { for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
@@ -260,6 +267,21 @@ describe("payments credit the pack, sum with what is left, and never twice", () 
     await applyCreditPayment(purchase as never, payment(purchase, { id: "pay-2" }));
     expect(paidBalance()).toBe(150_000);
     expect(db.purchases[0]).toMatchObject({ state: "REVIEW", lastError: "DUPLICATE_PAYMENT", providerPaymentId: "pay-1" });
+    // Review 07/10: money held without credit always reaches the platform admin, once per entry into review.
+    expect(alerts).toEqual([{ salonId: actor.salonId, purchaseId: purchase.id, reason: "DUPLICATE_PAYMENT" }]);
+    await applyCreditPayment(purchase as never, payment(purchase, { id: "pay-2" }));
+    expect(alerts).toHaveLength(1);
+  });
+  it("a late payment that does not match never turns a paid purchase into review: its credit stands, the admin is alerted", async () => {
+    const purchase = await buy("P15");
+    await receiveCreditPayment(payment(purchase));
+    expect(await receiveCreditPayment(payment(purchase, { id: "pay-late", transaction_amount: 1 }))).toBeNull();
+    expect(db.purchases[0]).toMatchObject({ state: "PAID", lastError: "PAYMENT_MISMATCH", providerPaymentId: "pay-1" });
+    expect(paidBalance()).toBe(150_000);
+    expect(alerts).toEqual([{ salonId: actor.salonId, purchaseId: purchase.id, reason: "PAYMENT_MISMATCH" }]);
+    // The same payment notified again (Mercado Pago repeats notices): no second e-mail.
+    await receiveCreditPayment(payment(purchase, { id: "pay-late", transaction_amount: 1 }));
+    expect(alerts).toHaveLength(1);
   });
   it("selling turned off still confirms a purchase already paid; a payment of another amount goes to review, acknowledged", async () => {
     const purchase = await buy("P15");
@@ -327,5 +349,35 @@ describe("reconciliation", () => {
     await grantCredits({ salonId: actor.salonId, units: 5_000, actorUserId: "hq", reason: "cortesia", grantKey: randomUUID() });
     await chargeRecording(actor, { recordingKey: "m1", microUsd: 1500 });
     expect(db.locks).toBe(2);
+  });
+});
+
+describe("sweep of a busy salon (validation review 07/10/2026)", () => {
+  /** `count` calls in the window, one second apart, the oldest first. */
+  const calls = (count: number) => { for (let i = 0; i < count; i++) modelCall(`s${i}`, 1_000, 50, new Date(NOW.getTime() - (count - i) * 1_000)); };
+  const charged = () => db.ledger.filter(r => String(r.requestKey).startsWith("call:")).length;
+  it("charges the newest calls even when 500 older ones were already charged (the old page bound left them out)", async () => {
+    calls(500);
+    expect(await sweep()).toBe(500);
+    calls(100);
+    expect(await sweep()).toBe(100);
+    expect(charged()).toBe(600);
+    expect(new Set(db.ledger.map(r => r.requestKey)).size).toBe(db.ledger.length);
+    expect(await sweep()).toBe(0);
+  });
+  it("splits a backlog in batches of CHARGE_BATCH and leaves the rest for the next sweep, each call once", async () => {
+    const perSweep = CHARGE_BATCH * CHARGE_MAX_ROUNDS;
+    calls(perSweep + 30);
+    expect(await sweep()).toBe(perSweep);
+    expect(await sweep()).toBe(30);
+    expect(charged()).toBe(perSweep + 30);
+    // The running balance is the sum of what each row took (no row computed from a stale point).
+    const units = db.ledger.reduce((sum, r) => sum + (r.units as number), 0);
+    expect(paidBalance()).toBe(units);
+  });
+  it("a call without cost (failed, no tokens) never takes a batch slot from one that has a cost", async () => {
+    for (let i = 0; i < CHARGE_BATCH * 2; i++) modelCall(`fail${i}`, null, null, new Date(NOW.getTime() - 10_000_000 + i), "FAILED");
+    modelCall("ok", 1_000, 50);
+    expect(await sweep()).toBe(1);
   });
 });

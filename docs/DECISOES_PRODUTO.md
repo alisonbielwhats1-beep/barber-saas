@@ -1,5 +1,18 @@
 # Decisões de produto para as próximas fases
 
+## 07/10/2026 — Secretária liberada a todo dono de salão, sempre pelo custo real
+
+1. **Liberação automática:** sem lista manual por salão na Vercel. Com
+   `SALON_SECRETARY_OPEN_TO_OWNERS=true` (e o piloto de Produção ligado), todo
+   **dono** de salão usa a Secretária e a voz; gerente, recepção e profissional
+   não. O custo fica limitado pela franquia grátis, pelo crédito pré-pago e
+   pelos tetos diário e mensal de cada salão. `SALON_SECRETARY_BLOCKED_SALONS`
+   (ids separados por vírgula) tira um salão específico, para o caso raro que
+   precisar. A lista antiga de pares continua valendo.
+2. **Sempre o custo real:** qualquer custo informado pelo provedor é cobrado
+   como real (×10). Acabou o piso de 20% do preço de tabela; a tabela só vale
+   quando o provedor não informa custo nenhum.
+
 ## 06/10/2026 — custo e cobrança da Secretária
 
 A Secretária usa só dois serviços pagos: o DeepSeek V4.1 Flash (OpenRouter) para
@@ -23,8 +36,10 @@ de pedidos. Cada pedido desconta o próprio custo real (DeepSeek e cada
 gravação transcrita) vezes 10, então a margem de 90% vale em todo pedido. A
 quantidade de pedidos de um pacote é só uma estimativa ("cerca de"). A tela
 mostra apenas a barra e a porcentagem, sem valores, contagem ou dias. Os
-pacotes são R$ 15 (cerca de 185 pedidos), R$ 25 (cerca de 340), R$ 40 (cerca
-de 600) e R$ 80 (cerca de 1.300): pacote maior rende mais. Todo salão tem uma
+pacotes são R$ 15 (cerca de 120 pedidos), R$ 25 (cerca de 220), R$ 40 (cerca
+de 390) e R$ 80 (cerca de 840), pelo custo real medido no piloto (R$ 0,125 por
+pedido com o ×10): pacote maior rende mais. As estimativas iniciais (R$ 0,06
+por pedido, R$ 15 = 250 pedidos; depois 185/340/600/1.300) foram substituídas. Todo salão tem uma
 franquia grátis de cerca de 20 pedidos por mês, que não acumula. A recarga
 soma ao saldo, o crédito não expira e só o dono recarrega. Regras e passos:
 `docs/SECRETARY_CREDITS.md`.
@@ -715,6 +730,7 @@ Ele nunca usa maiúsculas, listas de palavras, citações literais ou gramática
 47. **Troca e marcação de serviço (05/10, flag `SALON_SECRETARY_SERVICE_SWAP_V2`):** "Troque o serviço da Isabela do dia 17 para pedicure" pedia "data original e data" porque a regra "do [origem] para [destino]" lia "para pedicure" como destino e retirava o "dia 17" que o modelo leu. Agora "para" só é destino quando vem um dia ou horário depois ("para o dia 20 às 11h", "pra terça", "pras 15h"); a troca vira ALTERAR no mesmo horário. E o serviço com o nome exato dito ganha sem perguntar ("pedicure" → "Pedicure", nunca "Manicure + Pedicure"), no agendar e no trocar; "troca a manicure por pedicure" não pergunta mais "pacote ou separado". Provado no fluxo real (banco local + DeepSeek) com as frases do dono.
 48. **Nomes parecidos por voz ou grafia (05/10, dono aprovou as 4 melhorias):** (1) busca pelo som (`SALON_SECRETARY_PHONETIC_NAMES`): W/V, Y/I, letra dobrada, PH/F, TH/T, K/C/QU, H mudo, Z/S, GE/JE, CE/SE; quando só uma cliente ou serviço soa exatamente igual ao dito, a Secretária segue com ele (o nome completo aparece no cartão antes do Confirmar); havendo mais de um, mostra as opções; nunca para um nome que o modelo escreveu diferente da mensagem. (2) O filtro das duas primeiras letras das sugestões de cliente também tenta os começos do mesmo som ("Wa" acha "Va", "Ti" acha "Th"). (3) Memória da escolha (`SALON_SECRETARY_NAME_ALIASES`, já existente) ligada na demo. (4) A transcrição de voz recebe também os nomes das clientes com agendamento de 7 dias atrás a 30 à frente, até 40 nomes, só o nome (`SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES`; decisão do dono: os nomes vão à OpenAI junto com o áudio). Provado no fluxo real: Walter → Valter Assunção, Isabella → Isabela Mattos, Tiago → Thiago Mendes.
 49. **Piloto da Secretária em Produção (05/10):** só para o **dono** do salão de apresentação (`everflair-apresentacao`), teto de **US$ 1 por dia** (chamadas de modelo + voz), todas as funções certificadas (memória da escolha fica desligada). Flag `SALON_SECRETARY_PRODUCTION_PILOT` + lista exata `SALON_SECRETARY_ALLOWED_ACTORS`; qualquer outro salão ou usuário é recusado. Certificação com as flags novas: DeepSeek 90/90 (principal) e Luna 90/90 (reserva). Passos e variáveis: `docs/SECRETARY_PRODUCTION_PILOT.md`. Também: na regra de manhã/noite, quando nenhuma leitura está livre mas o motivo vira exceção, vale a do horário de funcionamento do salão e segue para "quer marcar mesmo assim?"; serviço não reconhecido pela voz vira sugestão pelos mais parecidos na escrita.
+50. **Avaliar a resposta da Secretária para treino futuro (06/10):** ligada em Produção (`SALON_SECRETARY_FEEDBACK=true`, tabela da 026 com limpeza diária às 06:17) e o Studio Martinelli entrou no piloto. Ao lado de "Não era isso" agora há **"Boa resposta"** (migração 031, coluna `rating` GOOD/BAD; as anteriores ficam BAD). As duas abrem o mesmo formulário: comentário opcional ("O que ficou bom?" / "O que você esperava?") e a caixa, desmarcada, para incluir o texto da conversa, que só é guardado com ela marcada. Só na última resposta, uma avaliação por resposta. As avaliações seguem expirando em 90 dias: para treinar, exportar antes ou decidir outra retenção.
 
 ## Verde de volta — 06/10/2026
 
@@ -722,3 +738,10 @@ O lilás nos botões e a borda animada (PR #129, mesclado em 06/10) foram
 desfeitos a pedido do dono: painel e app do cliente voltam aos botões
 principais verdes, com lilás restrito à marca e à seleção. Não reaplicar
 sem conferência visual aprovada pelo dono.
+
+## Tela de início do cliente anterior — 06/10/2026
+
+A pedido do dono, a tela de início do cliente volta à versão anterior ao #131
+(sem a faixa "Nossa equipe" em retratos, as abas fixas e os serviços agrupados
+em categorias recolhidas). Os lembretes em Notificações ("EverFlair lembra
+você") deixam o roxo e usam o verde principal, como as demais notificações.

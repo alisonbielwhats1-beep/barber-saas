@@ -17,9 +17,10 @@ const RECENT_PURCHASES = 12;
  * purchases still waiting for payment, as the webhook would. */
 export async function GET(request: Request) {
   try {
+    // Billing is the owner's (assertOwner below, in the transaction); the role only selects the open-to-owners rule.
     const ctx = await ownerContext(request);
     if (!creditsEnabled()) throw new BillingError("CREDITS_DISABLED", 503);
-    if (!secretaryAvailableTo(ctx)) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
+    if (!secretaryAvailableTo({ ...ctx, role: "OWNER" })) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
     await withTenant(ctx, tx => assertOwner(tx, ctx));
     // Owner 06/10: every view first re-reads this salon's purchases still waiting for payment, so a paid one shows as credit right
     // away, whether or not the person came back through the checkout's button (Pix is usually paid in the bank's app).
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await ownerContext(request, true);
     // Never sold to a salon that cannot use the Secretária (owner, 06/10/2026).
-    if (!secretaryAvailableTo(ctx)) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
+    if (!secretaryAvailableTo({ ...ctx, role: "OWNER" })) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
     const key = z.string().uuid().parse(request.headers.get("idempotency-key"));
     const purchase = await createCreditPurchase(ctx, await readBillingBody(request), key);
     // A repeated key of a purchase already paid or past its link's expiry never reopens that checkout.

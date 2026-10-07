@@ -95,7 +95,9 @@ describe("server actions (flags default off)", () => {
     // The reservation is the salon's own AuditLog budget, inside the tenant transaction of the authenticated actor.
     // Phase 3a review: the reservation carries the listed salons (program cap); an unlisted salon is refused before the tenant transaction.
     await expect(call.reserve({ worstCaseMicroUsd: 20_000, budgetMicroUsd: 100_000, model: "gpt-4o-mini-transcribe", bytes: 1, salons: ["authenticated-salon"] })).rejects.toThrow("TX_$executeRaw_FORBIDDEN");
-    await expect(call.reserve({ worstCaseMicroUsd: 20_000, budgetMicroUsd: 100_000, model: "gpt-4o-mini-transcribe", bytes: 1, salons: ["other-salon"] })).rejects.toThrow("TRANSCRIBE_DISABLED");
+    await expect(call.reserve({ worstCaseMicroUsd: 20_000, budgetMicroUsd: 100_000, model: "gpt-4o-mini-transcribe", bytes: 1, salons: ["other-salon"] })).rejects.toThrow("TRANSCRIBE_SALON_NOT_ENABLED");
+    mocks.transcribe.mockRejectedValueOnce(Error("TRANSCRIBE_SALON_NOT_ENABLED"));
+    expect(await transcribeSecretaryVoice(form)).toMatchObject({ ok: false, code: "TRANSCRIBE_SALON_NOT_ENABLED", error: "A voz da Secretária ainda não foi liberada para este salão. Você pode digitar." });
     expect(mocks.tenant).toHaveBeenLastCalledWith({ salonId: "authenticated-salon", userId: "authenticated-user" });
   });
   it("each transcription logs how long its steps took, in numbers only (never the audio or the text)", async () => {
