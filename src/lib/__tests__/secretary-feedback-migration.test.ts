@@ -80,3 +80,22 @@ describe("026_secretary_feedback", () => {
     expect(action).toContain("secretaryFeedbackEnabled()"); expect(action).toContain("const actor = await context();");
   });
 });
+
+describe("031_secretary_feedback_rating", () => {
+  const rating = code(source("prisma/sql/manual/031_secretary_feedback_rating.sql"));
+  it("adds GOOD/BAD (default BAD, as every older row was 'Não era isso') without touching policies, grants or retention", () => {
+    expect(rating.trim().startsWith("BEGIN;")).toBe(true); expect(rating.trim().endsWith("COMMIT;")).toBe(true);
+    expect(rating).toContain("pg_advisory_xact_lock(hashtextextended('migration:031_secretary_feedback_rating',0))");
+    expect(rating).toContain(`ADD COLUMN IF NOT EXISTS "rating" TEXT NOT NULL DEFAULT 'BAD'`);
+    expect(rating).toContain(`CHECK ("rating" IN ('GOOD','BAD'))`);
+    expect(rating).not.toMatch(/\b(GRANT|REVOKE|POLICY|DROP|DELETE)\b/);
+  });
+  it("preflight and verify are read-only; verify checks the column, the check and that the runtime still cannot change feedback", () => {
+    const preflight = code(source("prisma/sql/manual/031_secretary_feedback_rating.preflight.sql")).toUpperCase();
+    expect(preflight).not.toMatch(/\b(ALTER|CREATE|DELETE|DROP|INSERT|TRUNCATE|UPDATE|GRANT|REVOKE)\b/);
+    const verify = code(source("prisma/sql/manual/031_secretary_feedback_rating.verify.sql"));
+    expect(verify.replace(/'[^']*'/g, "''").toUpperCase()).not.toMatch(/\b(ALTER|CREATE|DELETE|DROP|INSERT|TRUNCATE|UPDATE|GRANT|REVOKE)\b/);
+    for (const check of ["SecretaryFeedback_rating", "secretary_feedback_immutable", "'UPDATE'", "'DELETE'", "VERIFY_OK"]) expect(verify).toContain(check);
+    expect(source("prisma/sql/manual/031_secretary_feedback_rating.rollback.sql")).toContain('DROP COLUMN IF EXISTS "rating"');
+  });
+});

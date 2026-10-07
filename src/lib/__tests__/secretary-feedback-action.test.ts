@@ -15,8 +15,8 @@ import { feedbackInput, feedbackRow, FEEDBACK_RATE_LIMIT, FEEDBACK_RATE_WINDOW_M
 
 const sessionId = "0b5f0f3e-6a4b-4c43-9a55-3f1b6d2f7a10", version = "a".repeat(64);
 /** The INSERT's bound values in column order (tagged template: strings, then values). */
-const stored = () => { const [, ...values] = mocks.queryRaw.mock.calls[0]; const [id, salonId, userId, session, turnIndex, codes, contractVersion, comment, consent, transcript] = values;
-  return { id, salonId, userId, session, turnIndex, codes: JSON.parse(codes as string), contractVersion, comment, consent, transcript: transcript === null ? null : JSON.parse(transcript as string) }; };
+const stored = () => { const [, ...values] = mocks.queryRaw.mock.calls[0]; const [id, salonId, userId, session, turnIndex, codes, contractVersion, comment, consent, transcript, rating] = values;
+  return { id, salonId, userId, session, turnIndex, codes: JSON.parse(codes as string), contractVersion, comment, consent, transcript: transcript === null ? null : JSON.parse(transcript as string), rating }; };
 beforeEach(() => {
   vi.clearAllMocks(); mocks.tenants.length = 0; vi.stubEnv("SALON_SECRETARY_FEEDBACK", "true");
   mocks.context.mockResolvedValue({ salonId: "authenticated-salon", userId: "authenticated-user", role: "OWNER" });
@@ -36,7 +36,7 @@ describe("sendSecretaryFeedback", () => {
     expect(mocks.feedbackContext).toHaveBeenCalledWith({ salonId: "authenticated-salon", userId: "authenticated-user" }, sessionId);
     expect(mocks.tenants).toEqual([{ salonId: "authenticated-salon", userId: "authenticated-user" }]);
     expect(stored()).toMatchObject({ salonId: "authenticated-salon", userId: "authenticated-user", session: sessionId, turnIndex: 2, codes: ["QUESTION", "TEMPORAL_SELECTOR_CONFLICT"],
-      contractVersion: version, comment: "Eu pedi quinta, não sexta.", consent: false, transcript: null });
+      contractVersion: version, comment: "Eu pedi quinta, não sexta.", consent: false, transcript: null, rating: "BAD" });
     expect(String(mocks.queryRaw.mock.calls[0][0].join("?"))).toContain('INSERT INTO "SecretaryFeedback"');
   });
   it("a transcript without the checkbox is refused and never stored", async () => {
@@ -75,7 +75,7 @@ describe("sendSecretaryFeedback", () => {
     expect(reply).toMatchObject({ ok: false, code: "FEEDBACK_RATE_LIMITED" });
     const [strings, ...values] = mocks.queryRaw.mock.calls[0];
     expect((strings as string[]).join("?")).toMatch(/INSERT INTO "SecretaryFeedback"[\s\S]*SELECT[\s\S]*WHERE \(SELECT count\(\*\)/);
-    expect(values.slice(10)).toEqual(["authenticated-user", FEEDBACK_RATE_WINDOW_MINUTES, FEEDBACK_RATE_LIMIT, sessionId, FEEDBACK_SESSION_LIMIT]);
+    expect(values.slice(10)).toEqual(["BAD", "authenticated-user", FEEDBACK_RATE_WINDOW_MINUTES, FEEDBACK_RATE_LIMIT, sessionId, FEEDBACK_SESSION_LIMIT]);
   });
   it("a storage failure is reported without detail and changes nothing else", async () => {
     mocks.queryRaw.mockRejectedValueOnce(Error("relation \"SecretaryFeedback\" does not exist password=secret"));
@@ -90,5 +90,17 @@ describe("feedbackRow (pure)", () => {
     const input = feedbackInput.parse({ sessionId, turn: 3, include_transcript: false });
     expect(feedbackRow(actor, input, { codes: ["OK_CODE", "not a code", "Fábio"], contract_version: "short" })).toMatchObject({ outcomeCodes: ["OK_CODE"], contractVersion: null, transcript: null, comment: null });
     expect(() => feedbackInput.parse({ sessionId, turn: 3, include_transcript: false, transcript: [{ role: "owner", text: "x" }] })).toThrow();
+  });
+  it("owner decision 06/10/2026 (migration 031): 'Boa resposta' is stored GOOD; without a rating it stays BAD; any other rating is refused", async () => {
+    expect(await sendSecretaryFeedback({ sessionId, turn: 1, rating: "good", include_transcript: false })).toEqual({ ok: true });
+    expect(stored()).toMatchObject({ turnIndex: 1, rating: "GOOD", consent: false, transcript: null });
+    expect(String(mocks.queryRaw.mock.calls[0][0].join("?"))).toContain('"transcript","rating")');
+    mocks.queryRaw.mockClear();
+    expect(await sendSecretaryFeedback({ sessionId, turn: 1, rating: "bad", include_transcript: false })).toEqual({ ok: true });
+    expect(stored().rating).toBe("BAD");
+    mocks.queryRaw.mockClear();
+    expect(await sendSecretaryFeedback({ sessionId, turn: 1, rating: "great", include_transcript: false })).toMatchObject({ ok: false, code: "FEEDBACK_INVALID" });
+    expect(mocks.queryRaw).not.toHaveBeenCalled();
+    expect(feedbackInput.safeParse({ sessionId, turn: 1, rating: "good", include_transcript: false }).success).toBe(true);
   });
 });

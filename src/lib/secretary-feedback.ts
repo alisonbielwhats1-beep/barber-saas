@@ -3,7 +3,7 @@ import { z } from "zod";
 import { withTenant } from "./prisma-tenant";
 import type { ServiceActor } from "./service-catalog";
 
-/** B7 owner feedback ("Não era isso"), flag SALON_SECRETARY_FEEDBACK (default off). One row per submission in the
+/** B7 owner feedback ("Não era isso" and, since 06/10/2026, "Boa resposta"), flag SALON_SECRETARY_FEEDBACK (default off). One row per submission in the
  * raw-SQL table "SecretaryFeedback" (prisma/sql/manual/026_secretary_feedback.sql; no Prisma model): the actor from
  * authentication, codes from the server's own turn record, the owner's optional comment and, ONLY when the owner ticked
  * "incluir o texto desta conversa", the conversation text shown on the screen. Rows expire after 90 days (expiresAt): the
@@ -14,11 +14,13 @@ export const secretaryFeedbackEnabled = () => process.env.SALON_SECRETARY_FEEDBA
 
 const code = /^[A-Z][A-Z0-9_]{1,79}$/;
 export const FEEDBACK_TRANSCRIPT_LIMIT = 80;
-/** `turn`: position of the flagged reply in the conversation on the screen. `transcript`: allowed only with
+/** `turn`: position of the rated reply in the conversation on the screen. `rating` (owner decision 06/10/2026, migration
+ * 031): "good" from "Boa resposta", "bad" from "Não era isso" (the default, as before). `transcript`: allowed only with
  * `include_transcript` (the explicit checkbox); without it the request is refused, never stored without consent. */
 export const feedbackInput = z.object({
   sessionId: z.string().uuid(),
   turn: z.number().int().min(0).max(500),
+  rating: z.enum(["good", "bad"]).optional(),
   comment: z.string().max(1000).optional(),
   include_transcript: z.boolean(),
   transcript: z.array(z.object({ role: z.enum(["owner", "secretary"]), text: z.string().min(1).max(2000) }).strict()).min(1).max(FEEDBACK_TRANSCRIPT_LIMIT).optional(),
@@ -36,6 +38,7 @@ export function feedbackRow(actor: ServiceActor, input: FeedbackInput, context?:
     contractVersion: context?.contract_version && /^[0-9a-f]{64}$/.test(context.contract_version) ? context.contract_version : null,
     comment: comment ? comment : null,
     transcriptConsent: input.include_transcript,
+    rating: input.rating === "good" ? "GOOD" as const : "BAD" as const,
     transcript: input.include_transcript && input.transcript ? input.transcript.map(({ role, text }) => ({ role, text })) : null,
   };
 }
@@ -49,9 +52,9 @@ export const FEEDBACK_RATE_LIMIT = 10, FEEDBACK_RATE_WINDOW_MINUTES = 10, FEEDBA
 export async function storeSecretaryFeedback(actor: ServiceActor, input: FeedbackInput, context?: FeedbackContext) {
   const row = feedbackRow(actor, input, context);
   const [stored] = await withTenant(actor, tx => tx.$queryRaw<{ id: string }[]>`INSERT INTO "SecretaryFeedback"
-    ("id","salonId","userId","sessionId","turnIndex","outcomeCodes","contractVersion","comment","transcriptConsent","transcript")
+    ("id","salonId","userId","sessionId","turnIndex","outcomeCodes","contractVersion","comment","transcriptConsent","transcript","rating")
     SELECT ${row.id}::uuid, ${row.salonId}::text, ${row.userId}::text, ${row.sessionId}::uuid, ${row.turnIndex}::int, ${JSON.stringify(row.outcomeCodes)}::jsonb,
-      ${row.contractVersion}::text, ${row.comment}::text, ${row.transcriptConsent}::boolean, ${row.transcript === null ? null : JSON.stringify(row.transcript)}::jsonb
+      ${row.contractVersion}::text, ${row.comment}::text, ${row.transcriptConsent}::boolean, ${row.transcript === null ? null : JSON.stringify(row.transcript)}::jsonb, ${row.rating}::text
     WHERE (SELECT count(*) FROM "SecretaryFeedback" WHERE "userId" = ${row.userId} AND "createdAt" > now() - make_interval(mins => ${FEEDBACK_RATE_WINDOW_MINUTES}::int)) < ${FEEDBACK_RATE_LIMIT}::int
       AND (SELECT count(*) FROM "SecretaryFeedback" WHERE "sessionId" = ${row.sessionId}::uuid) < ${FEEDBACK_SESSION_LIMIT}::int
     RETURNING "id"::text AS "id"`);
