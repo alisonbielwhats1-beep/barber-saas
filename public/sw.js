@@ -1,12 +1,12 @@
-const CACHE = "everflair-shell-v5";
+const CACHE = "everflair-shell-v6";
 const OFFLINE_URL = "/offline";
 const STATIC_SHELL = [
   OFFLINE_URL,
-  "/icon.svg?v=flair-dark-1",
-  "/icon-192.png?v=flair-dark-1",
-  "/icon-512.png?v=flair-dark-1",
-  "/icon-maskable-512.png?v=flair-dark-1",
-  "/apple-touch-icon-180.png?v=flair-dark-1",
+  "/icon.svg?v=flair-violeta-1",
+  "/icon-192.png?v=flair-violeta-1",
+  "/icon-512.png?v=flair-violeta-1",
+  "/icon-maskable-512.png?v=flair-violeta-1",
+  "/apple-touch-icon-180.png?v=flair-violeta-1",
 ];
 
 self.addEventListener("install", (event) => {

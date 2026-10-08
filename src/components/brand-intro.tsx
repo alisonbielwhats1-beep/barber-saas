@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
-import { BrandLogo } from "./brand";
+import { BRAND_LETTERS, BRAND_PETALS, BRAND_SPARK, BrandLogo } from "./brand";
 
 const SESSION_KEY = "everflair:intro:flair:v2";
 
@@ -38,7 +38,7 @@ export function BrandIntro() {
       if (clientSlug) clientEntrances.current.add(sessionKey);
       else try { sessionStorage.setItem(sessionKey, "seen"); } catch {}
     };
-    const timeout = window.setTimeout(dismiss, clientSlug ? 2200 : 1400);
+    const timeout = window.setTimeout(dismiss, clientSlug ? 2500 : 1400);
     window.addEventListener("pointerdown", dismiss, { once: true });
     window.addEventListener("keydown", dismiss, { once: true });
     motion.addEventListener("change", dismiss);
@@ -51,9 +51,43 @@ export function BrandIntro() {
   }, [sessionKey, clientSlug]);
 
   if (!sessionKey || visibleKey !== sessionKey) return null;
-  return <div key={sessionKey} className="ef-intro" data-audience={clientSlug ? "client" : "admin"} aria-hidden="true">
+  if (clientSlug) return <ClientEntrance key={sessionKey} />;
+  return <div key={sessionKey} className="ef-intro" data-audience="admin" aria-hidden="true">
     <div className="ef-intro-light" />
-    {clientSlug && <div className="ef-intro-orbit" />}
     <BrandLogo decorative className="ef-intro-logo" />
+  </div>;
+}
+
+/**
+ * Abertura do cliente, "do ícone ao app": o ícone violeta cresce até ocupar a
+ * tela, as pétalas abrem espaço, o nome entra letra a letra, o brilho pousa no
+ * "i" e o violeta se recolhe numa íris até o brilho, revelando o app.
+ */
+function ClientEntrance() {
+  const clipId = useId();
+  const petals = (
+    <>
+      <path d={BRAND_PETALS.top} />
+      <path className="efx-petal-b" d={BRAND_PETALS.bottom} />
+    </>
+  );
+  return <div className="ef-intro efx" data-audience="client" aria-hidden="true">
+    <div className="efx-base" />
+    <div className="efx-tile" />
+    <div className="efx-iris"><div className="efx-sweep" /></div>
+    <svg className="efx-petals efx-ghost efx-ghost-2" viewBox="137.7 161.5 166.4 189.1">{petals}</svg>
+    <svg className="efx-petals efx-ghost" viewBox="137.7 161.5 166.4 189.1">{petals}</svg>
+    <svg className="efx-petals" viewBox="137.7 161.5 166.4 189.1">{petals}</svg>
+    <svg className="efx-word" viewBox="134 158 756 196">
+      <defs><clipPath id={clipId}><rect x="340" y="150" width="560" height="162" /></clipPath></defs>
+      <g clipPath={`url(#${clipId})`}>
+        {BRAND_LETTERS.map((d, index) => <path key={index} className="efx-ltr" style={{ "--i": index } as CSSProperties} d={d} />)}
+      </g>
+    </svg>
+    <svg className="efx-spark" viewBox="134 158 756 196">
+      <circle className="efx-ring" cx="820.2" cy="201" r="22" />
+      <path className="efx-flash" d={BRAND_SPARK} />
+      <g className="efx-star-out"><path className="efx-star" d={BRAND_SPARK} /></g>
+    </svg>
   </div>;
 }

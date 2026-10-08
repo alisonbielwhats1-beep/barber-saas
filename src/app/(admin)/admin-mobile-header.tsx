@@ -24,7 +24,7 @@ export function AdminMobileHeader({
       className="flex items-center justify-between gap-2 border-b border-border bg-surface-1 px-3 py-2 lg:hidden print:hidden"
     >
       <BrandLogo
-        className={`!h-9 shrink-0 text-[hsl(var(--selection-foreground))] ${owner ? "!w-[100px] sm:!w-[142px]" : "!w-[142px]"}`}
+        className={`!h-9 shrink-0 text-foreground ${owner ? "!w-[100px] sm:!w-[142px]" : "!w-[142px]"}`}
       />
       {owner && (
         <div

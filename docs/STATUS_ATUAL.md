@@ -1,5 +1,22 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-08 — nova marca Everflair e tela inicial do cliente (PR desta branch)
+
+Branch `claude/everflair-logo-redesign-ddd49b`. Decisão do dono de 08/10 em
+`DECISOES_PRODUTO.md`. Sem mudança de banco, migration ou variável de ambiente.
+- **Marca:** `BrandLogo`/`BrandMark` passam a SVG em linha (pétalas e brilho pelo
+  `color-scheme`, nome por `currentColor`), letras Inter em contorno. Ícones do
+  PWA, favicon, Apple e badge refeitos; `PWA_ICON_VERSION` `flair-violeta-1` e
+  cache do `sw.js` v6.
+- **Abertura do cliente** "do ícone ao app" (2,5 s) em `brand-intro.tsx`/`brand.css`.
+- **App do cliente:** primária violeta nos temas `salon-dark`/`salon-light`
+  (painel inalterado); nova tela inicial em `book/[salonSlug]/page.tsx`
+  (contatos no topo, Agendar, equipe com link para `agendar?pro=`, informações
+  recolhidas com "Aberto agora" no fuso do salão, avaliações em carrossel,
+  convite de lembretes em aviso no topo).
+- Testes atualizados: ícones (fundo violeta), abertura (2,5 s) e convite de
+  lembretes (aviso no topo); novo teste de "Aberto agora".
+
 ## 2026-10-05 — Secretária: trava de serviço repetido, janela de decisão e manhã/noite na remarcação
 
 Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`DECISOES_PRODUTO.md`).

@@ -9,8 +9,9 @@
   --mk-flair-tint: #34303e;
   --mk-flair-line: #5f5272;
 }
-.ef-marketing .mk-brand { color: var(--mk-flair); }
-.ef-marketing[data-segment="espaco-misto"] .mk-header .mk-brand { color: var(--ef-lilac-light); }
+.ef-marketing .mk-brand { color: var(--mk-ink); }
+.ef-marketing[data-segment="espaco-misto"] .mk-header { color-scheme: dark; }
+.ef-marketing[data-segment="espaco-misto"] .mk-header .mk-brand { color: var(--mk-ink); }
 .ef-marketing :is(a, button, summary, input):focus-visible { outline-color: var(--mk-flair); }
 .ef-marketing .mk-status-dot { background: var(--mk-flair); }
 .ef-marketing .sc-veil {

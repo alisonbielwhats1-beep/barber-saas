@@ -6,17 +6,17 @@ import {
   ArrowUpRight,
   Sparkles,
   Clock,
-  MessageCircle,
   Phone,
   UserRound,
   ShieldCheck,
+  ChevronDown,
   ChevronRight,
   Instagram,
   CreditCard,
-  ExternalLink,
-  Globe2,
   Info,
-  type LucideIcon,
+  Link2,
+  MapPin,
+  Star,
 } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES, PORTFOLIO_POOL, imageForProduct, normalizeImageUrl, resolvePortfolioImage, resolveProductImage } from "@/lib/images";
@@ -24,7 +24,6 @@ import { isValidPhoneBR, normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { getSegment, isSegmentId } from "@/lib/segments";
 import { getPublicReviewData } from "@/lib/reviews";
 import { formatMoney } from "@/lib/utils";
-import { ClientNotificationLink } from "./client-shell";
 import { getClientSession } from "@/lib/client-auth";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { CartBadge } from "./cart-badge";
@@ -32,7 +31,7 @@ import { UsualBooking } from "./usual-booking";
 import { HomeExplore } from "./home-explore";
 import { ReviewsSection } from "./reviews-section";
 import { BrandLogo } from "@/components/brand";
-import { SalonLocationLink } from "./salon-location-link";
+import { OpenNowBadge } from "./open-now-badge";
 import { PwaInstallCard } from "@/components/pwa-install-card";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { PushPermissionCard } from "./notificacoes/push-permission-card";
@@ -79,17 +78,6 @@ function normalizeExternalUrl(value: string): string | null {
   }
 }
 
-function compactExternalLabel(value: string): string {
-  try {
-    const parsed = new URL(value);
-    const host = parsed.hostname.replace(/^www\./i, "");
-    const path = parsed.pathname.replace(/\/+$/g, "");
-    return `${host}${path && path !== "/" ? path : ""}`;
-  } catch {
-    return value;
-  }
-}
-
 function extractPublicLinks(value: string | null): {
   siteUrl: string | null;
   blogUrl: string | null;
@@ -122,44 +110,12 @@ function extractPublicLinks(value: string | null): {
   return { siteUrl, blogUrl, importantText };
 }
 
-function QuickContact({
-  href,
-  icon: Icon,
-  label,
-  value,
-  channel,
-  external = false,
-  className = "",
-}: {
-  href: string;
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  channel: "whatsapp" | "instagram" | "phone" | "website" | "content";
-  external?: boolean;
-  className?: string;
-}) {
+/** Símbolo do WhatsApp (lucide não tem marcas); segue a cor do botão. */
+function WhatsAppGlyph() {
   return (
-    <a
-      href={href}
-      target={external ? "_blank" : undefined}
-      rel={external ? "noopener noreferrer" : undefined}
-      title={value}
-      className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-left transition-colors hover:border-primary/40 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className}`}
-    >
-      <span className="client-contact-icon" data-channel={channel}>
-        <Icon className="h-4 w-4" aria-hidden="true" />
-      </span>
-      <span className="grid min-w-0">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <span className="max-w-[10rem] truncate text-[11px] font-medium text-foreground">
-          {value}
-        </span>
-      </span>
-      {external && <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />}
-    </a>
+    <svg viewBox="0 0 24 24" className="h-[17px] w-[17px]" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z" />
+    </svg>
   );
 }
 
@@ -181,6 +137,7 @@ export default async function ClientHome({
       currency: true,
       openMinutes: true,
       closeMinutes: true,
+      timezone: true,
       cancelPolicyHours: true,
       // Personalização do dono (colunas de 004_salon_customization.sql)
       segment: true,
@@ -271,45 +228,65 @@ export default async function ClientHome({
     .map((m) => PAYMENT_LABELS[m.trim()])
     .filter(Boolean);
 
+  const headerSiteUrl = siteUrl ?? blogUrl;
+  const reviewSummary = salon.reviewData.summary;
+  const reviewAverage = reviewSummary.average.toFixed(1).replace(".", ",");
+  const address = salon.address?.trim() || null;
+  const mapsHref = address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    : null;
+
   return (
-    <main className="animate-fade-in space-y-6 px-4 pt-5 sm:px-5 sm:pt-6 lg:space-y-8 lg:px-0 lg:pt-8">
-      {/* Top bar */}
+    <main className="animate-fade-in space-y-4 px-4 pt-2.5 sm:space-y-6 sm:px-5 sm:pt-6 lg:space-y-8 lg:px-0 lg:pt-8">
+      {/* Topo: marca, conta e contatos oficiais do estabelecimento */}
       <header className="client-home-header">
         <BrandLogo className="client-brand-logo" />
         <div className="client-home-actions">
-        <CartBadge salonSlug={salonSlug} />
-        <ClientNotificationLink salonSlug={salonSlug} />
-        {salon.hasValidClientSession ? (
-          <Link
-            href={`/book/${salonSlug}/minhas`}
-            aria-label="Minha conta"
-            title="Minha conta"
-            className="inline-flex min-h-11 w-11 items-center justify-center rounded-full border border-border text-primary sm:h-auto sm:w-auto sm:gap-1 sm:px-3"
-          >
-            <UserRound className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden text-[11px] font-semibold sm:inline">Minha conta</span>
-          </Link>
-        ) : (
-          <div className="flex items-center gap-1">
+          <CartBadge salonSlug={salonSlug} hideWhenEmpty />
+          {salon.hasValidClientSession ? (
             <Link
-              href={`/book/${salonSlug}/login`}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              href={`/book/${salonSlug}/minhas`}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border px-3.5 text-xs font-semibold text-foreground transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Entrar
+              <UserRound className="h-4 w-4" aria-hidden="true" />
+              Minha conta
             </Link>
-            <Link
-              href={`/book/${salonSlug}/cadastro`}
-              className="inline-flex min-h-11 items-center rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground"
-            >
-              Criar conta
-            </Link>
+          ) : (
+            <div className="flex items-center gap-1">
+              <Link
+                href={`/book/${salonSlug}/login`}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Entrar
+              </Link>
+              <Link
+                href={`/book/${salonSlug}/cadastro`}
+                className="inline-flex min-h-11 items-center rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground"
+              >
+                Criar conta
+              </Link>
+            </div>
+          )}
+        </div>
+        {(whatsappHref || instagramHandle || headerSiteUrl) && (
+          <div className="client-header-contacts" role="group" aria-label={`Fale com ${salon.name}`}>
+            {whatsappHref && (
+              <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="client-header-contact" data-channel="whatsapp" aria-label="WhatsApp (abre em nova aba)">
+                <WhatsAppGlyph />
+              </a>
+            )}
+            {instagramHandle && (
+              <a href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noopener noreferrer" className="client-header-contact" data-channel="instagram" aria-label={`Instagram @${instagramHandle} (abre em nova aba)`}>
+                <Instagram className="h-[17px] w-[17px]" aria-hidden="true" />
+              </a>
+            )}
+            {headerSiteUrl && (
+              <a href={headerSiteUrl} target="_blank" rel="noopener noreferrer" className="client-header-contact" data-channel="website" aria-label="Site (abre em nova aba)">
+                <Link2 className="h-[17px] w-[17px]" aria-hidden="true" />
+              </a>
+            )}
           </div>
         )}
-        </div>
-        <div className="w-full min-w-0">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Bem-vindo</p>
-          <p className="mt-1 break-words text-base font-semibold leading-snug">{salon.name}</p>
-        </div>
       </header>
 
       {salon.pendingProposalCount > 0 && salon.hasValidClientSession && (
@@ -322,15 +299,14 @@ export default async function ClientHome({
         </Link>
       )}
 
-      <PwaInstallCard salonName={salon.name} storageKey={salonSlug} compact />
-
+      {/* Lembretes: convite compacto no topo, só quando o aparelho ainda pode ativar */}
       {salon.hasValidClientSession && <PushPermissionCard salonSlug={salonSlug} placement="home" />}
 
       {/* Hero — capa do salão */}
       <div
         className={`relative flex items-end overflow-hidden rounded-3xl ${
           coverNameVisible
-            ? "min-h-48 sm:min-h-56 lg:min-h-72"
+            ? "min-h-[180px] sm:min-h-56 lg:min-h-72 [@media(max-height:700px)]:min-h-[108px]"
             : "aspect-[16/9] max-h-[28rem] w-full"
         }`}
       >
@@ -347,106 +323,159 @@ export default async function ClientHome({
         {coverNameVisible && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
         )}
-        <div className={coverNameVisible ? "relative min-w-0 w-full p-5" : "sr-only"}>
+        <div className={coverNameVisible ? "relative min-w-0 w-full px-4 py-3.5 sm:p-5" : "sr-only"}>
           {/* Badge de segmento — dado real escolhido pelo dono, no lugar do
               rótulo genérico que havia antes. Sem segmento definido, mantém
               o texto anterior; não some nada para quem não personalizou. */}
-          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-md [@media(max-height:700px)]:hidden">
             {segment ? <segment.icon className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
             {segment ? segment.shortLabel : "Experiência premium"}
           </span>
-          <h1 className="break-words font-display text-2xl leading-tight text-white">{salon.name}</h1>
+          <h1 className="break-words font-display text-[22px] leading-tight text-white sm:text-2xl [@media(max-height:700px)]:text-lg">{salon.name}</h1>
         </div>
       </div>
 
-
-
-      {/* CTA de agendamento */}
+      {/* CTA de agendamento — ação principal da tela */}
       <Link
         href={`/book/${salonSlug}/agendar`}
-        className="client-booking-cta block overflow-hidden rounded-3xl p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="client-booking-cta block overflow-hidden rounded-3xl px-5 pb-4 pt-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:p-6"
       >
-        <h2 className="font-display text-2xl leading-tight">Agendar um horário</h2>
-        <p className="mt-1 text-sm">
+        <h2 className="font-display text-[22px] leading-tight sm:text-2xl">Agendar um horário</h2>
+        <p className="mt-1 text-sm [@media(max-height:700px)]:hidden">
           Escolha o serviço e veja os horários disponíveis agora.
         </p>
-        <div className="client-booking-cta-action mt-4 flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold">
+        <div className="client-booking-cta-action mt-3.5 flex min-h-11 w-fit items-center gap-2 rounded-full px-[18px] text-[15px] font-semibold">
           Agendar agora
           <ArrowUpRight className="h-4 w-4" />
         </div>
       </Link>
 
-      {/* Reputação após a ação principal — avaliações verificadas. */}
+      {/* Equipe logo abaixo da ação principal: escolher com quem agendar */}
+      {salon.professionals.length > 0 && (
+        <section aria-labelledby="team-title">
+          <h2 id="team-title" className="mb-2 text-[15px] font-semibold">Escolha com quem agendar</h2>
+          <div role="region" aria-label="Profissionais do estabelecimento" tabIndex={0} className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 md:grid md:grid-cols-2 md:overflow-visible lg:grid-cols-3">
+            {salon.professionals.map((p) => {
+              const initials = (p.user.name || "?")
+                .split(" ")
+                .map((w) => w[0])
+                .slice(0, 2)
+                .join("")
+                .toUpperCase();
+              return (
+                <Link
+                  key={p.id}
+                  href={`/book/${salonSlug}/agendar?pro=${encodeURIComponent(p.id)}`}
+                  aria-label={`Agendar com ${p.user.name}`}
+                  className="w-28 shrink-0 rounded-2xl border border-border bg-card px-2 py-2.5 text-center transition-transform hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[.97] lg:w-auto"
+                >
+                  {normalizeImageUrl(p.user.avatarUrl) ? (
+                    <ImageWithFallback
+                      src={normalizeImageUrl(p.user.avatarUrl)!}
+                      alt={`Foto de ${p.user.name}`}
+                      width={120}
+                      height={120}
+                      sizes="60px"
+                      quality={95}
+                      className="mx-auto h-[60px] w-[60px] rounded-full object-cover [@media(max-height:700px)]:h-12 [@media(max-height:700px)]:w-12"
+                      fallback={(
+                        <div
+                          role="img" aria-label={`Iniciais de ${p.user.name}`}
+                          className="mx-auto grid h-[60px] w-[60px] place-items-center rounded-full text-sm font-semibold text-white"
+                          style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))", color: p.colorHex ? `hsl(${readableForeground(p.colorHex) ?? "0 0% 0%"})` : "hsl(var(--primary-foreground))" }}
+                        >
+                          {initials}
+                        </div>
+                      )}
+                    />
+                  ) : (
+                    <div
+                      className="mx-auto grid h-[60px] w-[60px] place-items-center rounded-full text-sm font-semibold text-white"
+                      style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))", color: p.colorHex ? `hsl(${readableForeground(p.colorHex) ?? "0 0% 0%"})` : "hsl(var(--primary-foreground))" }}
+                    >
+                      {initials}
+                    </div>
+                  )}
+                  <p className="mt-2 line-clamp-2 text-[13px] font-semibold leading-tight">{p.user.name}</p>
+                  {p.bio && (
+                    <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">{p.bio}</p>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Avaliação, endereço e horário recolhidos; detalhes ao tocar */}
+      <details className="client-info-card group">
+        <summary className="client-info-summary">
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+              {reviewSummary.count > 0 ? (
+                <>
+                  <Star aria-hidden="true" className="h-4 w-4 text-warning" fill="currentColor" />
+                  <b className="font-bold">{reviewAverage}</b>
+                  <span className="text-[13px] text-muted-foreground">({reviewSummary.count})</span>
+                </>
+              ) : (
+                <>
+                  <Clock aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                  <span>Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}</span>
+                </>
+              )}
+              <OpenNowBadge openMinutes={salon.openMinutes} closeMinutes={salon.closeMinutes} timeZone={salon.timezone} />
+            </span>
+            {address && (
+              <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground group-open:hidden">
+                <MapPin aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span className="truncate">{address}</span>
+              </span>
+            )}
+          </span>
+          <ChevronDown aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="client-info-body">
+          {mapsHref && (
+            <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="client-info-row">
+              <MapPin aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 break-words leading-snug">{address}</span>
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-primary">
+                Rotas <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                <span className="sr-only"> no Google Maps (abre em nova aba)</span>
+              </span>
+            </a>
+          )}
+          <div className="client-info-row">
+            <Clock aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1">Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}</span>
+          </div>
+          {phoneHref && (
+            <a href={phoneHref} className="client-info-row">
+              <Phone aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1">Ligar · {formatPhoneBR(salon.phone ?? "")}</span>
+            </a>
+          )}
+          {reviewSummary.count > 0 && (
+            <a href="#avaliacoes" className="client-info-row">
+              <Star aria-hidden="true" className="h-4 w-4 shrink-0 text-warning" fill="currentColor" />
+              <span className="min-w-0 flex-1">
+                Ver {reviewSummary.count === 1 ? "a avaliação" : `as ${reviewSummary.count} avaliações`}
+              </span>
+              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </a>
+          )}
+        </div>
+      </details>
+
+      {/* Reputação — avaliações verificadas em carrossel compacto */}
       <ReviewsSection
         salonSlug={salonSlug}
         summary={salon.reviewData.summary}
         reviews={salon.reviewData.reviews}
       />
 
-      {(whatsappHref || phoneHref || instagramHandle || siteUrl || blogUrl) && (
-        <section id="contato" aria-labelledby="contact-title" className="rounded-3xl border border-border bg-card p-4">
-          <div className="mb-3">
-            <p id="contact-title" className="text-sm font-semibold">Fale com o Studio</p>
-            <p className="mt-1 text-xs text-muted-foreground">Canais oficiais do salão</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            {whatsappHref && (
-              <QuickContact
-                href={whatsappHref}
-                icon={MessageCircle}
-                label="WhatsApp"
-                channel="whatsapp"
-                value={formatPhoneBR(whatsappNumber ?? "")}
-                external
-                className="w-full min-w-0"
-              />
-            )}
-            {phoneHref && (
-              <QuickContact
-                href={phoneHref}
-                icon={Phone}
-                label="Ligar"
-                channel="phone"
-                value={formatPhoneBR(salon.phone ?? "")}
-                className="w-full min-w-0"
-              />
-            )}
-            {instagramHandle && (
-              <QuickContact
-                href={`https://instagram.com/${instagramHandle}`}
-                icon={Instagram}
-                label="Instagram"
-                channel="instagram"
-                value={`@${instagramHandle}`}
-                external
-                className="w-full min-w-0"
-              />
-            )}
-            {siteUrl && (
-              <QuickContact
-                href={siteUrl}
-                icon={Globe2}
-                label="Site"
-                channel="website"
-                value={compactExternalLabel(siteUrl)}
-                external
-                className="w-full min-w-0"
-              />
-            )}
-            {blogUrl && (
-              <QuickContact
-                href={blogUrl}
-                icon={ExternalLink}
-                label="Conteúdo"
-                channel="content"
-                value={compactExternalLabel(blogUrl)}
-                external
-                className="w-full min-w-0"
-              />
-            )}
-          </div>
-        </section>
-      )}
+      <PwaInstallCard salonName={salon.name} storageKey={salonSlug} compact />
 
       {/* Apresentação escrita pelo dono */}
       {salon.description && (
@@ -455,15 +484,10 @@ export default async function ClientHome({
         </p>
       )}
 
-      {/* Informações — só dados que existem de verdade no cadastro do salão */}
+      {/* Regras do atendimento — só dados que existem de verdade no cadastro */}
       <div className="grid grid-cols-1 gap-2.5 rounded-3xl border border-border bg-card p-4 text-[13px] sm:grid-cols-2">
-        <SalonLocationLink address={salon.address} className="sm:col-span-2" />
         <div className="flex items-center gap-2.5 text-muted-foreground">
-          <Clock className="client-hours-icon h-4 w-4 shrink-0" />
-          Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}
-        </div>
-        <div className="flex items-center gap-2.5 text-muted-foreground">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
+          <ShieldCheck className="h-4 w-4 shrink-0 text-success" />
           Cancelamento com {salon.cancelPolicyHours}h de antecedência
         </div>
         {paymentLabels.length > 0 && (
@@ -474,66 +498,11 @@ export default async function ClientHome({
         )}
         {importantText && (
           <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             {importantText}
           </div>
         )}
       </div>
-
-      {/* Equipe — só profissionais ativos, sem dado inventado */}
-      {salon.professionals.length > 0 && (
-        <section>
-          <p className="mb-3 text-sm font-semibold text-muted-foreground">Nossa equipe</p>
-          <div role="region" aria-label="Profissionais do estabelecimento" tabIndex={0} className="scrollbar-dark flex gap-3 overflow-x-auto pb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:grid md:grid-cols-2 md:overflow-visible lg:grid-cols-3">
-            {salon.professionals.map((p) => {
-              const initials = (p.user.name || "?")
-                .split(" ")
-                .map((w) => w[0])
-                .slice(0, 2)
-                .join("")
-                .toUpperCase();
-              return (
-                <div
-                  key={p.id}
-                  className="w-32 shrink-0 rounded-2xl border border-border bg-card p-3 text-center lg:w-auto"
-                >
-                  {normalizeImageUrl(p.user.avatarUrl) ? (
-                    <ImageWithFallback
-                      src={normalizeImageUrl(p.user.avatarUrl)!}
-                      alt={`Foto de ${p.user.name}`}
-                      width={96}
-                      height={96}
-                      sizes="48px"
-                      quality={95}
-                      className="mx-auto h-12 w-12 rounded-full object-cover"
-                      fallback={(
-                        <div
-                          role="img" aria-label={`Iniciais de ${p.user.name}`}
-                          className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
-                          style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))", color: p.colorHex ? `hsl(${readableForeground(p.colorHex) ?? "0 0% 0%"})` : "hsl(var(--primary-foreground))" }}
-                        >
-                          {initials}
-                        </div>
-                      )}
-                    />
-                  ) : (
-                    <div
-                      className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
-                      style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))", color: p.colorHex ? `hsl(${readableForeground(p.colorHex) ?? "0 0% 0%"})` : "hsl(var(--primary-foreground))" }}
-                    >
-                      {initials}
-                    </div>
-                  )}
-                  <p className="mt-2 truncate text-[12px] font-medium">{p.user.name}</p>
-                  {p.bio && (
-                    <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">{p.bio}</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* Busca + categorias + grid (interativo) */}
       <WaitlistOffers salonSlug={salonSlug} />
@@ -613,7 +582,7 @@ export default async function ClientHome({
                 </div>
                 <div className="p-2">
                   <p className="truncate text-[11px] font-medium">{p.name}</p>
-                  <p className="text-[11px] font-semibold text-primary">
+                  <p className="text-[11px] font-semibold">
                     {formatMoney(p.priceCents, salon.currency)}
                   </p>
                 </div>
