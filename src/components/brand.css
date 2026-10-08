@@ -12,11 +12,20 @@
 .ef-logo, .ef-mark {
   --ef-petal-a: #7c5cf0;
   --ef-petal-b: #bba9fc;
-  --ef-petal-a: light-dark(#7c5cf0, #c4b2ff);
-  --ef-petal-b: light-dark(#bba9fc, #eee8ff);
   display: inline-block;
   flex-shrink: 0;
   vertical-align: middle;
+}
+/* Navegadores sem light-dark() (iOS < 17.5): temas escuros conhecidos. */
+:is([data-theme$="-dark"], .ef-intro, .mk[data-atmosphere="dark"], .ef-marketing[data-segment="espaco-misto"] .mk-header) :is(.ef-logo, .ef-mark) {
+  --ef-petal-a: #c4b2ff;
+  --ef-petal-b: #eee8ff;
+}
+@supports (color: light-dark(#000, #fff)) {
+  .ef-logo, .ef-mark {
+    --ef-petal-a: light-dark(#7c5cf0, #c4b2ff);
+    --ef-petal-b: light-dark(#bba9fc, #eee8ff);
+  }
 }
 .ef-logo > svg, .ef-mark > svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .ef-logo .ef-petal-a, .ef-logo .ef-spark, .ef-mark .ef-petal-a { fill: var(--ef-petal-a); }

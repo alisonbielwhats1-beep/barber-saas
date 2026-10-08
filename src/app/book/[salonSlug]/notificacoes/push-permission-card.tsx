@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BellRing, Mail, ShieldCheck, Smartphone, X } from "lucide-react";
 
 type State = "checking" | "ready" | "active" | "denied" | "install" | "unsupported" | "unavailable";
@@ -147,6 +147,8 @@ function PushReminderPopup({ salonSlug, ready, busy, error, onEnable }: {
   const storageKey = `everflair:push-popup:${salonSlug}`;
   const [visible, setVisible] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const leaveTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
 
   useEffect(() => {
     if (!ready) { setVisible(false); return; }
@@ -158,7 +160,7 @@ function PushReminderPopup({ salonSlug, ready, busy, error, onEnable }: {
   function close() {
     try { sessionStorage.setItem(storageKey, "closed"); } catch { /* fecha só nesta tela */ }
     setLeaving(true);
-    window.setTimeout(() => setVisible(false), 200);
+    leaveTimer.current = window.setTimeout(() => setVisible(false), 200);
   }
 
   if (!visible) return null;

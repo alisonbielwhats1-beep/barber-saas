@@ -11,9 +11,11 @@ Branch `claude/everflair-logo-redesign-ddd49b`. Decisão do dono de 08/10 em
 - **Abertura do cliente** "do ícone ao app" (2,5 s) em `brand-intro.tsx`/`brand.css`.
 - **App do cliente:** primária violeta nos temas `salon-dark`/`salon-light`
   (painel inalterado); nova tela inicial em `book/[salonSlug]/page.tsx`
-  (contatos no topo, Agendar, equipe com link para `agendar?pro=`, informações
-  recolhidas com "Aberto agora" no fuso do salão, avaliações em carrossel,
-  convite de lembretes em aviso no topo).
+  (contatos no topo, Agendar, equipe com link para `agendar?pro=`, que o
+  `booking-flow` pré-seleciona quando o serviço escolhido é compatível,
+  informações recolhidas com "Aberto agora" no fuso do salão e no expediente
+  semanal da equipe, avaliações em carrossel, convite de lembretes em aviso no
+  topo). Logo com alternativa de cores para navegadores sem `light-dark()`.
 - Testes atualizados: ícones (fundo violeta), abertura (2,5 s) e convite de
   lembretes (aviso no topo); novo teste de "Aberto agora".
 

@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   Instagram,
   CreditCard,
   Info,
@@ -75,6 +76,17 @@ function normalizeExternalUrl(value: string): string | null {
       : null;
   } catch {
     return null;
+  }
+}
+
+function compactExternalLabel(value: string): string {
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.replace(/^www\./i, "");
+    const path = parsed.pathname.replace(/\/+$/g, "");
+    return `${host}${path && path !== "/" ? path : ""}`;
+  } catch {
+    return value;
   }
 }
 
@@ -163,7 +175,10 @@ export default async function ClientHome({
       },
       professionals: {
         where: { active: true },
-        select: { id: true, bio: true, colorHex: true, user: { select: { name: true, avatarUrl: true } } },
+        select: {
+          id: true, bio: true, colorHex: true, user: { select: { name: true, avatarUrl: true } },
+          workingHours: { select: { weekday: true, startMinutes: true, endMinutes: true } },
+        },
       },
       portfolio: {
         orderBy: { createdAt: "desc" },
@@ -229,6 +244,8 @@ export default async function ClientHome({
     .filter(Boolean);
 
   const headerSiteUrl = siteUrl ?? blogUrl;
+  // Expediente semanal da equipe ativa, para "Aberto agora" respeitar folgas e pausas.
+  const weeklyHours = salon.professionals.flatMap((professional) => professional.workingHours);
   const reviewSummary = salon.reviewData.summary;
   const reviewAverage = reviewSummary.average.toFixed(1).replace(".", ",");
   const address = salon.address?.trim() || null;
@@ -424,7 +441,7 @@ export default async function ClientHome({
                   <span>Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}</span>
                 </>
               )}
-              <OpenNowBadge openMinutes={salon.openMinutes} closeMinutes={salon.closeMinutes} timeZone={salon.timezone} />
+              <OpenNowBadge openMinutes={salon.openMinutes} closeMinutes={salon.closeMinutes} timeZone={salon.timezone} weeklyHours={weeklyHours} />
             </span>
             {address && (
               <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground group-open:hidden">
@@ -454,6 +471,13 @@ export default async function ClientHome({
             <a href={phoneHref} className="client-info-row">
               <Phone aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1">Ligar · {formatPhoneBR(salon.phone ?? "")}</span>
+            </a>
+          )}
+          {siteUrl && blogUrl && (
+            <a href={blogUrl} target="_blank" rel="noopener noreferrer" className="client-info-row">
+              <ExternalLink aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">Conteúdo · {compactExternalLabel(blogUrl)}</span>
+              <span className="sr-only"> (abre em nova aba)</span>
             </a>
           )}
           {reviewSummary.count > 0 && (
