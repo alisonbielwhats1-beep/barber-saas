@@ -12,6 +12,7 @@ import { applyUpgradePayment } from "./change-payments";
 import { syncPlanChanges } from "./change-worker";
 import { schedulePriceReduction } from "./price-reduction";
 import { receiveCreditPayment } from "./credits-provider";
+import { syncStripeSubscription } from "./stripe/sync";
 
 /** The only global scope is dispatch metadata, not subscriptions, payments or tenant records. */
 async function queueScope<T>(fn: (tx: Tx) => Promise<T>) {
@@ -66,8 +67,8 @@ export async function receiveWebhook(topic: string, resourceId: string, notifica
 
 export async function syncSubscription(salonId: string, id: string) {
   let sub = await withSalon(salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id } }));
-  // Dispatch by provider. Stripe contracts get their own reconciliation in the next phase; until then they wait in the
-  // queue with backoff and never reach Mercado Pago.
+  // Dispatch by provider: each one reconciles only its own contracts, and nothing below ever reaches Mercado Pago for Stripe.
+  if (sub.provider === "stripe") return syncStripeSubscription(salonId, id);
   assertProvider(sub, "mercadopago");
   const wasUncreated = !sub.providerId;
   await ensureCreated(sub);

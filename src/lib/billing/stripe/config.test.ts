@@ -82,8 +82,8 @@ describe("Stripe configuration trust boundaries", () => {
   });
 
   it("turns Stripe failures into billing errors without the provider's message", async () => {
-    for (const [type, code] of [["StripeAuthenticationError", "STRIPE_KEY_REJECTED"], ["StripePermissionError", "STRIPE_KEY_REJECTED"], ["StripeConnectionError", "PROVIDER_UNAVAILABLE"],
-      ["StripeAPIError", "PROVIDER_UNAVAILABLE"], ["StripeRateLimitError", "PROVIDER_UNAVAILABLE"], ["StripeInvalidRequestError", "PROVIDER_REJECTED"], [undefined, "PROVIDER_REJECTED"]]) {
+    for (const [type, code] of [["StripeAuthenticationError", "STRIPE_KEY_REJECTED"], ["StripePermissionError", "STRIPE_KEY_REJECTED"], ["StripeConnectionError", "STRIPE_UNAVAILABLE"],
+      ["StripeAPIError", "STRIPE_UNAVAILABLE"], ["StripeRateLimitError", "STRIPE_UNAVAILABLE"], ["StripeInvalidRequestError", "STRIPE_REJECTED"], [undefined, "STRIPE_REJECTED"]]) {
       retrieveCurrent.mockRejectedValue(Object.assign(new Error("Invalid API Key provided: rk_test_***leaked"), { type }));
       const failure = await verifyStripeAccount().then(() => null, (e: unknown) => e as Error);
       expect(failure).toMatchObject({ name: "BillingError", code, status: 503 });

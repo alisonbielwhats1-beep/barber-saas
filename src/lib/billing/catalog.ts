@@ -6,6 +6,8 @@ export const CATALOG_VERSION = "2026-10-02";
 export const BILLING_PROVIDERS = ["mercadopago", "stripe"] as const;
 export type BillingProvider = (typeof BILLING_PROVIDERS)[number];
 export const billingProvider = z.enum(BILLING_PROVIDERS);
+/** A contract request names its gateway; requests from before Stripe carry none and stay Mercado Pago. */
+export const contractProvider = z.object({ provider: billingProvider.default("mercadopago") }).passthrough();
 export const BILLING_PLANS = {
   INDIVIDUAL: { label: "Individual", agendas: 1, monthly: 3990, annual: 39900 },
   TEAM: { label: "Essencial", agendas: 3, monthly: 7990, annual: 77900 },

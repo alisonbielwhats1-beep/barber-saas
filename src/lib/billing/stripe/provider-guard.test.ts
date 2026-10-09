@@ -16,7 +16,6 @@ vi.mock("../../prisma-tenant", () => ({
 }));
 import { assertProvider } from "../catalog";
 import { ensureCreated } from "../service";
-import { syncSubscription } from "../worker";
 import { applyCreditPayment, prepareCreditCheckout } from "../credits-provider";
 import { prepareUpgradeCheckout } from "../change-provider";
 import { syncPlanChanges } from "../change-worker";
@@ -47,19 +46,23 @@ describe("Mercado Pago code never touches a Stripe contract or purchase", () => 
 
   it("does not create, reconcile or change a Stripe subscription in Mercado Pago", async () => {
     await expect(ensureCreated(stripeSubscription)).rejects.toThrow("PROVIDER_MISMATCH");
-    await expect(syncSubscription("salon-a", stripeSubscription.id)).rejects.toThrow("PROVIDER_MISMATCH");
     await expect(prepareUpgradeCheckout(stripeSubscription, {} as never)).rejects.toThrow("PROVIDER_MISMATCH");
     await expect(syncPlanChanges(stripeSubscription)).rejects.toThrow("PROVIDER_MISMATCH");
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("dispatches in the worker itself, before any Mercado Pago step", async () => {
+  it("dispatches in the worker itself: a Stripe contract goes to the Stripe reconciliation, never to a Mercado Pago step", async () => {
     vi.resetModules();
     const ensure = vi.fn();
+    const stripeSync = vi.fn(async () => false);
     vi.doMock("../service", async original => ({ ...(await original<typeof import("../service")>()), ensureCreated: ensure }));
+    vi.doMock("./sync", async original => ({ ...(await original<typeof import("./sync")>()), syncStripeSubscription: stripeSync }));
     const worker = await import("../worker");
-    await expect(worker.syncSubscription("salon-a", stripeSubscription.id)).rejects.toThrow("PROVIDER_MISMATCH");
+    await expect(worker.syncSubscription("salon-a", stripeSubscription.id)).resolves.toBe(false);
+    expect(stripeSync).toHaveBeenCalledWith("salon-a", stripeSubscription.id);
     expect(ensure).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    vi.doUnmock("./sync");
   });
 
   it("refuses a Stripe contract at the owner's plan change and reactivation, with its own error", async () => {
