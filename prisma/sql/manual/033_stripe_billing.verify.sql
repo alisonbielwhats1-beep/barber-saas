@@ -1,4 +1,4 @@
--- Read-only checks after 032_stripe_billing.sql.
+-- Read-only checks after 033_stripe_billing.sql.
 DO $$ BEGIN
  IF (SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND column_name='provider' AND is_nullable='NO'
    AND column_default LIKE '''mercadopago''%' AND table_name IN ('BillingSubscription','SecretaryCreditPurchase')) <> 2 THEN RAISE EXCEPTION 'Missing provider columns'; END IF;

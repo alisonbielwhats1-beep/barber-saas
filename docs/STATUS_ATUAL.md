@@ -8,7 +8,7 @@ ainda e nenhuma tela muda.
 - SDK oficial `stripe@22.6.2` com a API `2026-08-26.dahlia` fixada; configuração
   em `src/lib/billing/stripe/` (`STRIPE_*`), que só liga junto com
   `MERCADOPAGO_BILLING_ENABLED` e recusa chave, modo ou deploy de outro ambiente.
-- Migration manual **032** (aditiva): `provider` em `BillingSubscription` e
+- Migration manual **033** (aditiva; a 032 é a cortesia do #169): `provider` em `BillingSubscription` e
   `SecretaryCreditPurchase` (padrão `mercadopago`, imutável) e tabela
   `BillingCustomer` com FORCE RLS e só inserção. **Precisa ser aplicada em
   Production antes do merge**: o Prisma Client novo lê a coluna `provider`.

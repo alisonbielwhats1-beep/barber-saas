@@ -1,4 +1,4 @@
--- Read-only. Identify the destination and confirm the predecessors before 032_stripe_billing.sql.
+-- Read-only. Identify the destination and confirm the predecessors before 033_stripe_billing.sql.
 SELECT current_database(),current_user,inet_server_addr(),inet_server_port();
 DO $$ BEGIN
  IF to_regclass('public."Salon"') IS NULL OR to_regprocedure('public.hq_is_admin()') IS NULL THEN
