@@ -263,6 +263,23 @@ export async function registerClient(
   // banco — não faz sentido segurar a conexão presa nesse tempo.
   let provider: { identityId: string; confirmationRequired: boolean } | undefined;
   if (supabaseAuthEnabled()) {
+    // A retry must authenticate the persisted account before touching signup.
+    // Otherwise a legacy login can be blocked by SMTP, and an unconfirmed
+    // account can receive repeated signups instead of using its first password.
+    let existing;
+    try {
+      existing = await withSalonBySlug(normalizedSlug, (tx, salonId) => tx.clientProfile.findFirst({
+        where: { salonId, email: { equals: registration.email, mode: "insensitive" }, mergedIntoId: null },
+        select: { id: true, passwordHash: true, authIdentityId: true },
+      }));
+    } catch { return { error: "Não foi possível criar a conta agora. Tente novamente." }; }
+    if (existing) {
+      if (!existing.passwordHash && !existing.authIdentityId) {
+        return { error: "Este e-mail já está em uma reserva sem conta. Peça ao salão para vincular seu histórico com segurança." };
+      }
+      const login = await loginClient(normalizedSlug, registration.email, registration.password, returnTo);
+      return { error: login.error, code: "ACCOUNT_ACCESS" };
+    }
     try {
       provider = await registerProviderAccount(registration.email, registration.password, recoveryRedirect(normalizedSlug).replace("redefinir-senha", "login"));
     } catch { return { error: REGISTRATION_ERROR, code: "ACCOUNT_ACCESS" }; }

@@ -78,6 +78,52 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     expect(inbox.messages.some(message => message.To.some(to => to.Address === email))).toBe(false);
   });
 
+  test("customer signup, resend, confirmation and login preserve the original eight-character password", async ({ page }) => {
+    const email = `signup-client-${Date.now()}@example.test`;
+    const originalPassword = "Nova1234";
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/book/${slug}/cadastro`);
+    await page.getByLabel("Nome completo").fill("Cliente sintético");
+    await page.getByLabel(/WhatsApp/).fill("11912345678");
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(originalPassword);
+    await page.getByLabel("Confirmar senha", { exact: true }).fill(originalPassword);
+    await page.getByRole("button", { name: "Criar conta", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("Confirme seu e-mail");
+    const profile = await db.clientProfile.findFirstOrThrow({ where: { salonId, email } });
+    const firstLink = await recoveryLink(email);
+    expect(new URL(firstLink).pathname).toBe("/auth/confirm");
+    expect(new URL(firstLink).searchParams.get("next")).toBe(`http://127.0.0.1:3100/book/${slug}/login`);
+    await page.getByRole("link", { name: "Entrar", exact: true }).click();
+    await expect(page).toHaveURL(/\/login\?/);
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(originalPassword);
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("E-mail ou senha incorretos");
+    await expect(page.getByText(/Confirme seu e-mail pelo link recebido antes de entrar/)).toBeVisible();
+    await page.getByRole("button", { name: "Reenviar confirmação de e-mail" }).click();
+    await expect(page.getByRole("status")).toContainText("Se houver um cadastro");
+    await expect.poll(async () => {
+      const inbox = await (await fetch("http://127.0.0.1:54324/api/v1/messages")).json() as { messages: Array<{ To: Array<{ Address: string }> }> };
+      return inbox.messages.filter(message => message.To.some(to => to.Address === email)).length;
+    }).toBe(2);
+    const link = await recoveryLink(email);
+    await page.goto(link);
+    await page.reload(); // Reading/scanning the link must not consume it.
+    await page.getByRole("button", { name: "Confirmar meu e-mail" }).click();
+    await expect(page).toHaveURL(`http://127.0.0.1:3100/book/${slug}/login`);
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(originalPassword);
+    await submitLoginWithoutErrorFlash(page);
+    expect(await db.clientProfile.count({ where: { salonId, email } })).toBe(1);
+    expect((await db.clientProfile.findUniqueOrThrow({ where: { id: profile.id } })).authIdentityId).toBe(profile.authIdentityId);
+    // A used link keeps the customer on the same salon instead of requiring a reset.
+    await page.goto(link);
+    await page.getByRole("button", { name: "Confirmar meu e-mail" }).click();
+    await expect(page.getByText(/Se você já confirmou o e-mail, entre com sua senha/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voltar para o login" })).toHaveAttribute("href", `http://127.0.0.1:3100/book/${slug}/login`);
+  });
+
   for (const app of ["owner", "client"]) {
     test(`${app}: login → email → link → new password → correct login`, async ({ page }) => {
       await page.setViewportSize(app === "owner" ? { width: 1440, height: 900 } : { width: 390, height: 844 });
@@ -108,16 +154,16 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: `test-results/${app}-recovery-form-${width}.png`, fullPage: true });
       }
-      await page.getByLabel("Nova senha", { exact: true }).fill("NovaSegura123");
+      await page.getByLabel("Nova senha", { exact: true }).fill("Nova1234");
       await page.getByLabel("Confirmar nova senha", { exact: true }).fill("OutraSegura123");
       await page.getByRole("button", { name: "Atualizar senha" }).click();
       await expect(page.locator('p[role="alert"]')).toContainText("As senhas não coincidem");
-      await page.getByLabel("Confirmar nova senha", { exact: true }).fill("NovaSegura123");
+      await page.getByLabel("Confirmar nova senha", { exact: true }).fill("Nova1234");
       await page.getByRole("button", { name: "Atualizar senha" }).click();
       await expect(page).toHaveURL(new RegExp(`${prefix}/login\\?senha=alterada$`));
       await expect(page.getByRole("status")).toContainText("Senha atualizada com sucesso");
       await page.getByLabel(/E-?mail/i).fill(accounts[app].email);
-      await page.getByLabel("Senha", { exact: true }).fill("NovaSegura123");
+      await page.getByLabel("Senha", { exact: true }).fill("Nova1234");
       await submitLoginWithoutErrorFlash(page);
       if (app === "owner") {
         const response = await page.request.get("/api/auth/session");

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { supabaseAuthEnabled } from "@/lib/supabase-auth-config";
+import { passwordRecoveryEmailEnabled } from "@/lib/password-recovery-feature";
 import { redirect } from "next/navigation";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
 import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
@@ -22,7 +24,7 @@ export default async function LoginPage({
   return (
     <ClientAccessLayout eyebrow="Sua conta" title="Entrar" description={homePath.startsWith(`/book/${salonSlug}/agendar`) ? "Entre para continuar seu agendamento. Você revisará os dados antes de confirmar." : "Acesse para agendar e acompanhar suas reservas."}>
       <div className="space-y-6">
-        <LoginForm salonSlug={salonSlug} returnTo={homePath} passwordReset={query.senha === "alterada"}
+        <LoginForm confirmationEnabled={supabaseAuthEnabled() && passwordRecoveryEmailEnabled()} salonSlug={salonSlug} returnTo={homePath} passwordReset={query.senha === "alterada"}
           recoveryLink={<PasswordRecoveryLoginLink href={`/book/${salonSlug}/recuperar-senha`} className="text-sm" />} />
 
         <p className="text-center text-sm text-muted-foreground">

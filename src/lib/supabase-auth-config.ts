@@ -49,3 +49,14 @@ export function recoveryRedirect(salonSlug?: string, env: Record<string, string 
   }
   return new URL(recoveryPath(salonSlug), url).toString();
 }
+
+/** Only exact login destinations on the configured app origins are accepted. */
+export function confirmationLoginDestination(next?: string) {
+  const fallback = recoveryRedirect().replace("redefinir-senha", "login");
+  try {
+    const requested = new URL(next ?? fallback);
+    const salon = requested.pathname.match(/^\/book\/([a-z0-9]+(?:-[a-z0-9]+)*)\/login$/)?.[1];
+    const allowed = recoveryRedirect(salon).replace("redefinir-senha", "login");
+    return requested.toString() === allowed ? allowed : fallback;
+  } catch { return fallback; }
+}

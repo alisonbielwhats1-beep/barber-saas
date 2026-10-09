@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { acceptInvite } from "./actions";
 import Link from "next/link";
+import { NEW_PASSWORD_MIN_LENGTH, NEW_PASSWORD_HELP } from "@/lib/recovery-validation";
 
 export function InviteForm({
   token,
   mode,
+  provider = false,
 }: {
   token: string;
+  provider?: boolean;
   mode: "new" | "existing";
 }) {
   const [pending, startTransition] = useTransition();
@@ -74,7 +77,7 @@ export function InviteForm({
             id="invite-password"
             name="password"
             label="Senha"
-            minLength={10}
+            minLength={provider ? NEW_PASSWORD_MIN_LENGTH : 10}
             autoComplete="new-password"
             required
           />
@@ -82,13 +85,12 @@ export function InviteForm({
             id="invite-confirm-password"
             name="confirmPassword"
             label="Confirmar senha"
-            minLength={10}
+            minLength={provider ? NEW_PASSWORD_MIN_LENGTH : 10}
             autoComplete="new-password"
             required
           />
           <p className="text-xs text-muted-foreground">
-            Use pelo menos 10 caracteres. Evite senhas reutilizadas em outros
-            serviços.
+            {provider ? NEW_PASSWORD_HELP : "Use pelo menos 10 caracteres."} Evite senhas reutilizadas em outros serviços.
           </p>
         </>
       )}

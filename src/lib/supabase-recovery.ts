@@ -8,6 +8,7 @@ import { prisma } from "./prisma";
 import { withSalonBySlug } from "./prisma-tenant";
 import { clientCookieIsSecure } from "./client-cookie";
 import { prepareLegacyRecovery, completeRecoveryMigration } from "./legacy-supabase-transition";
+import { NEW_PASSWORD_HELP } from "./recovery-validation";
 
 export const INVALID_RECOVERY = "Este link é inválido, expirou ou já foi utilizado. Solicite um novo e-mail.";
 const COOKIE = "everflair_recovery";
@@ -100,7 +101,7 @@ export async function updateSupabasePassword(input: { token: string; password: s
     return { ok: false, error: error.status === 429
       ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
       : ["weak_password", "same_password"].includes(error.code ?? "")
-        ? "Escolha uma senha diferente da atual, com pelo menos 10 caracteres, letras e números."
+        ? `Escolha uma senha diferente da atual. ${NEW_PASSWORD_HELP}`
         : "Não foi possível atualizar a senha agora. Tente novamente." } as const;
   }
   await completeRecoveryMigration(stored.identityId, verifiedEmail, stored.version + 1);
