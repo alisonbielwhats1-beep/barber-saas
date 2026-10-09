@@ -4,6 +4,7 @@ import { useState } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
+import { ClientConfirmationHelp } from "@/components/client-confirmation-help";
 import { loginClient } from "../auth-actions";
 
 export function LoginForm({
@@ -11,11 +12,13 @@ export function LoginForm({
   passwordReset = false,
   returnTo,
   recoveryLink,
+  confirmationEnabled = false,
 }: {
   salonSlug: string;
   passwordReset?: boolean;
   returnTo?: string;
   recoveryLink?: React.ReactNode;
+  confirmationEnabled?: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,6 +81,7 @@ export function LoginForm({
       />
 
       {recoveryLink}
+      {confirmationEnabled && <ClientConfirmationHelp salonSlug={salonSlug} email={email} />}
 
       {error && (
         <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-2.5 text-[13px] text-destructive">

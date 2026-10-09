@@ -119,4 +119,27 @@ describe("CadastroForm", () => {
       undefined,
     );
   });
+  it("valida letras e números no modo Supabase e aceita oito caracteres", async () => {
+    mocks.registerClient.mockResolvedValue({ error: "Conta criada. Confirme seu e-mail.", code: "CONFIRM_EMAIL" });
+    render(<CadastroForm salonSlug="studio-a" provider />);
+    fireEvent.change(screen.getByLabelText("Nome completo"), { target: { value: "Cliente sintético" } });
+    fireEvent.change(screen.getByLabelText(/WhatsApp/), { target: { value: "11912345678" } });
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "test@example.test" } });
+    const password = screen.getByLabelText("Senha", { exact: true });
+    const confirm = screen.getByLabelText("Confirmar senha");
+    const form = screen.getByRole("button", { name: "Criar conta" }).closest("form")!;
+    for (const invalid of ["abcdefgh", "12345678"]) {
+      fireEvent.change(password, { target: { value: invalid } });
+      fireEvent.change(confirm, { target: { value: invalid } });
+      fireEvent.submit(form);
+      expect(screen.getByRole("alert")).toHaveTextContent("letras e números");
+    }
+    expect(mocks.registerClient).not.toHaveBeenCalled();
+    fireEvent.change(password, { target: { value: "Nova1234" } });
+    fireEvent.change(confirm, { target: { value: "Nova1234" } });
+    fireEvent.submit(form);
+    expect(await screen.findByRole("status")).toHaveTextContent("Confirme seu e-mail");
+    expect(screen.getByRole("button", { name: "Reenviar confirmação de e-mail" })).toBeVisible();
+    expect(mocks.registerClient).toHaveBeenCalledWith("studio-a", expect.objectContaining({ password: "Nova1234" }), undefined);
+  });
 });

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { getInviteView, type InviteRole } from "@/lib/invitations";
+import { supabaseAuthEnabled } from "@/lib/supabase-auth-config";
 import { InviteForm } from "./invite-form";
 
 const ROLE_LABEL: Record<InviteRole, string> = {
@@ -115,7 +116,7 @@ export default async function InvitePage({
                       ? "Crie sua senha para ativar a conta. O link funciona uma única vez."
                       : "Confirme o convite para liberar seu acesso ao painel."}
                   </p>
-                  <InviteForm
+                  <InviteForm provider={supabaseAuthEnabled()}
                     token={token}
                     mode={invite.state === "CREATE_ACCOUNT" ? "new" : "existing"}
                   />

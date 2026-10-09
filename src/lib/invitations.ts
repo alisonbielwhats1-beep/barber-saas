@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { supabaseAuthEnabled, recoveryRedirect } from "./supabase-auth-config";
 import { registerProviderAccount } from "./supabase-auth";
-import { newAuthPasswordSchema } from "./recovery-validation";
+import { NEW_PASSWORD_MIN_LENGTH, newAuthPasswordSchema } from "./recovery-validation";
 import type { Prisma, Role } from "@prisma/client";
 import { buildInviteEmail } from "./invite-email";
 import { defaultMailer, MailDeliveryError, type Mailer } from "./mailer";
@@ -935,7 +935,7 @@ export async function acceptNewUserInvite(input: {
   if (!input.token || input.token.length < 20 || input.token.length > 256) {
     return { ok: false, reason: "INVALID" };
   }
-  if (input.password.length < 10 || !isBcryptPasswordLengthValid(input.password)) {
+  if (input.password.length < (supabaseAuthEnabled() ? NEW_PASSWORD_MIN_LENGTH : 10) || !isBcryptPasswordLengthValid(input.password)) {
     return { ok: false, reason: "INVALID" };
   }
   const now = input.now ?? new Date();

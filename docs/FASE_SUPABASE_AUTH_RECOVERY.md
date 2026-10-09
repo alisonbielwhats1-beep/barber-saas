@@ -1,5 +1,15 @@
 # Recuperação por Supabase Auth — publicada em 20/09/2026
 
+## Complemento de 09/10/2026 — auditoria do acesso do cliente, em revisão
+
+A candidata `codex/auth-password-audit` reduz o mínimo Supabase para oito
+caracteres, mantendo letras/números e 72 bytes; preserva senhas existentes.
+Corrige retomada, confirmação e reenvio do cliente. A regra de dez e a configuração
+remota descritas abaixo são o registro histórico de implantação; a nova regra
+não foi publicada nem configurada em Production. Sincronização e validação
+obrigatórias em `AUDITORIA_ACESSO_CLIENTE_2026-10-09.md`.
+
+
 ## Complemento de 09/10/2026 — pausa do e-mail no cadastro do dono, em revisão
 
 Por solicitação do responsável, `/signup` cria novos donos com hash bcrypt e
