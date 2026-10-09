@@ -12,11 +12,11 @@ import { BillingHistory } from "./billing-history";
 import { PlanChangeReview } from "./plan-change-review";
 import { goToCheckout } from "./navigation";
 import { BILLING_PLANS, quoteContract } from "@/lib/billing/catalog";
-import { billingCapacityLabel, billingErrors, billingMoney, intentForTerms, isRenewalReactivation, pendingPriceOutdated, renewalStatusOf, safeCheckout, sameBillingTerms, type BillingIntent, type PlanChangeView, type SubscriptionView } from "@/lib/billing/presentation";
+import { billingCapacityLabel, billingErrors, billingMoney, gatewayWords, intentForTerms, isRenewalReactivation, pendingPriceOutdated, renewalStatusOf, safeCheckout, sameBillingTerms, type BillingIntent, type PlanChangeView, type SubscriptionView } from "@/lib/billing/presentation";
 
 const FREE_PLAN: LegacyPlan = { label: "Grátis", agendas: 1, free: true };
 
-export function SubscriptionPortal({ salonId, email, timezone, initial, accessBlocked = false, legacy = FREE_PLAN, occupiedAgendas = 0, billingOrigin = null, returnedFromCheckout = false, newContractsPaused = false, changesPaused = false }: {
+export function SubscriptionPortal({ salonId, email, timezone, initial, accessBlocked = false, legacy = FREE_PLAN, occupiedAgendas = 0, billingOrigin = null, returnedFromCheckout = false, newContractsPaused = false, changesPaused = false, stripeAvailable = false, mercadoPagoPaused = false }: {
   salonId: string; email: string; timezone: string; initial?: BillingIntent; accessBlocked?: boolean;
   /** Plan in use when no paid contract exists (legacy or free). */
   legacy?: LegacyPlan;
@@ -28,11 +28,16 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
   /** Operational pause: no new checkout is created; existing ones and cancellations keep working. */
   newContractsPaused?: boolean;
   changesPaused?: boolean;
+  /** Owner decision 09/10/2026: card (and Apple Pay) through Stripe, alongside Mercado Pago. */
+  stripeAvailable?: boolean;
+  /** Mercado Pago's own checkout pause; Stripe may still take new contracts. */
+  mercadoPagoPaused?: boolean;
 }) {
   const [subscription, setSubscription] = useState<SubscriptionView | null>();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [paying, setPaying] = useState<"mercadopago" | "stripe" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [choice, setChoice] = useState<BillingIntent | null>(null);
   const [replacing, setReplacing] = useState(false);
@@ -79,6 +84,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
   useEffect(() => { if (billingOrigin && window.location.origin !== billingOrigin) setForeignHost(window.location.host); }, [billingOrigin]);
 
   const renewalStatus = subscription ? renewalStatusOf(subscription) : "AVAILABLE";
+  const g = gatewayWords(subscription?.provider);
   const watching = Boolean(subscription && (subscription.changePending || renewalStatus === "PENDING" || (!(subscription.state === "ACTIVE" && !subscription.cancelRequestedAt) && !subscription.cancelledAt)));
   // A manual sync of a settled subscription is followed briefly; open situations for five minutes.
   const pollingKey = subscription ? watching ? `watch:${subscription.id}` : boost ? `sync:${boost}` : null : null;
@@ -103,17 +109,18 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     else if (!subscription.changePending || !["PREPARING", "AWAITING_PAYMENT"].includes(change.state)) setAwaitingCheckout(null);
   }, [subscription, awaitingCheckout]);
 
-  async function subscribe() {
+  async function subscribe(provider: "mercadopago" | "stripe" = "mercadopago") {
     if (!choice || inFlight.current) return;
-    inFlight.current = true; setBusy(true); setError(null);
+    inFlight.current = true; setBusy(true); setPaying(provider); setError(null);
     try {
-      const storageKey = `billing:${salonId}:${subscription?.id ?? "first"}:${JSON.stringify(choice)}`;
+      // One request key per plan and gateway: a retried click repeats the same request, another gateway is a new one.
+      const storageKey = `billing:${salonId}:${subscription?.id ?? "first"}:${JSON.stringify(choice)}${provider === "stripe" ? ":stripe" : ""}`;
       let key = requestKeys.current.get(storageKey);
       try { key ??= sessionStorage.getItem(storageKey) ?? undefined; } catch { /* Browser storage may be unavailable. */ }
       if (!key || !/^[a-f0-9-]{36}$/.test(key)) key = crypto.randomUUID();
       requestKeys.current.set(storageKey, key);
       try { sessionStorage.setItem(storageKey, key); } catch { /* The in-memory key still protects retries. */ }
-      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body: JSON.stringify(choice) });
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body: JSON.stringify(provider === "stripe" ? { ...choice, provider } : choice) });
       const body = await response.json();
       if (!response.ok) { setChoice(null); await refresh(); failed(body.error, "Não foi possível iniciar a contratação agora. Atualize a situação antes de tentar novamente."); return; }
       setChoice(null);
@@ -121,7 +128,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
       if (checkout) { goToCheckout(checkout); return; }
       setMessage("Sua solicitação foi recebida. Estamos preparando o pagamento."); await refresh();
     } catch { setChoice(null); await refresh(); failed("PROVIDER_UNAVAILABLE"); }
-    finally { inFlight.current = false; setBusy(false); }
+    finally { inFlight.current = false; setBusy(false); setPaying(null); }
   }
   async function cancel() {
     if (!subscription || inFlight.current) return;
@@ -198,7 +205,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     : change?.priceReduction && subscription?.changePending ? change.state === "CANCEL_REQUESTED" ? "Estamos liberando a troca de plano. Ela fica disponível assim que o Mercado Pago confirmar."
       : "Seu plano ficará mais barato no próximo vencimento. Para mudar de plano antes disso, use Mudar de plano agora, acima."
     : subscription?.changePending ? "Há uma troca em andamento. Conclua ou cancele essa troca para escolher outro plano."
-    : renewalStatus === "PENDING" ? "Estamos confirmando um cancelamento no Mercado Pago. Aguarde a confirmação para escolher outro plano."
+    : renewalStatus === "PENDING" ? `Estamos confirmando um cancelamento ${g.in}. Aguarde a confirmação para escolher outro plano.`
     : subscription?.state === "ACTIVE" && renewalStatus === "CANCELLED" ? canReactivate ? "A renovação está cancelada. Use Reativar renovação acima para continuar no mesmo plano; trocas voltam a ficar disponíveis quando a nova recorrência começar."
       : `A renovação foi cancelada. Você poderá contratar um plano novamente quando o período pago terminar${accessEnd ? `, em ${accessEnd}` : ""}.`
     : subscription?.state === "ACTIVE" && !subscription.changesAvailable ? "A troca de planos pelo painel ainda não está disponível. Fale com a plataforma se precisar mudar de plano."
@@ -206,6 +213,8 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     : ["GRACE", "VERIFYING"].includes(subscription?.state ?? "") ? "Regularize a situação da assinatura acima para trocar de plano."
     : "A troca de plano não está disponível neste momento. Atualize a situação para conferir.";
   const blockedByHost = Boolean(foreignHost);
+  // A new contract may go to either gateway; replacing a pending attempt keeps the attempt's gateway in the texts.
+  const choosingGateway = canChoose && stripeAvailable;
   function choose(intent: BillingIntent) {
     setError(null); setChangeError(null);
     if (canChoose || canReplacePending) { setReplacing(!canChoose); setChoice(intent); }
@@ -243,7 +252,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
       <div>
         <h2 id="choose-subscription" className="text-lg font-semibold">{mode === "subscribe" ? "Escolha seu plano" : mode === "replace-pending" ? "Prefere outro plano?" : "Mudar de plano"}</h2>
         <p className="mt-1 text-sm text-muted-foreground">Todos os planos incluem agendamentos ilimitados e todos os recursos. A diferença está na quantidade de agendas.
-          {mode === "replace-pending" && " Para trocar, primeiro encerramos a tentativa atual no Mercado Pago — nada é cobrado por isso."}</p>
+          {mode === "replace-pending" && ` Para trocar, primeiro encerramos a tentativa atual ${g.in} — nada é cobrado por isso.`}</p>
       </div>
       {mode === "subscribe" && initial && !newContractsPaused && <Notice tone="ok" title={`Você escolheu ${billingCapacityLabel(initial.plan, quoteContract(initial).agendaLimit)} · ${initial.cycle === "ANNUAL" ? "anual" : "mensal"}`}
         actions={<Button disabled={busy || blockedByHost} onClick={() => choose(initial)}>Continuar com este plano</Button>}>
@@ -252,6 +261,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
       <PlanPicker key={`${mode}:${subscription?.id ?? "none"}`} mode={mode} initial={mode === "subscribe" ? initial : undefined}
         current={mode === "change" ? terms : null} pending={mode === "replace-pending" && terms ? { ...terms, checkoutUrl: subscription?.cancelRequestedAt ? null : subscription?.checkoutUrl ?? null, outdated: outdatedPending } : null}
         occupiedAgendas={occupiedAgendas} disabled={busy || blockedByHost} lockedReason={lockedReason} loadingKey={quoting} onChoose={choose}
+        paymentNote={mode === "subscribe" && stripeAvailable ? (mercadoPagoPaused ? "Pagamento seguro com cartão pela Stripe." : "Pagamento seguro com cartão pela Stripe ou pelo Mercado Pago.") : mode !== "subscribe" && subscription?.provider === "stripe" ? "Pagamento seguro com cartão pela Stripe." : undefined}
         feedback={changeError && !quote && !cancelChangeOpen ? <p ref={changeErrorRef} role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-sm">{changeError}</p> : null} />
     </section>}
 
@@ -261,7 +271,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     {subscription && renewalStatus === "AVAILABLE" && !(reactivationPending && change?.state !== "SCHEDULED") && <section aria-labelledby="renewal-title" className="flex flex-col gap-4 rounded-2xl border border-border p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
       <div className="max-w-2xl">
         <h2 id="renewal-title" className="font-semibold">{unpaid ? "Contratação pendente" : "Renovação automática"}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{unpaid ? "Se desistir, encerramos a tentativa no Mercado Pago sem nenhuma cobrança. " : "Você pode cancelar a renovação aqui a qualquer momento, sem precisar falar com o suporte. "}
+        <p className="mt-1 text-sm text-muted-foreground">{unpaid ? `Se desistir, encerramos a tentativa ${g.in} sem nenhuma cobrança. ` : "Você pode cancelar a renovação aqui a qualquer momento, sem precisar falar com o suporte. "}
           {unpaid ? "Seu histórico é preservado." : accessBlocked ? "O período pago e seu histórico serão preservados." : "O plano continua disponível até o fim do período pago."}</p>
       </div>
       <Button variant="outline" className="shrink-0 border-danger/40 text-danger hover:bg-danger/10 hover:text-danger" disabled={busy || blockedByHost} onClick={() => setCancelOpen(true)}>{unpaid ? "Cancelar contratação" : "Cancelar renovação"}</Button>
@@ -270,7 +280,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     <p className="text-sm text-muted-foreground">Precisa de ajuda? <Link href="/contato" className="underline underline-offset-4">Fale com a plataforma</Link>.</p>
 
     <Dialog open={Boolean(choice)} onOpenChange={open => { if (!open && !busy) setChoice(null); }}><DialogContent>
-      <DialogHeader><DialogTitle>{updatingPrice ? "Atualizar para o novo preço" : replacing ? "Trocar contratação pendente" : "Confirmar contratação"}</DialogTitle><DialogDescription>{updatingPrice && terms ? `A tentativa anterior foi criada a ${billingMoney(terms.amountCents)} ${terms.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"} e não foi paga. Primeiro, confirme o encerramento dela no Mercado Pago, sem nenhuma cobrança. Depois, siga para o pagamento pelo valor atual.` : replacing ? "Primeiro, confirme o encerramento da tentativa anterior. O novo pagamento só ficará disponível depois da confirmação do Mercado Pago." : "Revise o valor antes de seguir para o pagamento seguro no Mercado Pago."}</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>{updatingPrice ? "Atualizar para o novo preço" : replacing ? "Trocar contratação pendente" : "Confirmar contratação"}</DialogTitle><DialogDescription>{updatingPrice && terms ? `A tentativa anterior foi criada a ${billingMoney(terms.amountCents)} ${terms.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"} e não foi paga. Primeiro, confirme o encerramento dela ${g.in}, sem nenhuma cobrança. Depois, siga para o pagamento pelo valor atual.` : replacing ? `Primeiro, confirme o encerramento da tentativa anterior. O novo pagamento só ficará disponível depois da confirmação ${g.of}.` : choosingGateway ? "Revise o valor e escolha como pagar. O pagamento é feito na página segura do serviço escolhido." : "Revise o valor antes de seguir para o pagamento seguro no Mercado Pago."}</DialogDescription></DialogHeader>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       {choiceQuote && <div className="rounded-xl border border-border bg-surface-1 p-4">
         <p className="font-semibold">{billingCapacityLabel(choiceQuote.plan, choiceQuote.agendaLimit)}</p>
@@ -279,20 +289,29 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
       </div>}
       {replacing && subscription && <ol className="space-y-3 text-sm">
         <li className="flex gap-3"><span aria-hidden="true" className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold", canChoose ? "bg-success text-background" : "bg-muted")}>{canChoose ? <Check className="h-3.5 w-3.5" /> : 1}</span>
-          <span>Encerrar a tentativa de {billingCapacityLabel(subscription.plan as BillingIntent["plan"], subscription.agendaLimit)} no Mercado Pago{canChoose ? " — confirmado." : renewalStatus === "PENDING" ? " — aguardando confirmação…" : "."}</span></li>
+          <span>Encerrar a tentativa de {billingCapacityLabel(subscription.plan as BillingIntent["plan"], subscription.agendaLimit)} {g.in}{canChoose ? " — confirmado." : renewalStatus === "PENDING" ? " — aguardando confirmação…" : "."}</span></li>
         <li className="flex gap-3"><span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">2</span><span>Seguir para o pagamento do novo plano.</span></li>
       </ol>}
+      {choosingGateway && <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">Cartão de crédito pela Stripe (no iPhone, também Apple Pay){mercadoPagoPaused ? "." : ", ou as formas de pagamento do Mercado Pago."} A cobrança se repete automaticamente no meio escolhido.</p>
+        {/* Two full-width choices, stacked on phones: three buttons in one row do not fit the dialog. */}
+        <div className={cn("grid gap-2", !mercadoPagoPaused && "sm:grid-cols-2")}>
+          <Button className="h-auto min-h-11 whitespace-normal" disabled={busy || blockedByHost} onClick={() => void subscribe("stripe")}>{paying === "stripe" ? "Preparando pagamento…" : <>Pagar com cartão<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>
+          {!mercadoPagoPaused && <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={busy || blockedByHost} onClick={() => void subscribe("mercadopago")}>{paying === "mercadopago" ? "Preparando pagamento…" : <>Pagar pelo Mercado Pago<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>}
+        </div>
+      </div>}
       <DialogFooter>
         <Button variant="outline" disabled={busy} onClick={() => setChoice(null)}>Voltar aos planos</Button>
-        {canChoose ? <Button disabled={busy || blockedByHost} onClick={() => void subscribe()}>{busy ? "Preparando pagamento…" : <>Ir para pagamento<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>
+        {choosingGateway ? null
+          : canChoose ? <Button disabled={busy || blockedByHost} onClick={() => void subscribe()}>{busy ? "Preparando pagamento…" : <>Ir para pagamento<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>
           : canReplacePending ? <Button disabled={busy || blockedByHost} onClick={() => void cancel()}>{busy ? "Enviando pedido…" : "Confirmar cancelamento da tentativa anterior"}</Button>
           : <Button variant="outline" disabled={busy || refreshing} onClick={() => void syncAndRefresh()}>{refreshing && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}Atualizar situação</Button>}
       </DialogFooter>
-      {!canChoose && !canReplacePending && <p role="status" className="text-sm text-muted-foreground">Aguardando a confirmação do Mercado Pago. Esta janela avança sozinha assim que o cancelamento for confirmado; se houve pagamento, a troca deverá usar a cotação do plano ativo.</p>}
+      {!canChoose && !canReplacePending && <p role="status" className="text-sm text-muted-foreground">Aguardando a confirmação {g.of}. Esta janela avança sozinha assim que o cancelamento for confirmado; se houve pagamento, a troca deverá usar a cotação do plano ativo.</p>}
     </DialogContent></Dialog>
 
     <Dialog open={cancelOpen} onOpenChange={open => { if (!busy) setCancelOpen(open); }}><DialogContent>
-      <DialogHeader><DialogTitle>{unpaid ? "Cancelar esta contratação?" : "Cancelar a renovação?"}</DialogTitle><DialogDescription>{unpaid ? "Vamos encerrar a tentativa de assinatura no Mercado Pago. Nenhuma cobrança será feita e você poderá escolher um plano novamente." : "Vamos encerrar a cobrança recorrente no Mercado Pago, incluindo uma nova assinatura agendada por troca de plano. Após a confirmação, não haverá novas renovações. Esta ação não solicita estorno."}</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>{unpaid ? "Cancelar esta contratação?" : "Cancelar a renovação?"}</DialogTitle><DialogDescription>{unpaid ? `Vamos encerrar a tentativa de assinatura ${g.in}. Nenhuma cobrança será feita e você poderá escolher um plano novamente.` : `Vamos encerrar a cobrança recorrente ${g.in}${subscription?.provider === "stripe" ? "" : ", incluindo uma nova assinatura agendada por troca de plano"}. Após a confirmação, não haverá novas renovações. Esta ação não solicita estorno.`}</DialogDescription></DialogHeader>
       <p className="text-sm">{subscription?.state === "ACTIVE" && subscription.paidThrough ? accessBlocked ? `O período pago permanece registrado até ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(subscription.paidThrough))}. A restrição administrativa do painel é independente do cancelamento.` : `Você continua usando todos os recursos do seu plano pago até ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(subscription.paidThrough))}, mesmo cancelando agora.` : "O cancelamento preserva seu histórico e qualquer período já pago."} Seus agendamentos e dados não serão apagados.</p>
       {!unpaid && smallerPlanFits && <div className="rounded-xl border border-border bg-surface-1 p-4 text-sm">
         <p className="font-semibold">Prefere pagar menos?</p>

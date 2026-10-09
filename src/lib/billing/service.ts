@@ -2,8 +2,10 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { BillingSubscription } from "@prisma/client";
 import { withSalon, withTenant, type Tx } from "../prisma-tenant";
-import { assertProvider, BILLING_PLANS, BillingError, periodEnd, quoteContract } from "./catalog";
+import { assertProvider, BILLING_PLANS, BillingError, contractProvider, periodEnd, quoteContract } from "./catalog";
 import { billingConfig } from "./config";
+import { stripeAllowedFor, stripeCheckoutPaused, stripeConfig } from "./stripe/config";
+import { ensureStripeCheckout } from "./stripe/checkout";
 import * as mp from "./provider";
 import { allowedRemoteTerms, changesEnabled, invoiceRevision, RENEWAL_EARLY_TOLERANCE_MS } from "./change-terms";
 import { cancellationSubscriptions, renewalCancellationStatus } from "./cancellation";
@@ -19,7 +21,8 @@ export async function subscriptionLock(tx: Tx, salonId: string) {
   await tx.$executeRaw`SELECT set_config('app.billing_write', 'enabled', true)`;
   await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`billing:${salonId}`}, 0))`;
 }
-async function event(tx: Tx, sub: { id: string; salonId: string }, key: string, type: string, detail = type) {
+/** One idempotent history row per (subscription, key); shared by both providers. */
+export async function recordEvent(tx: Tx, sub: { id: string; salonId: string }, key: string, type: string, detail = type) {
   await tx.billingEvent.upsert({ where: { subscriptionId_key: { subscriptionId: sub.id, key } }, update: {},
     create: { subscriptionId: sub.id, salonId: sub.salonId, key, type, detail } });
 }
@@ -34,10 +37,15 @@ export async function assertOwner(tx: Tx, ctx: { salonId: string; userId: string
 }
 
 export async function contract(ctx: { salonId: string; userId: string }, input: unknown, requestKey: string) {
-  const config = billingConfig();
-  if (process.env.MERCADOPAGO_CHECKOUT_PAUSED === "true") throw new BillingError("CHECKOUT_PAUSED", 503);
-  const quote = quoteContract(input);
-  const fingerprint = createHash("sha256").update(JSON.stringify(quote)).digest("hex");
+  const mercadoPago = billingConfig();
+  // The owner chooses the gateway; Stripe only exists inside the app's billing (owner, 09/10/2026).
+  const { provider, ...terms } = contractProvider.parse(input);
+  const identity = provider === "stripe" ? (({ mode, accountId }) => ({ mode, collectorId: accountId }))(stripeConfig())
+    : { mode: mercadoPago.mode, collectorId: mercadoPago.collectorId };
+  if (provider === "stripe" ? stripeCheckoutPaused() : process.env.MERCADOPAGO_CHECKOUT_PAUSED === "true") throw new BillingError("CHECKOUT_PAUSED", 503);
+  const quote = quoteContract(terms);
+  // Mercado Pago keeps its original fingerprint, so a retried request from before Stripe stays the same request.
+  const fingerprint = createHash("sha256").update(JSON.stringify(provider === "mercadopago" ? quote : { ...quote, provider })).digest("hex");
   const sub = await withTenant(ctx, async tx => {
     await assertOwner(tx, ctx);
     await subscriptionLock(tx, ctx.salonId);
@@ -46,8 +54,10 @@ export async function contract(ctx: { salonId: string; userId: string }, input: 
       if (previous.fingerprint !== fingerprint) throw new BillingError("IDEMPOTENCY_MISMATCH");
       return previous;
     }
-    const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { plan: true, accessStatus: true } });
+    const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { plan: true, accessStatus: true, slug: true } });
     if (salon.accessStatus !== "APPROVED") throw new BillingError("SALON_NOT_APPROVED", 403);
+    // The page only offers Stripe to the allowed salons; a hand-made request for any other one is refused here.
+    if (provider === "stripe" && !stripeAllowedFor(salon.slug)) throw new BillingError("STRIPE_DISABLED", 503);
     const active = await tx.billingSubscription.findFirst({ where: { salonId: ctx.salonId, current: true } });
     if (active && (!active.cancelledAt || (active.paidThrough && active.paidThrough > new Date()))) throw new BillingError("SUBSCRIPTION_EXISTS");
     if (active && renewalCancellationStatus(await cancellationSubscriptions(tx, active)) !== "CANCELLED") throw new BillingError("SUBSCRIPTION_EXISTS");
@@ -62,14 +72,14 @@ export async function contract(ctx: { salonId: string; userId: string }, input: 
       id: randomUUID(), salonId: ctx.salonId, requestKey, fingerprint,
       catalogVersion: quote.catalogVersion, planCode: quote.plan, cycle: quote.cycle, currency: quote.currency,
       amountCents: quote.amountCents, agendaLimit: quote.agendaLimit, intervalMonths: quote.intervalMonths,
-      mode: config.mode, collectorId: config.collectorId, payerEmail: user.email, legacyPlan: salon.plan,
+      provider, mode: identity.mode, collectorId: identity.collectorId, payerEmail: user.email, legacyPlan: salon.plan,
     } });
-    await event(tx, created, "contract", "CONTRACT_REQUESTED", `owner:${ctx.userId}`);
+    await recordEvent(tx, created, "contract", "CONTRACT_REQUESTED", `owner:${ctx.userId}`);
     await enqueue(tx, created);
     return created;
   });
   // Durable intent first; network calls never hold a database transaction open.
-  await ensureCreated(sub);
+  if (sub.provider === "stripe") await ensureStripeCheckout(sub); else await ensureCreated(sub);
   return withSalon(sub.salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } }));
 }
 
@@ -90,7 +100,7 @@ export async function ensureCreated(sub: BillingSubscription) {
     const current = await tx.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } });
     if (current.cancelRequestedAt && !current.creationStartedAt) {
       await tx.billingSubscription.update({ where: { id: sub.id }, data: { cancelledAt: new Date(), providerStatus: "cancelled" } });
-      await event(tx, sub, "cancelled", "CANCELLED");
+      await recordEvent(tx, sub, "cancelled", "CANCELLED");
       return "cancelled";
     }
     if (current.creationStartedAt) return "recover";
@@ -146,7 +156,7 @@ export async function applyRemoteSubscription(sub: BillingSubscription, remote: 
       ...(remote.init_point ? { checkoutUrl: mp.checkoutUrl(remote.init_point) } : {}),
       ...(cancelled && !current.cancelledAt ? { cancelledAt: new Date(remote.last_modified) } : {}),
     } });
-    await event(tx, sub, `subscription:${remote.last_modified}:${remote.status}`, "SUBSCRIPTION_UPDATED", remote.status);
+    await recordEvent(tx, sub, `subscription:${remote.last_modified}:${remote.status}`, "SUBSCRIPTION_UPDATED", remote.status);
     if (changesEnabled()) {
       const source = await tx.billingPlanChange.findFirst({ where: { replacementSubscriptionId: sub.id, salonId: sub.salonId } });
       if (source) await enqueue(tx, { id: source.subscriptionId, salonId: sub.salonId });
@@ -166,7 +176,7 @@ export async function requestCancellation(ctx: { salonId: string; userId: string
     if (changesEnabled()) await tx.billingPlanChange.updateMany({ where: { subscriptionId: { in: targets.map(target => target.id) }, salonId: ctx.salonId, state: { in: ["PREPARING", "AWAITING_PAYMENT", "SCHEDULED"] }, paidAt: null }, data: { state: "CANCEL_REQUESTED", checkoutUrl: null } });
     for (const target of targets) {
       if (!target.cancelRequestedAt) await tx.billingSubscription.update({ where: { id: target.id }, data: { cancelRequestedAt: new Date() } });
-      await event(tx, target, "cancel-request", "CANCEL_REQUESTED", `owner:${ctx.userId}`);
+      await recordEvent(tx, target, "cancel-request", "CANCEL_REQUESTED", `owner:${ctx.userId}`);
       await enqueue(tx, target);
     }
     return { status: renewalCancellationStatus(targets) === "CANCELLED" ? "CANCELLED" : "CANCELLATION_PENDING", paidThrough: sub.paidThrough, subscriptionIds: targets.map(target => target.id) };
@@ -222,7 +232,7 @@ export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSu
         periodStart: start, periodEnd: end, status, paidAt, refundedCents, providerUpdatedAt: updatedAt },
       update: { providerPaymentId: payment?.id, status, paidAt, refundedCents, providerUpdatedAt: updatedAt },
     });
-    await event(tx, sub, `invoice:${invoice.id}:${updatedAt.toISOString()}:${status}`, "PAYMENT_UPDATED", `${invoice.id}:payment:${payment?.id ?? "none"}:${status}:refunded_cents:${refundedCents}`);
+    await recordEvent(tx, sub, `invoice:${invoice.id}:${updatedAt.toISOString()}:${status}`, "PAYMENT_UPDATED", `${invoice.id}:payment:${payment?.id ?? "none"}:${status}:refunded_cents:${refundedCents}`);
     if (["refunded", "charged_back"].includes(status)) {
       await tx.billingSubscription.update({ where: { id: sub.id }, data: { reviewRequired: true } });
     } else if (status === "approved") {

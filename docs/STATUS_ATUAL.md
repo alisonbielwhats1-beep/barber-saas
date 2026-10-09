@@ -4,7 +4,18 @@ Implementação em `codex/platform-plans-access`, ainda sem promoção: catálog
 
 # Status atual canônico — Salon SaaS
 
-## 09/10/2026 — Stripe fase 1: base técnica (PR desta branch, desligada)
+## 09/10/2026 — Stripe fase 2: assinar pela Stripe (branch, desligada)
+
+Branch `claude/stripe-fase2-assinatura`, sobre a fase 1 (PR #168). Com
+`STRIPE_BILLING_ENABLED=true`, o dono escolhe "Pagar com cartão" (Stripe) ou
+"Pagar pelo Mercado Pago" ao contratar. Checkout em modo assinatura, conciliação
+pela API da Stripe, webhook `/api/webhooks/stripe`, carência e cancelamento no
+fim do período. Troca de plano e reativação continuam só no Mercado Pago (fase 3).
+A oferta vale só para os salões de `STRIPE_ALLOWED_SALONS` (vazio = nenhum; `*` =
+todos), conferida na tela e no servidor; o piloto em Production começa pelo salão
+de demonstração. Detalhes em `STRIPE_INTEGRACAO.md`. Nada ligado em Production.
+
+## 09/10/2026 — Stripe fase 1: base técnica (PR #168, desligada)
 
 Branch `claude/stripe-fase1-base`. Decisão do dono em `DECISOES_PRODUTO.md`;
 plano e ordem de liberação em `STRIPE_INTEGRACAO.md`. Nada cobra pela Stripe

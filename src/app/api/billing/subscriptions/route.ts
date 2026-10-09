@@ -28,8 +28,9 @@ export async function GET(request: Request) {
       if (!sub) return null;
       const terms = await currentTerms(tx, sub);
       const change = changesEnabled() ? await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: ctx.salonId, confirmedAt: { not: null } }, orderBy: [{ quotedAt: "desc" }, { id: "desc" }] }) : null;
-      return { id: sub.id, plan: terms.plan, cycle: terms.cycle, amountCents: terms.amountCents, agendaLimit: terms.agendaLimit,
-        changesAvailable: changesEnabled(), change: change ? changeView(change) : null, changePending: change ? pendingChangeStates.includes(change.state) : false,
+      return { id: sub.id, provider: sub.provider, plan: terms.plan, cycle: terms.cycle, amountCents: terms.amountCents, agendaLimit: terms.agendaLimit,
+        // Plan changes and reactivation exist for Mercado Pago contracts; Stripe gets its own in a later phase.
+        changesAvailable: changesEnabled() && sub.provider === "mercadopago", change: change ? changeView(change) : null, changePending: change ? pendingChangeStates.includes(change.state) : false,
         state: accessState(sub), paidThrough: sub.paidThrough, cancelRequestedAt: sub.cancelRequestedAt, cancelledAt: sub.cancelledAt,
         renewalCancellationStatus: renewalCancellationStatus(await cancellationSubscriptions(tx, sub), change?.kind === "CYCLE" && change.state === "PREPARING"),
         nextPaymentAt: sub.nextPaymentAt, providerStatus: sub.providerStatus, lastSyncedAt: sub.lastSyncedAt,

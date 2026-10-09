@@ -8,7 +8,7 @@ vi.mock("stripe", () => ({
     constructor(key: string, config: Record<string, unknown>) { constructed.push({ key, config }); }
   },
 }));
-import { stripeCheckoutPaused, stripeConfig, stripeEnabled } from "./config";
+import { stripeAllowedFor, stripeCheckoutPaused, stripeConfig, stripeEnabled, stripeOfferedTo } from "./config";
 import { STRIPE_API_VERSION, stripeClient, stripeRequest, verifyStripeAccount } from "./client";
 
 /** Synthetic keys are assembled here, so no key-shaped literal ever sits in the source for secret scanners to confuse. */
@@ -29,6 +29,14 @@ describe("Stripe configuration trust boundaries", () => {
     expect(() => stripeConfig()).toThrow("STRIPE_DISABLED");
     vi.stubEnv("MERCADOPAGO_BILLING_ENABLED", "true"); vi.stubEnv("STRIPE_BILLING_ENABLED", "false");
     expect(() => stripeConfig()).toThrow("STRIPE_DISABLED");
+  });
+
+  it("keeps reconciling existing contracts when only the Stripe offer is off, never with the app's billing off", () => {
+    vi.stubEnv("STRIPE_BILLING_ENABLED", "false");
+    expect(() => stripeConfig()).toThrow("STRIPE_DISABLED");
+    expect(stripeConfig({ forExisting: true })).toMatchObject({ mode: "test", accountId: "acct_1Synthetic" });
+    vi.stubEnv("MERCADOPAGO_BILLING_ENABLED", "false");
+    expect(() => stripeConfig({ forExisting: true })).toThrow("STRIPE_DISABLED");
   });
 
   it("requires every credential in its expected format", () => {
@@ -66,6 +74,23 @@ describe("Stripe configuration trust boundaries", () => {
     expect(stripeEnabled()).toBe(true);
   });
 
+  it("offers new contracts only to the allowed salons, and to none while the list is empty", () => {
+    vi.stubEnv("STRIPE_ALLOWED_SALONS", "");
+    expect(stripeAllowedFor("salao-a")).toBe(false);
+    expect(stripeOfferedTo("salao-a")).toBe(false);
+    vi.stubEnv("STRIPE_ALLOWED_SALONS", " everflair-apresentacao , salao-a ");
+    expect(stripeOfferedTo("salao-a")).toBe(true);
+    expect(stripeOfferedTo("salao-b")).toBe(false);
+    vi.stubEnv("STRIPE_ALLOWED_SALONS", "*");
+    expect(stripeOfferedTo("salao-b")).toBe(true);
+    // Allowed is not offered while new checkouts are paused or the Stripe offer is off.
+    vi.stubEnv("STRIPE_CHECKOUT_PAUSED", "true");
+    expect(stripeOfferedTo("salao-b")).toBe(false);
+    vi.stubEnv("STRIPE_CHECKOUT_PAUSED", "false"); vi.stubEnv("STRIPE_BILLING_ENABLED", "false");
+    expect(stripeOfferedTo("salao-b")).toBe(false);
+    expect(stripeAllowedFor("salao-b")).toBe(true);
+  });
+
   it("pins the API version and a bounded network budget", () => {
     stripeClient();
     expect(constructed.at(-1)).toMatchObject({ key: TEST_KEY, config: { apiVersion: STRIPE_API_VERSION, timeout: 6000, maxNetworkRetries: 1, telemetry: false } });
@@ -82,8 +107,8 @@ describe("Stripe configuration trust boundaries", () => {
   });
 
   it("turns Stripe failures into billing errors without the provider's message", async () => {
-    for (const [type, code] of [["StripeAuthenticationError", "STRIPE_KEY_REJECTED"], ["StripePermissionError", "STRIPE_KEY_REJECTED"], ["StripeConnectionError", "PROVIDER_UNAVAILABLE"],
-      ["StripeAPIError", "PROVIDER_UNAVAILABLE"], ["StripeRateLimitError", "PROVIDER_UNAVAILABLE"], ["StripeInvalidRequestError", "PROVIDER_REJECTED"], [undefined, "PROVIDER_REJECTED"]]) {
+    for (const [type, code] of [["StripeAuthenticationError", "STRIPE_KEY_REJECTED"], ["StripePermissionError", "STRIPE_KEY_REJECTED"], ["StripeConnectionError", "STRIPE_UNAVAILABLE"],
+      ["StripeAPIError", "STRIPE_UNAVAILABLE"], ["StripeRateLimitError", "STRIPE_UNAVAILABLE"], ["StripeInvalidRequestError", "STRIPE_REJECTED"], [undefined, "STRIPE_REJECTED"]]) {
       retrieveCurrent.mockRejectedValue(Object.assign(new Error("Invalid API Key provided: rk_test_***leaked"), { type }));
       const failure = await verifyStripeAccount().then(() => null, (e: unknown) => e as Error);
       expect(failure).toMatchObject({ name: "BillingError", code, status: 503 });

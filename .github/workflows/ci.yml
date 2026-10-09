@@ -393,11 +393,14 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/033_stripe_billing.verify.sql --url "$DIRECT_URL"
           docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/033-preservation-fingerprint.sql > "$RUNNER_TEMP/post033-fingerprint.txt"
           diff -u "$RUNNER_TEMP/pre033-fingerprint.txt" "$RUNNER_TEMP/post033-fingerprint.txt"
-          # The current Prisma client reads "provider" (033), so the billing journeys run on the complete schema.
-          npx vitest run --no-file-parallelism src/lib/billing/billing-postgres.integration.test.ts src/lib/hq/hq-postgres.integration.test.ts src/lib/hq/chief-postgres.integration.test.ts src/lib/__tests__/salon-removal-postgres.integration.test.ts
-          # Reversible while nothing was created through Stripe; reapplied for the browser journeys below.
+          # Reversible while nothing was created through Stripe; reapplied for the journeys below.
           npx prisma db execute --file prisma/sql/manual/033_stripe_billing.rollback.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/033_stripe_billing.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.verify.sql --url "$DIRECT_URL"
+          # The current Prisma client reads "provider" (033), so the billing journeys run on the complete schema.
+          npx vitest run --no-file-parallelism src/lib/billing/billing-postgres.integration.test.ts src/lib/billing/stripe/billing-stripe-postgres.integration.test.ts src/lib/hq/hq-postgres.integration.test.ts src/lib/hq/chief-postgres.integration.test.ts src/lib/__tests__/salon-removal-postgres.integration.test.ts
+          # With Stripe history in place, the rollback must refuse instead of dropping it.
+          if npx prisma db execute --file prisma/sql/manual/033_stripe_billing.rollback.sql --url "$DIRECT_URL"; then echo "033 rollback dropped Stripe history" >&2; exit 1; fi
           npx prisma db execute --file prisma/sql/manual/033_stripe_billing.verify.sql --url "$DIRECT_URL"
       - name: Validate administrative plan grants and preserve existing history
         # After 033: the courtesy journeys read whole BillingSubscription rows, including "provider".

@@ -26,6 +26,8 @@ export function safeCheckout(value: string | null) {
 }
 export type SubscriptionView = {
   id: string; plan: string; cycle: string; amountCents: number; agendaLimit: number;
+  /** Gateway that bills this contract (033); absent in views from before Stripe, which are Mercado Pago. */
+  provider?: string;
   state: string; paidThrough: string | null; nextPaymentAt: string | null;
   cancelRequestedAt: string | null; cancelledAt: string | null; reviewRequired: boolean;
   renewalCancellationStatus?: "AVAILABLE" | "PENDING" | "CANCELLED";
@@ -37,6 +39,10 @@ export type PlanChangeView = { id: string; kind: string; state: string; from: Bi
   /** Created by the platform because the table price went down; the owner did not ask for it. */
   priceReduction?: boolean };
 export type BillingTone = "ok" | "warn" | "danger" | "neutral";
+/** The gateway's name with the right Portuguese article, so a Stripe contract never reads "no Mercado Pago". */
+export const gatewayWords = (provider?: string | null) => provider === "stripe"
+  ? { name: "Stripe", in: "na Stripe", of: "da Stripe", by: "pela Stripe", subject: "a Stripe", Subject: "A Stripe" }
+  : { name: "Mercado Pago", in: "no Mercado Pago", of: "do Mercado Pago", by: "pelo Mercado Pago", subject: "o Mercado Pago", Subject: "O Mercado Pago" };
 export type RenewalStatus = "AVAILABLE" | "PENDING" | "CANCELLED";
 export const renewalStatusOf = (sub: Pick<SubscriptionView, "renewalCancellationStatus" | "cancelledAt" | "cancelRequestedAt">): RenewalStatus =>
   sub.renewalCancellationStatus ?? (sub.cancelledAt ? "CANCELLED" : sub.cancelRequestedAt ? "PENDING" : "AVAILABLE");
@@ -151,6 +157,14 @@ export const billingErrors: Record<string, string> = {
   BILLING_ENVIRONMENT_MISMATCH: "A contratação online está temporariamente indisponível. Seu acesso atual permanece preservado.",
   CANCELLATION_NOT_CONFIRMED: "O Mercado Pago ainda não confirmou o cancelamento. Continuaremos tentando automaticamente.",
   NOT_FOUND: "Não encontramos esta solicitação. Atualize a situação e tente novamente.",
+  STRIPE_UNAVAILABLE: "A Stripe não respondeu agora. Sua solicitação será conferida antes de qualquer nova tentativa.",
+  STRIPE_REJECTED: "A Stripe não aceitou a solicitação. Atualize a situação antes de tentar novamente.",
+  STRIPE_KEY_REJECTED: "O pagamento com cartão está temporariamente indisponível. Seu acesso atual permanece preservado.",
+  STRIPE_ACCOUNT_MISMATCH: "O pagamento com cartão está temporariamente indisponível. Seu acesso atual permanece preservado.",
+  STRIPE_DISABLED: "O pagamento com cartão ainda não está disponível.",
+  STRIPE_NOT_CONFIGURED: "O pagamento com cartão está temporariamente indisponível. Seu acesso atual permanece preservado.",
+  CHECKOUT_MISMATCH: "O pagamento não foi aberto porque os dados não conferiram. Nada foi cobrado. Tente novamente.",
+  PROVIDER_MISMATCH: "Esta ação ainda não está disponível para assinaturas pagas com cartão pela Stripe. Fale com a plataforma se precisar.",
   RENEWAL_REACTIVATION_UNAVAILABLE: "Não é possível reativar agora: o período pago termina em menos de uma hora ou há uma pendência financeira. Depois do vencimento, escolha um plano novamente.",
   RENEWAL_NOT_CANCELLED: "A renovação já está ativa ou o cancelamento ainda está em confirmação. Atualize a situação.",
 };

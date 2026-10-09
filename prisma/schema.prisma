@@ -655,7 +655,7 @@ model BillingSubscription {
   collectorId String
   payerEmail String
   legacyPlan Plan
-  /// mercadopago | stripe (032). Set at creation and never changed; existing contracts are Mercado Pago.
+  /// mercadopago | stripe (033). Set at creation and never changed; existing contracts are Mercado Pago.
   provider String @default("mercadopago")
   providerId String? @unique
   providerStatus String @default("pending")
@@ -684,7 +684,7 @@ model BillingSubscription {
   @@index([salonId, current])
 }
 
-/// One provider customer per salon, provider, mode and account (032). Append-only: never updated or deleted.
+/// One provider customer per salon, provider, mode and account (033). Append-only: never updated or deleted.
 model BillingCustomer {
   id String @id @default(uuid()) @db.Uuid
   salonId String
@@ -1506,7 +1506,7 @@ model SecretaryCreditPurchase {
   packCode          String
   amountCents       Int
   units             Int
-  /// mercadopago | stripe (032). Set at creation and never changed.
+  /// mercadopago | stripe (033). Set at creation and never changed.
   provider          String    @default("mercadopago")
   state             String    @default("CREATED")
   expiresAt         DateTime  @db.Timestamptz(3)
