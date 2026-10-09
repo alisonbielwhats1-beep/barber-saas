@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({ tx: {
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/tenant", () => ({ getTenantContext: vi.fn().mockResolvedValue({ salonId: "salon-a", userId: "user-a", role: "OWNER" }), assertRole: vi.fn() }));
 vi.mock("@/lib/prisma-tenant", () => ({ withTenant: (_: unknown, callback: (tx: unknown) => unknown) => callback(mocks.tx) }));
-vi.mock("@/lib/plan-entitlements", () => ({ assertPlanFeature: vi.fn() }));
+vi.mock("@/lib/plan-entitlements", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/plan-entitlements")>(), assertPlanFeature: vi.fn() }));
 import { usePackageSession, renewPurchase } from "../../app/(admin)/pacotes/actions";
 
 describe("package lifecycle", () => {

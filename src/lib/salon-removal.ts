@@ -15,6 +15,8 @@ const inspectedTables = new Set([
   "PlatformInvoice", "ClientReview", "ServicePricingRule", "RescheduleProposal",
   "PhysicalResource", "ResourceBooking", "ClientDependent", "CareEntry",
   "FlexibleWaitlist", "FlexibleWaitlistService",
+  // Reviewed SELECT policies allow the salon GUC set above; count, never cascade.
+  "ClientPushSubscription", "SecretaryCreditLedger", "SecretaryCreditPurchase", "SalonPlanGrant",
 ]);
 const identifier = (value: string) => Prisma.raw('"' + value.replaceAll('"', '""') + '"');
 

@@ -1,3 +1,4 @@
+import { featureEntitlement } from "@/lib/billing/plan-grants";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Tx } from "./prisma-tenant";
@@ -8,7 +9,7 @@ export async function assertInventoryAccess(tx: Tx, actor: ServiceActor, write =
   await assertServiceWriter(tx, actor);
   if (write) {
     const salon = await tx.salon.findFirstOrThrow({ where: { id: actor.salonId }, select: { plan: true } });
-    assertPlanFeature(salon.plan, "INVENTORY");
+    assertPlanFeature(await featureEntitlement(tx, actor.salonId, salon.plan), "INVENTORY");
   }
 }
 export const productDTO = z.object({ id: z.string().min(1), name: z.string(), stock: z.number().int(), minStock: z.number().int(), active: z.boolean(), unit: z.literal("un"), revision: z.string().length(64) }).strict();
