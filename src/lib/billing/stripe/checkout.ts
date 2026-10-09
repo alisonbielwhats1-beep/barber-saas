@@ -5,19 +5,20 @@ import { withSalon } from "../../prisma-tenant";
 import { assertProvider, BILLING_PLANS, BillingError } from "../catalog";
 import { billingCapacityLabel } from "../presentation";
 import { recordEvent, referenceFor, subscriptionLock } from "../service";
-import { stripeCheckoutPaused, stripeConfig } from "./config";
+import { stripeCheckoutPaused, stripeConfig, stripeEnabled } from "./config";
 import { stripeRequest, verifyStripeAccount } from "./client";
 
 /** Only Stripe's hosted Checkout, over HTTPS, may be stored and shown to the owner (the browser checks it again). */
 export function stripeCheckoutUrl(value: string | null) {
-  const url = new URL(value ?? "");
+  let url: URL;
+  try { url = new URL(value ?? ""); } catch { throw new BillingError("INVALID_CHECKOUT", 503); }
   if (url.protocol !== "https:" || url.hostname !== "checkout.stripe.com" || url.username || url.password || url.port) throw new BillingError("INVALID_CHECKOUT", 503);
   return url.href;
 }
 
 /** One Stripe customer per salon, account and mode (032), created once: a repeated creation within a day returns the same one. */
 export async function stripeCustomerFor(salonId: string, email: string) {
-  const config = stripeConfig();
+  const config = stripeConfig({ forExisting: true });
   const where = { salonId_provider_mode_accountId: { salonId, provider: "stripe", mode: config.mode, accountId: config.accountId } };
   const known = await withSalon(salonId, tx => tx.billingCustomer.findUnique({ where }));
   if (known) return known.customerId;
@@ -67,7 +68,7 @@ function validateSession(session: Stripe.Checkout.Session, sub: BillingSubscript
 export async function ensureStripeCheckout(sub: BillingSubscription) {
   assertProvider(sub, "stripe");
   if (sub.checkoutUrl || sub.providerId || sub.cancelledAt) return;
-  const config = stripeConfig();
+  const config = stripeConfig({ forExisting: true });
   if (sub.mode !== config.mode || sub.collectorId !== config.accountId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
   // A failed read-only preflight must not make a creation that never happened look uncertain.
   if (!sub.creationStartedAt && !sub.cancelRequestedAt) {
@@ -91,13 +92,14 @@ export async function ensureStripeCheckout(sub: BillingSubscription) {
     return "create";
   });
   if (reserved === "done") return;
+  // A payment link is only made (or found again) while Stripe is offered; the reconciliation still closes old attempts.
+  if (!stripeEnabled()) throw new BillingError("STRIPE_DISABLED", 503);
   const customerId = await stripeCustomerFor(sub.salonId, sub.payerEmail);
   const reference = referenceFor(sub);
-  let session = reserved === "recover" ? (await checkoutSessionsFor(customerId, reference)).find(s => s.status === "open") : undefined;
-  if (reserved === "recover" && !session) {
-    // Paid or expired sessions are the reconciliation's; a new link is never made over them.
-    if ((await checkoutSessionsFor(customerId, reference)).length) return;
-  }
+  const earlier = reserved === "recover" ? await checkoutSessionsFor(customerId, reference) : [];
+  let session = earlier.find(s => s.status === "open");
+  // Paid or expired sessions are the reconciliation's (sync.ts); a new link is never made over them.
+  if (!session && earlier.length) return;
   const plan = BILLING_PLANS[sub.planCode as keyof typeof BILLING_PLANS];
   if (!plan) throw new BillingError("CHECKOUT_MISMATCH", 503);
   session ??= await stripeRequest(client => client.checkout.sessions.create({

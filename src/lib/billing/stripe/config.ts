@@ -10,8 +10,13 @@ export const stripeCheckoutPaused = () => process.env.STRIPE_CHECKOUT_PAUSED ===
 
 const SECRET_KEY = /^(sk|rk)_(test|live)_[A-Za-z0-9]{10,}$/;
 
-export function stripeConfig() {
-  if (!stripeEnabled()) throw new BillingError("STRIPE_DISABLED", 503);
+/**
+ * `STRIPE_BILLING_ENABLED` offers Stripe to NEW contracts. Contracts that already exist keep being reconciled (renewals,
+ * failures, the owner's cancellation) with `{ forExisting: true }` while the app's billing is on and the credentials are
+ * set: turning the offer off must never leave Stripe charging an owner who cancelled.
+ */
+export function stripeConfig({ forExisting = false }: { forExisting?: boolean } = {}) {
+  if (forExisting ? !billingEnabled() : !stripeEnabled()) throw new BillingError("STRIPE_DISABLED", 503);
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const accountId = process.env.STRIPE_ACCOUNT_ID;

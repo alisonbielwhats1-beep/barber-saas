@@ -70,7 +70,7 @@ Stripe como forma de pagamento e não tem efeito com a cobrança desligada.
 
 | Variável | Uso |
 | --- | --- |
-| `STRIPE_BILLING_ENABLED` | `true` só depois da 032 e da homologação; exige `MERCADOPAGO_BILLING_ENABLED=true` |
+| `STRIPE_BILLING_ENABLED` | oferece a Stripe a **novas** contratações (`true` só depois da 032 e da homologação; exige `MERCADOPAGO_BILLING_ENABLED=true`). Com `false`, contratos que já existem continuam conciliados — renovação, atraso e cancelamento pedido pelo dono — enquanto as credenciais existirem |
 | `STRIPE_MODE` | `test` fora de produção; `live` somente com `APP_ENV=production` |
 | `STRIPE_SECRET_KEY` | chave **restrita** do mesmo modo (`rk_test_`/`rk_live_`) |
 | `STRIPE_WEBHOOK_SECRET` | segredo do endpoint de webhook daquele ambiente (`whsec_`) |
@@ -137,11 +137,17 @@ digital, rollback e reaplicação.
 - **Avisos:** `POST /api/webhooks/stripe` confere a assinatura sobre os bytes
   exatos, ignora o outro modo e objetos que não são do EverFlair, e só põe o
   contrato na fila. Reembolso e contestação são relidos da Stripe (cobrança →
-  pagamento da fatura) e marcam a cobrança como `refunded`/`charged_back` e o
-  contrato em revisão, sem tirar o acesso pago.
-- **Cancelar:** o pedido do dono vira `cancel_at_period_end` (acesso até o fim
-  do período pago). Sem pagamento, a tentativa é encerrada e o link expira; um
-  Checkout que expirou sozinho também encerra a tentativa, sem cobrança.
+  pagamento da fatura → contrato daquela fatura, não o contrato atual do salão)
+  e marcam a cobrança como `refunded`/`charged_back` e o contrato em revisão,
+  sem tirar o acesso pago.
+- **Cancelar:** com período pago em curso, o pedido do dono vira
+  `cancel_at_period_end` (acesso até o fim do período pago). Sem período pago —
+  primeiro pagamento pendente ou renovação em atraso (`past_due`/`unpaid`) — a
+  assinatura é cancelada na hora, o que faz a Stripe parar de cobrar as faturas
+  em aberto (nenhuma nova tentativa cobra quem cancelou). Sem assinatura, a
+  tentativa é encerrada e o link expira; um Checkout que expirou sozinho, ou uma
+  tentativa cujo link nunca foi gravado, também é encontrado e encerrado (ou,
+  se foi pago, ativado).
 - **Telas:** com a Stripe ligada, a confirmação do plano oferece "Pagar com
   cartão" (Stripe) e "Pagar pelo Mercado Pago". Os textos de um contrato da
   Stripe falam "na Stripe". Troca de plano e reativação ficam ocultas para

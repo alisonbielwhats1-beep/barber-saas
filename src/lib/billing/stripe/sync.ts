@@ -13,6 +13,8 @@ const seconds = (value: number) => new Date(value * 1000);
 /** Webhook topics whose resource is a charge: refunds and disputes put the contract in review (023 doctrine). */
 export const STRIPE_CHARGE_TOPICS = new Set(["charge.refunded", "charge.dispute.created", "charge.dispute.closed", "charge.dispute.funds_withdrawn"]);
 const ENDED = new Set(["canceled", "incomplete_expired"]);
+/** No paid period running: a cancellation ends the subscription now instead of at the period end. */
+const STOP_NOW = new Set(["incomplete", "past_due", "unpaid"]);
 
 const load = (salonId: string, id: string) => withSalon(salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id } }));
 async function markReview(sub: BillingSubscription, reason: string) {
@@ -39,9 +41,10 @@ export function stripeInvoiceStatus(invoice: Pick<Stripe.Invoice, "status" | "at
   return invoice.attempt_count > 0 ? "rejected" : "pending";
 }
 
-/** No subscription yet: either the owner is still at the checkout, or the link expired (nothing charged), or they cancelled. */
-async function withoutSubscription(sub: BillingSubscription, customerId: string) {
-  const sessions = await checkoutSessionsFor(customerId, referenceFor(sub));
+/** No subscription yet: either the owner is still at the checkout, or the link expired (nothing charged), or they cancelled.
+ * Without a customer nothing reached Stripe (a session needs one), so a cancellation simply closes the attempt. */
+async function withoutSubscription(sub: BillingSubscription, customerId: string | null) {
+  const sessions = customerId ? await checkoutSessionsFor(customerId, referenceFor(sub)) : [];
   const paid = paidSubscriptionIds(sessions);
   if (paid.length > 1) { await markReview(sub, "DUPLICATE_SUBSCRIPTIONS"); return null; }
   if (paid.length === 1) return paid[0];
@@ -92,16 +95,18 @@ async function applyCharge(sub: BillingSubscription, customerId: string, chargeI
 export async function syncStripeSubscription(salonId: string, id: string): Promise<boolean> {
   let sub = await load(salonId, id);
   assertProvider(sub, "stripe");
-  const config = stripeConfig();
+  const config = stripeConfig({ forExisting: true });
   if (sub.mode !== config.mode || sub.collectorId !== config.accountId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
   if (!sub.providerId && !sub.checkoutUrl) {
-    if (!sub.cancelledAt) await ensureStripeCheckout(sub);
+    if (!sub.cancelledAt && !sub.cancelRequestedAt) await ensureStripeCheckout(sub);
     sub = await load(salonId, id);
-    if (!sub.checkoutUrl) return false;
+    // Never sent to Stripe and not cancelled: nothing to reconcile yet. A started creation without a stored link
+    // (lost answer, mismatch, expired or paid session) goes on to be found, closed or activated below.
+    if (!sub.checkoutUrl && !sub.creationStartedAt && !sub.cancelRequestedAt) return false;
   }
   if (sub.cancelledAt && !sub.providerId) return false;
   const customerId = await knownStripeCustomer(sub);
-  if (!customerId) { await markReview(sub, "CUSTOMER_MISSING"); return false; }
+  if (!customerId && sub.providerId) { await markReview(sub, "CUSTOMER_MISSING"); return false; }
   let providerId = sub.providerId;
   if (!providerId) {
     providerId = await withoutSubscription(sub, customerId);
@@ -115,12 +120,15 @@ export async function syncStripeSubscription(salonId: string, id: string): Promi
     sub = await load(salonId, id);
     if (sub.providerId !== found) throw new BillingError("PROVIDER_IDENTITY_MISMATCH", 409);
   }
+  if (!customerId) throw new BillingError("PROVIDER_IDENTITY_MISMATCH", 409);
   let remote = await stripeRequest(client => client.subscriptions.retrieve(providerId!));
   const owner = typeof remote.customer === "string" ? remote.customer : remote.customer.id;
   if (remote.metadata?.ef_reference !== referenceFor(sub) || owner !== customerId || remote.livemode !== (sub.mode === "live")) throw new BillingError("PROVIDER_IDENTITY_MISMATCH", 409);
-  // Stopping charges comes first. With a paid period, renewal stops at its end (access kept); without one, at once.
-  if (sub.cancelRequestedAt && !ENDED.has(remote.status) && !remote.cancel_at_period_end) {
-    remote = remote.status === "incomplete" ? await stripeRequest(client => client.subscriptions.cancel(providerId!))
+  // Stopping charges comes first. With a paid period running, renewal stops at its end (access kept). Without one (first
+  // payment pending, or a renewal past due) it stops at once: an immediate cancellation also stops Stripe's automatic
+  // collection of the subscription's open invoices, so no retry charges an owner who cancelled (Stripe docs, 2026).
+  if (sub.cancelRequestedAt && !ENDED.has(remote.status) && (!remote.cancel_at_period_end || STOP_NOW.has(remote.status))) {
+    remote = STOP_NOW.has(remote.status) ? await stripeRequest(client => client.subscriptions.cancel(providerId!))
       : await stripeRequest(client => client.subscriptions.update(providerId!, { cancel_at_period_end: true }, { idempotencyKey: `ef-cancel:${sub.id}` }));
     if (!ENDED.has(remote.status) && !remote.cancel_at_period_end) throw new BillingError("CANCELLATION_NOT_CONFIRMED", 503);
   }
@@ -178,7 +186,7 @@ export async function syncStripeSubscription(salonId: string, id: string): Promi
   });
   const inbox = await withSalon(salonId, tx => tx.billingInbox.findMany({ where: { subscriptionId: id, salonId, processedAt: null }, orderBy: { receivedAt: "asc" }, take: 6 }));
   for (const item of inbox.slice(0, 5)) {
-    if (STRIPE_CHARGE_TOPICS.has(item.topic)) await applyCharge(sub, customerId, item.resourceId);
+    if (STRIPE_CHARGE_TOPICS.has(item.topic)) await applyCharge(sub, customerId!, item.resourceId);
     await withSalon(salonId, async tx => { await subscriptionLock(tx, salonId); await tx.billingInbox.update({ where: { id: item.id }, data: { processedAt: new Date() } }); });
   }
   return inbox.length > 5;

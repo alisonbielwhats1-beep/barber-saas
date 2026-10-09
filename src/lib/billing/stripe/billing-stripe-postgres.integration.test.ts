@@ -16,6 +16,8 @@ const fake = vi.hoisted(() => ({
   charges: new Map<string, Obj>(), invoicePayments: [] as Obj[], idempotent: new Map<string, Obj>(), calls: [] as string[], seq: 0,
   /** Unique per run: provider ids are unique in the database, which keeps earlier runs. */
   run: Math.random().toString(36).slice(2, 8),
+  /** The next Checkout Session reports another total, so the app refuses to store its link. */
+  mismatchNext: false,
   realWebhooks: null as unknown,
 }));
 vi.mock("stripe", async () => {
@@ -35,8 +37,8 @@ vi.mock("stripe", async () => {
     checkout = { sessions: {
       create: async (params: Obj & LineItems, options?: { idempotencyKey?: string }) => { fake.calls.push("session.create");
         return once(options?.idempotencyKey, () => { const s: Obj = { id: id("cs_test"), object: "checkout.session", mode: params.mode, customer: params.customer, client_reference_id: params.client_reference_id,
-          currency: "brl", amount_total: params.line_items[0].price_data.unit_amount, livemode: false, status: "open", subscription: null, url: `https://checkout.stripe.com/c/pay/${fake.seq}`, metadata: params.metadata, params };
-          fake.sessions.set(s.id, s); return s; }); },
+          currency: "brl", amount_total: params.line_items[0].price_data.unit_amount + (fake.mismatchNext ? 1 : 0), livemode: false, status: "open", subscription: null, url: `https://checkout.stripe.com/c/pay/${fake.seq}`, metadata: params.metadata, params };
+          fake.mismatchNext = false; fake.sessions.set(s.id, s); return s; }); },
       list: async (params: { customer: string }) => ({ data: [...fake.sessions.values()].filter(s => s.customer === params.customer).reverse() }),
       expire: async (sessionId: string) => { fake.calls.push("session.expire"); const s = fake.sessions.get(sessionId); if (!s) throw missing(); s.status = "expired"; return s; },
     } };
@@ -47,7 +49,8 @@ vi.mock("stripe", async () => {
     };
     invoices = { list: async (params: { subscription: string }) => ({ data: [...fake.invoices.values()].filter(i => i.subscription === params.subscription).reverse() }) };
     charges = { retrieve: async (chargeId: string) => { const c = fake.charges.get(chargeId); if (!c) throw missing(); return structuredClone({ ...c, customer: c.expandCustomer ? fake.customers.get(c.customer as string) : c.customer }); } };
-    invoicePayments = { list: async (params: { payment: { payment_intent: string } }) => ({ data: fake.invoicePayments.filter(p => p.intent === params.payment.payment_intent) }) };
+    invoicePayments = { list: async (params: { payment: { payment_intent: string }; expand?: string[] }) => ({ data: fake.invoicePayments.filter(p => p.intent === params.payment.payment_intent)
+      .map(p => params.expand?.includes("data.invoice") ? { ...p, invoice: fake.invoices.get(p.invoice as string) } : p) }) };
   } };
 });
 
@@ -248,5 +251,98 @@ pg("Stripe billing with PostgreSQL and runtime FORCE RLS", () => {
     expect((await load(changed.id)).reviewRequired).toBe(true);
     // The lower amount never grants a period: the paid invoice does not match the contract.
     expect((await load(changed.id)).paidThrough).toBeNull();
+  });
+
+  /** A new contract needs no current one in the way (the earlier tests leave one in review). */
+  const startFresh = () => admin.billingSubscription.updateMany({ where: { salonId }, data: { current: false } });
+  const sessionOf = (contractId: string) => [...fake.sessions.values()].find(s => s.client_reference_id === `ef:${salonId}:${contractId}`)!;
+
+  it("closes or activates an attempt whose link was never stored (lost answer or mismatch)", async () => {
+    await startFresh();
+    fake.mismatchNext = true;
+    const key = randomUUID();
+    await expect(service.contract(context(), { plan: "TEAM", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, key)).rejects.toThrow("CHECKOUT_MISMATCH");
+    const stuck = await admin.billingSubscription.findFirstOrThrow({ where: { salonId, requestKey: key } });
+    expect(stuck).toMatchObject({ checkoutUrl: null, providerId: null });
+    expect(stuck.creationStartedAt).not.toBeNull();
+    // The owner gives up: the open session is expired and the attempt closed, without a charge.
+    await service.requestCancellation(context(), stuck.id);
+    await worker.syncSubscription(salonId, stuck.id);
+    expect(sessionOf(stuck.id).status).toBe("expired");
+    expect(await load(stuck.id)).toMatchObject({ providerStatus: "cancelled", paidThrough: null });
+    // Same situation, but the session was paid before its link was stored: the payment is found and honoured.
+    await startFresh();
+    fake.mismatchNext = true;
+    const paidKey = randomUUID();
+    await expect(service.contract(context(), { plan: "TEAM", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, paidKey)).rejects.toThrow("CHECKOUT_MISMATCH");
+    const paidStuck = await admin.billingSubscription.findFirstOrThrow({ where: { salonId, requestKey: paidKey } });
+    pay(sessionOf(paidStuck.id).id, new Date());
+    await worker.syncSubscription(salonId, paidStuck.id);
+    expect(accessState(await load(paidStuck.id))).toBe("ACTIVE");
+  });
+
+  it("cancels a past-due subscription at once, so no retry charges an owner who cancelled", async () => {
+    await startFresh();
+    const late = await service.contract(context(), { plan: "TEAM", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, randomUUID());
+    const start = new Date(Date.now() - 40 * DAY);
+    const subId = pay(sessionOf(late.id).id, start);
+    invoice(subId, addMonths(start, 1), addMonths(start, 2), "open");
+    fake.subscriptions.get(subId)!.status = "past_due";
+    await worker.syncSubscription(salonId, late.id);
+    expect(accessState(await load(late.id))).toBe("RESTRICTED");
+    const before = fake.calls.length;
+    await service.requestCancellation(context(), late.id);
+    await worker.syncSubscription(salonId, late.id);
+    expect(fake.calls.slice(before)).toContain("subscription.cancel");
+    expect(fake.calls.slice(before)).not.toContain("subscription.update");
+    expect(fake.subscriptions.get(subId)).toMatchObject({ status: "canceled" });
+    const ended = await load(late.id);
+    expect(ended.cancelledAt).not.toBeNull();
+    expect(accessState(ended)).toBe("EXPIRED");
+  });
+
+  it("records a refund on the contract whose invoice it paid, not on the salon's current one", async () => {
+    await startFresh();
+    const older = await service.contract(context(), { plan: "TEAM", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, randomUUID());
+    const olderSub = pay(sessionOf(older.id).id, new Date(Date.now() - 20 * DAY));
+    await worker.syncSubscription(salonId, older.id);
+    await admin.billingSubscription.update({ where: { id: older.id }, data: { current: false, cancelledAt: new Date() } });
+    const newer = await service.contract(context(), { plan: "TEAM", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, randomUUID());
+    pay(sessionOf(newer.id).id, new Date());
+    await worker.syncSubscription(salonId, newer.id);
+    const olderInvoice = [...fake.invoices.values()].find(i => i.subscription === olderSub && i.status === "paid")!;
+    const chargeId = `ch_old_${fake.run}`;
+    fake.charges.set(chargeId, { id: chargeId, customer: (fake.subscriptions.get(olderSub) as Obj).customer, payment_intent: `pi_old_${fake.run}`, currency: "brl", refunded: true, amount_refunded: 7990, disputed: false });
+    fake.invoicePayments.push({ id: `inpay_old_${fake.run}`, intent: `pi_old_${fake.run}`, invoice: olderInvoice.id });
+    const notice = signed({ id: `evt_old_${fake.run}`, object: "event", type: "charge.refunded", livemode: false, created: at(new Date()), data: { object: { id: chargeId, object: "charge" } } });
+    expect(await webhook.receiveStripeEvent(notice.payload, notice.signature)).toEqual({ salonId, subscriptionId: older.id });
+    await worker.syncSubscription(salonId, older.id);
+    expect(await admin.billingCharge.findUniqueOrThrow({ where: { providerInvoiceId: olderInvoice.id } })).toMatchObject({ status: "refunded", refundedCents: 7990 });
+    expect((await load(older.id)).reviewRequired).toBe(true);
+    expect((await load(newer.id)).reviewRequired).toBe(false);
+  });
+
+  it("routes signed checkout and invoice notices to their contract", async () => {
+    const current = await admin.billingSubscription.findFirstOrThrow({ where: { salonId, current: true } });
+    const session = sessionOf(current.id);
+    const paidInvoice = [...fake.invoices.values()].find(i => i.subscription === current.providerId)!;
+    for (const [type, object] of [["checkout.session.completed", session], ["invoice.paid", paidInvoice]] as const) {
+      const notice = signed({ id: `evt_${type}_${fake.run}`, object: "event", type, livemode: false, created: at(new Date()), data: { object } });
+      expect(await webhook.receiveStripeEvent(notice.payload, notice.signature)).toEqual({ salonId, subscriptionId: current.id });
+    }
+  });
+
+  it("keeps honouring an owner's cancellation after the Stripe offer is turned off", async () => {
+    const current = await admin.billingSubscription.findFirstOrThrow({ where: { salonId, current: true } });
+    vi.stubEnv("STRIPE_BILLING_ENABLED", "false");
+    try {
+      await service.requestCancellation(context(), current.id);
+      await worker.syncSubscription(salonId, current.id);
+      expect(fake.subscriptions.get(current.providerId!)).toMatchObject({ cancel_at_period_end: true });
+      expect((await load(current.id)).cancelledAt).not.toBeNull();
+      // New contracts, on the other hand, are refused while the offer is off.
+      await startFresh();
+      await expect(service.contract(context(), { plan: "TEAM", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, randomUUID())).rejects.toThrow("STRIPE_DISABLED");
+    } finally { vi.stubEnv("STRIPE_BILLING_ENABLED", "true"); }
   });
 });

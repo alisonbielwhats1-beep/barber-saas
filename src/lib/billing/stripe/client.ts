@@ -11,7 +11,8 @@ let cached: { key: string; client: Stripe } | null = null;
 /** At most two six-second attempts (Mercado Pago makes one), so a reconciliation step stays inside the function's time.
  * The SDK repeats a POST with the same idempotency key, so the retry never charges twice. */
 export function stripeClient() {
-  const { secretKey } = stripeConfig();
+  // Credentials only: creating new contracts is gated where they are created (checkout.ts), not here.
+  const { secretKey } = stripeConfig({ forExisting: true });
   if (cached?.key !== secretKey) {
     cached = { key: secretKey, client: new Stripe(secretKey, { apiVersion: STRIPE_API_VERSION, timeout: 6000, maxNetworkRetries: 1, telemetry: false, appInfo: { name: "EverFlair" } }) };
   }

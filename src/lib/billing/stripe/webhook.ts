@@ -13,19 +13,21 @@ const ours = (reference: string | null | undefined) => {
   try { return reference ? parseReference(reference) : null; } catch { return null; }
 };
 
-/** A charge (refund, dispute) names only its customer: the salon comes from that customer, read back from Stripe and matched
- * against the customer stored for the salon; the notice goes to the salon's current Stripe contract. */
+/** A charge (refund, dispute) is read back from Stripe. Its contract is the one whose invoice it paid (invoice payment →
+ * invoice → contract reference), never simply the salon's current one; its customer must be the one stored for the salon. */
 async function chargeTarget(chargeId: string): Promise<Target | null> {
-  const charge = await stripeRequest(client => client.charges.retrieve(chargeId, { expand: ["customer"] }));
-  const customer = typeof charge.customer === "object" && charge.customer && !("deleted" in charge.customer && charge.customer.deleted) ? charge.customer as Stripe.Customer : null;
-  const salonId = customer?.metadata?.ef_salon;
-  if (!customer || !salonId || !/^[a-zA-Z0-9_-]{1,100}$/.test(salonId)) return null;
-  const config = stripeConfig();
-  return withSalon(salonId, async tx => {
-    const known = await tx.billingCustomer.findUnique({ where: { salonId_provider_mode_accountId: { salonId, provider: "stripe", mode: config.mode, accountId: config.accountId } } });
-    if (known?.customerId !== customer.id) return null;
-    const sub = await tx.billingSubscription.findFirst({ where: { salonId, provider: "stripe", providerId: { not: null } }, orderBy: [{ current: "desc" }, { createdAt: "desc" }] });
-    return sub ? { salonId, id: sub.id, resourceId: charge.id } : null;
+  const charge = await stripeRequest(client => client.charges.retrieve(chargeId));
+  const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+  const intent = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+  if (!customerId || !intent) return null;
+  const payments = await stripeRequest(client => client.invoicePayments.list({ payment: { type: "payment_intent", payment_intent: intent }, limit: 10, expand: ["data.invoice"] }));
+  const ref = payments.data.map(payment => typeof payment.invoice === "object" && payment.invoice && !("deleted" in payment.invoice && payment.invoice.deleted)
+    ? ours((payment.invoice as Stripe.Invoice).parent?.subscription_details?.metadata?.ef_reference) : null).find(Boolean);
+  if (!ref) return null;
+  const config = stripeConfig({ forExisting: true });
+  return withSalon(ref.salonId, async tx => {
+    const known = await tx.billingCustomer.findUnique({ where: { salonId_provider_mode_accountId: { salonId: ref.salonId, provider: "stripe", mode: config.mode, accountId: config.accountId } } });
+    return known?.customerId === customerId ? { ...ref, resourceId: charge.id } : null;
   });
 }
 
@@ -56,7 +58,7 @@ async function targetOf(event: Stripe.Event): Promise<Target | null> {
  * unknown contracts are acknowledged and ignored, so Stripe does not retry them for days.
  */
 export async function receiveStripeEvent(raw: string, signature: string | null) {
-  const config = stripeConfig();
+  const config = stripeConfig({ forExisting: true });
   if (!signature) throw new BillingError("INVALID_SIGNATURE", 401);
   let event: Stripe.Event;
   try { event = stripeClient().webhooks.constructEvent(raw, signature, config.webhookSecret); }

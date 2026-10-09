@@ -19,7 +19,7 @@ export async function syncBillingToHq(salonId: string, id: string): Promise<bool
     const sub = await tx.billingSubscription.findFirstOrThrow({ where: { id, salonId } });
     // Each contract is checked against its own gateway's account and named after it in the HQ.
     const stripe = sub.provider === "stripe";
-    const identity = stripe ? (({ mode, accountId }) => ({ mode, collectorId: accountId }))(stripeConfig()) : (({ mode, collectorId }) => ({ mode, collectorId }))(billingConfig());
+    const identity = stripe ? (({ mode, accountId }) => ({ mode, collectorId: accountId }))(stripeConfig({ forExisting: true })) : (({ mode, collectorId }) => ({ mode, collectorId }))(billingConfig());
     if (sub.mode !== identity.mode || sub.collectorId !== identity.collectorId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
     const gateway = stripe ? "Stripe" : "Mercado Pago";
     const gatewayLabel = identity.mode === "test" ? `${gateway} · teste` : gateway;

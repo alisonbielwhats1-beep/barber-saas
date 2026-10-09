@@ -31,6 +31,14 @@ describe("Stripe configuration trust boundaries", () => {
     expect(() => stripeConfig()).toThrow("STRIPE_DISABLED");
   });
 
+  it("keeps reconciling existing contracts when only the Stripe offer is off, never with the app's billing off", () => {
+    vi.stubEnv("STRIPE_BILLING_ENABLED", "false");
+    expect(() => stripeConfig()).toThrow("STRIPE_DISABLED");
+    expect(stripeConfig({ forExisting: true })).toMatchObject({ mode: "test", accountId: "acct_1Synthetic" });
+    vi.stubEnv("MERCADOPAGO_BILLING_ENABLED", "false");
+    expect(() => stripeConfig({ forExisting: true })).toThrow("STRIPE_DISABLED");
+  });
+
   it("requires every credential in its expected format", () => {
     expect(stripeConfig()).toMatchObject({ mode: "test", accountId: "acct_1Synthetic", baseUrl: "http://localhost:3000" });
     for (const [key, value] of [["STRIPE_SECRET_KEY", ""], ["STRIPE_SECRET_KEY", syntheticKey("pk_test")], ["STRIPE_SECRET_KEY", "sk_test_short"], ["STRIPE_WEBHOOK_SECRET", "synthetic"],

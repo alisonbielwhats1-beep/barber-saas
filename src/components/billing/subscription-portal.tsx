@@ -37,6 +37,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [paying, setPaying] = useState<"mercadopago" | "stripe" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [choice, setChoice] = useState<BillingIntent | null>(null);
   const [replacing, setReplacing] = useState(false);
@@ -110,7 +111,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
 
   async function subscribe(provider: "mercadopago" | "stripe" = "mercadopago") {
     if (!choice || inFlight.current) return;
-    inFlight.current = true; setBusy(true); setError(null);
+    inFlight.current = true; setBusy(true); setPaying(provider); setError(null);
     try {
       // One request key per plan and gateway: a retried click repeats the same request, another gateway is a new one.
       const storageKey = `billing:${salonId}:${subscription?.id ?? "first"}:${JSON.stringify(choice)}${provider === "stripe" ? ":stripe" : ""}`;
@@ -127,7 +128,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
       if (checkout) { goToCheckout(checkout); return; }
       setMessage("Sua solicitação foi recebida. Estamos preparando o pagamento."); await refresh();
     } catch { setChoice(null); await refresh(); failed("PROVIDER_UNAVAILABLE"); }
-    finally { inFlight.current = false; setBusy(false); }
+    finally { inFlight.current = false; setBusy(false); setPaying(null); }
   }
   async function cancel() {
     if (!subscription || inFlight.current) return;
@@ -295,8 +296,8 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
         <p className="text-sm text-muted-foreground">Cartão de crédito pela Stripe (no iPhone, também Apple Pay){mercadoPagoPaused ? "." : ", ou as formas de pagamento do Mercado Pago."} A cobrança se repete automaticamente no meio escolhido.</p>
         {/* Two full-width choices, stacked on phones: three buttons in one row do not fit the dialog. */}
         <div className={cn("grid gap-2", !mercadoPagoPaused && "sm:grid-cols-2")}>
-          <Button className="h-auto min-h-11 whitespace-normal" disabled={busy || blockedByHost} onClick={() => void subscribe("stripe")}>{busy ? "Preparando pagamento…" : <>Pagar com cartão<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>
-          {!mercadoPagoPaused && <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={busy || blockedByHost} onClick={() => void subscribe("mercadopago")}>Pagar pelo Mercado Pago<ExternalLink aria-hidden="true" className="h-4 w-4" /></Button>}
+          <Button className="h-auto min-h-11 whitespace-normal" disabled={busy || blockedByHost} onClick={() => void subscribe("stripe")}>{paying === "stripe" ? "Preparando pagamento…" : <>Pagar com cartão<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>
+          {!mercadoPagoPaused && <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={busy || blockedByHost} onClick={() => void subscribe("mercadopago")}>{paying === "mercadopago" ? "Preparando pagamento…" : <>Pagar pelo Mercado Pago<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>}
         </div>
       </div>}
       <DialogFooter>
