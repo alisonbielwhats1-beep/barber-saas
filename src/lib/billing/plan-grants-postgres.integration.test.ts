@@ -33,6 +33,13 @@ pg("plan grants with real PostgreSQL permissions", () => {
     await admin.$executeRawUnsafe('GRANT USAGE ON SCHEMA public TO grant_test_runtime');
     await admin.$executeRawUnsafe('GRANT SELECT ON "User", "Membership", "Salon", "Professional", "UserInvite", "BillingSubscription", "BillingEvent" TO grant_test_runtime');
     await admin.$executeRawUnsafe('GRANT EXECUTE ON FUNCTION hq_is_admin() TO grant_test_runtime');
+    // Other schema-smoke suites enable Salon RLS with policies limited to their own roles.
+    // Match 01_enable_rls.sql's public Salon SELECT, scoped to this synthetic role.
+    // The new grant table keeps its actual tenant/admin policies unchanged.
+    await admin.$executeRawUnsafe('ALTER TABLE "Salon" ENABLE ROW LEVEL SECURITY');
+    await admin.$executeRawUnsafe('ALTER TABLE "Salon" FORCE ROW LEVEL SECURITY');
+    await admin.$executeRawUnsafe('DROP POLICY IF EXISTS grant_ci_salon_read ON "Salon"');
+    await admin.$executeRawUnsafe('CREATE POLICY grant_ci_salon_read ON "Salon" FOR SELECT TO grant_test_runtime USING (true)');
     await admin.$executeRawUnsafe('GRANT SELECT,INSERT ON "SalonPlanGrant" TO grant_test_runtime');
     await admin.$executeRawUnsafe('GRANT UPDATE("revokedAt") ON "SalonPlanGrant" TO grant_test_runtime');
     await admin.$executeRawUnsafe('GRANT SELECT,INSERT,UPDATE ON hq_accounts,hq_customers TO grant_test_runtime');
