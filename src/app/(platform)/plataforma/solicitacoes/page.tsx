@@ -6,6 +6,12 @@ import { DeleteSalonControl } from "./delete-controls";
 import { isHqEnabled, withHq } from "@/lib/hq/access";
 import { archivedSalonIds } from "@/lib/salon-history";
 import Link from "next/link";
+import { PlanGrantControl } from "./plan-grant-control";
+import { planGrantsEnabled, grantEntitlement } from "@/lib/billing/plan-grants";
+import { getPlanEntitlement } from "@/lib/plan-entitlements";
+import { billingEnabled } from "@/lib/billing/config";
+import { currentTerms } from "@/lib/billing/change-terms";
+import { BILLING_PLANS } from "@/lib/billing/catalog";
 
 const STATUS = {
   PENDING: { label: "Pendente", icon: Clock3, className: "text-amber-400" },
@@ -51,6 +57,21 @@ export default async function AccessRequestsPage({ searchParams }: { searchParam
     if (a.accessStatus !== "PENDING" && b.accessStatus === "PENDING") return 1;
     return b.accessRequestedAt.getTime() - a.accessRequestedAt.getTime();
   });
+  const planViews = isHqEnabled() ? await withHq(async tx => {
+    const views: Record<string, string> = {};
+    const ids = salons.map(salon => salon.id);
+    const subs = billingEnabled() || planGrantsEnabled() ? await tx.billingSubscription.findMany({ where: { salonId: { in: ids } } }) : [];
+    const now = new Date();
+    const grants = planGrantsEnabled() ? await tx.salonPlanGrant.findMany({ where: { salonId: { in: ids }, revokedAt: null, createdAt: { lte: now }, endsAt: { gt: now } } }) : [];
+    for (const salon of salons) {
+      const contracts = subs.filter(s => s.salonId === salon.id);
+      const sub = contracts.find(s => s.current);
+      const grant = !contracts.some(s => s.paidThrough || s.reviewRequired) && grants.find(g => g.salonId === salon.id);
+      if (grant) views[salon.id] = `${grantEntitlement(grant).label} · cortesia até ${grant.throughDate.split("-").reverse().join("/")}`;
+      else if (sub) { const terms = await currentTerms(tx, sub); views[salon.id] = `${BILLING_PLANS[terms.plan].label} · ${sub.paidThrough ? "assinatura" : "aguardando pagamento"}`; }
+    }
+    return views;
+  }) : {};
   const pendingCount = salons.filter((salon) => salon.accessStatus === "PENDING").length;
 
   return (
@@ -94,7 +115,7 @@ export default async function AccessRequestsPage({ searchParams }: { searchParam
                         <StatusIcon className="h-3.5 w-3.5" /> {status.label}
                       </span>
                       <span className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
-                        {salon.plan}
+                        {planViews[salon.id] ?? getPlanEntitlement(salon.plan).label}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -113,8 +134,7 @@ export default async function AccessRequestsPage({ searchParams }: { searchParam
                     salonId={salon.id}
                     salonName={salon.name}
                     status={salon.accessStatus}
-                    currentPlan={salon.plan}
-                  />}{isHqEnabled() && <DeleteSalonControl salonId={salon.id} salonName={salon.name} archived={historical} />}</div>
+                  />}{!historical && isHqEnabled() && planGrantsEnabled() && salon.accessStatus === "APPROVED" && <PlanGrantControl salonId={salon.id} salonName={salon.name} />}{isHqEnabled() && <DeleteSalonControl salonId={salon.id} salonName={salon.name} archived={historical} />}</div>
                 </div>
               </article>
             );

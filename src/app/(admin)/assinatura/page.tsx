@@ -9,6 +9,7 @@ import { SubscriptionPortal } from "@/components/billing/subscription-portal";
 import { SecretaryCreditsCard } from "@/components/billing/secretary-credits-card";
 import { creditsEnabled } from "@/lib/secretary-credits";
 import { secretaryAvailableTo } from "@/lib/secretary-availability";
+import { complimentaryEntitlement, grantEntitlement } from "@/lib/billing/plan-grants";
 
 export default async function SubscriptionPage({ searchParams }: { searchParams: Promise<{ billingPlan?: string; cycle?: string; extraAgendas?: string; retorno?: string }> }) {
   const ctx = await requireRole(["OWNER"]);
@@ -21,10 +22,11 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
       tx.professional.count({ where: { salonId: ctx.salonId, active: true } }),
       tx.userInvite.count({ where: { salonId: ctx.salonId, role: "PROFESSIONAL", usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } } }),
     ]);
-    return { salon, user, occupiedAgendas: professionals + invites };
+    return { salon, user, grant: await complimentaryEntitlement(tx, ctx.salonId), occupiedAgendas: professionals + invites };
   });
-  const entitlement = getPlanEntitlement(data.salon.plan);
-  const legacy = { label: entitlement.label, agendas: entitlement.maxProfessionals, free: data.salon.plan === "FREE" };
+  const entitlement = data.grant ? grantEntitlement(data.grant) : getPlanEntitlement(data.salon.plan);
+  const legacy = { label: entitlement.label, agendas: entitlement.maxProfessionals, free: !data.grant && data.salon.plan === "FREE",
+    courtesyThrough: data.grant?.throughDate };
   let billingOrigin: string | null = null;
   try { billingOrigin = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).origin : null; } catch { billingOrigin = null; }
   return <div className="mx-auto w-full max-w-5xl space-y-8">
@@ -33,6 +35,10 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
       <h1 className="text-2xl font-semibold tracking-tight">Plano e assinatura</h1>
       <p className="text-muted-foreground">{data.salon.name} · Acompanhe seu plano, pagamentos e renovação.</p>
     </header>
+    {data.grant && <section aria-label="Período gratuito" className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+      <p className="font-semibold">{entitlement.label} grátis até {data.grant.throughDate.split("-").reverse().join("/")}, inclusive.</p>
+      <p>Sem cobrança automática. Ao terminar, seu acesso volta ao Grátis e seu histórico permanece. Para continuar no Individual ou outro plano, contrate abaixo. A contratação inicia a cobrança, inclusive se feita antes do fim da cortesia.</p>
+    </section>}
     {billingEnabled() ? <SubscriptionPortal key={ctx.salonId} salonId={ctx.salonId} email={data.user.email} timezone={data.salon.timezone} initial={resolveBillingIntent(query)}
       legacy={legacy} occupiedAgendas={data.occupiedAgendas} billingOrigin={billingOrigin} returnedFromCheckout={query.retorno === "mercadopago"}
       newContractsPaused={checkoutPaused()} changesPaused={planChangesPaused()} />

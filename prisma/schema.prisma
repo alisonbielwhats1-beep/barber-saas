@@ -537,6 +537,7 @@ model User {
 }
 
 model Salon {
+  planGrants SalonPlanGrant[]
   hqBillingAccount HqAccounts?
   billingSubscriptions BillingSubscription[]
   id                String            @id @default(cuid())
@@ -612,6 +613,26 @@ model Salon {
   flexibleWaitlistServices FlexibleWaitlistService[]
 
   @@index([accessStatus, accessRequestedAt])
+}
+
+// Administrative courtesy, independent of paid subscription terms and invoices.
+model SalonPlanGrant {
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  actorUserId String
+  requestKey String @db.Uuid
+  planCode String
+  catalogVersion String
+  amountCents Int
+  agendaLimit Int
+  throughDate String @db.VarChar(10)
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  @@unique([salonId, requestKey])
+  @@index([salonId, endsAt])
 }
 
 // Automatic SaaS billing. Legacy manual invoices and appointment payments are independent.

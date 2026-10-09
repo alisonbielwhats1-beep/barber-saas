@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { archiveSalon, deleteEmptySalon, inspectEmptySalon } from "../actions";
+import { removalBlockerLabel } from "@/lib/salon-removal-labels";
 
 export function DeleteSalonControl({ salonId, salonName, archived = false }: { salonId: string; salonName: string; archived?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -28,7 +29,7 @@ export function DeleteSalonControl({ salonId, salonName, archived = false }: { s
   return <>
     <Button size="sm" variant="outline" disabled={busy} onClick={() => { setError(null); setArchiveOpen(true); }}>{archived ? "Restaurar à lista" : "Mover para histórico"}</Button>
     <Button size="sm" variant="outline" disabled={busy} onClick={() => void inspect()}>Excluir cadastro vazio</Button>
-    <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent>
+    <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent className="max-h-[90dvh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Excluir {salonName}?</DialogTitle>
         <DialogDescription>A exclusão é definitiva e só está disponível para cadastros suspensos ou recusados, sem clientes, histórico ou outros vínculos. Contas de usuários não serão apagadas.</DialogDescription>
@@ -36,6 +37,8 @@ export function DeleteSalonControl({ salonId, salonName, archived = false }: { s
       {busy && <p role="status">Verificando e processando…</p>}
       {error && <p role="alert">{error}</p>}
       {inspection && !inspection.eligible && <p role="status">Exclusão bloqueada. {inspection.blockers.length ? "Este estabelecimento possui dados vinculados. Preserve o cadastro e use a suspensão, se necessário." : "Este estabelecimento ainda está ativo ou pendente. Confira se é realmente um cadastro de teste antes de suspender."}</p>}
+      {!!inspection?.blockers.length && <><ul className="list-disc space-y-1 pl-5 text-sm">{inspection.blockers.map(blocker => <li key={blocker.table}>{removalBlockerLabel(blocker)}</li>)}</ul>
+        <p className="text-sm text-muted-foreground">Você tem permissão administrativa. Estes bloqueios protegem dados e históricos. Para retirar da lista sem apagar, suspenda o acesso e use Mover para histórico.</p></>}
       {inspection?.eligible && <><p className="text-sm">Nenhum cliente, atendimento, cobrança ou vínculo operacional foi encontrado. O cadastro e seus horários de configuração serão removidos; o registro administrativo da exclusão será preservado.</p><label htmlFor={`delete-${salonId}`} className="text-sm">Digite {inspection.salon.slug} para confirmar</label><Input id={`delete-${salonId}`} autoComplete="off" value={confirmation} onChange={event => setConfirmation(event.target.value)} disabled={busy} /><Button variant="destructive" disabled={busy || confirmation !== inspection.salon.slug} onClick={() => void remove()}>Excluir definitivamente</Button></>}
       <Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>Voltar sem excluir</Button>
     </DialogContent></Dialog>
