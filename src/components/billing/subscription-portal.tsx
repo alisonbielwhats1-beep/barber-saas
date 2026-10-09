@@ -260,6 +260,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
       <PlanPicker key={`${mode}:${subscription?.id ?? "none"}`} mode={mode} initial={mode === "subscribe" ? initial : undefined}
         current={mode === "change" ? terms : null} pending={mode === "replace-pending" && terms ? { ...terms, checkoutUrl: subscription?.cancelRequestedAt ? null : subscription?.checkoutUrl ?? null, outdated: outdatedPending } : null}
         occupiedAgendas={occupiedAgendas} disabled={busy || blockedByHost} lockedReason={lockedReason} loadingKey={quoting} onChoose={choose}
+        paymentNote={mode === "subscribe" && stripeAvailable ? (mercadoPagoPaused ? "Pagamento seguro com cartão pela Stripe." : "Pagamento seguro com cartão pela Stripe ou pelo Mercado Pago.") : mode !== "subscribe" && subscription?.provider === "stripe" ? "Pagamento seguro com cartão pela Stripe." : undefined}
         feedback={changeError && !quote && !cancelChangeOpen ? <p ref={changeErrorRef} role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-sm">{changeError}</p> : null} />
     </section>}
 
@@ -290,11 +291,17 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
           <span>Encerrar a tentativa de {billingCapacityLabel(subscription.plan as BillingIntent["plan"], subscription.agendaLimit)} {g.in}{canChoose ? " — confirmado." : renewalStatus === "PENDING" ? " — aguardando confirmação…" : "."}</span></li>
         <li className="flex gap-3"><span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">2</span><span>Seguir para o pagamento do novo plano.</span></li>
       </ol>}
-      {choosingGateway && <p className="text-sm text-muted-foreground">Cartão de crédito pela Stripe (no iPhone, também Apple Pay){mercadoPagoPaused ? "." : ", ou as formas de pagamento do Mercado Pago."} A cobrança se repete automaticamente no meio escolhido.</p>}
+      {choosingGateway && <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">Cartão de crédito pela Stripe (no iPhone, também Apple Pay){mercadoPagoPaused ? "." : ", ou as formas de pagamento do Mercado Pago."} A cobrança se repete automaticamente no meio escolhido.</p>
+        {/* Two full-width choices, stacked on phones: three buttons in one row do not fit the dialog. */}
+        <div className={cn("grid gap-2", !mercadoPagoPaused && "sm:grid-cols-2")}>
+          <Button className="h-auto min-h-11 whitespace-normal" disabled={busy || blockedByHost} onClick={() => void subscribe("stripe")}>{busy ? "Preparando pagamento…" : <>Pagar com cartão<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>
+          {!mercadoPagoPaused && <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={busy || blockedByHost} onClick={() => void subscribe("mercadopago")}>Pagar pelo Mercado Pago<ExternalLink aria-hidden="true" className="h-4 w-4" /></Button>}
+        </div>
+      </div>}
       <DialogFooter>
         <Button variant="outline" disabled={busy} onClick={() => setChoice(null)}>Voltar aos planos</Button>
-        {choosingGateway && !mercadoPagoPaused && <Button variant="outline" disabled={busy || blockedByHost} onClick={() => void subscribe("mercadopago")}>Pagar pelo Mercado Pago<ExternalLink aria-hidden="true" className="h-4 w-4" /></Button>}
-        {choosingGateway ? <Button disabled={busy || blockedByHost} onClick={() => void subscribe("stripe")}>{busy ? "Preparando pagamento…" : <>Pagar com cartão<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>
+        {choosingGateway ? null
           : canChoose ? <Button disabled={busy || blockedByHost} onClick={() => void subscribe()}>{busy ? "Preparando pagamento…" : <>Ir para pagamento<ExternalLink aria-hidden="true" className="h-4 w-4" /></>}</Button>
           : canReplacePending ? <Button disabled={busy || blockedByHost} onClick={() => void cancel()}>{busy ? "Enviando pedido…" : "Confirmar cancelamento da tentativa anterior"}</Button>
           : <Button variant="outline" disabled={busy || refreshing} onClick={() => void syncAndRefresh()}>{refreshing && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}Atualizar situação</Button>}
