@@ -17,9 +17,11 @@ export function billingIntentQuery(intent: BillingIntent) {
 }
 export const billingIntentHref = (intent: BillingIntent, path = "/contratar") => `${path}?${billingIntentQuery(intent)}`;
 export const billingMoney = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2 }).format(cents / 100);
+/** Pages the app may send the owner to: Mercado Pago's checkout, and Stripe's hosted Checkout and billing portal (09/10/2026). */
+const CHECKOUT_HOSTS = new Set(["www.mercadopago.com.br", "checkout.stripe.com", "billing.stripe.com"]);
 export function safeCheckout(value: string | null) {
   if (!value) return null;
-  try { const url = new URL(value); return url.protocol === "https:" && url.hostname === "www.mercadopago.com.br" && !url.username && !url.password && !url.port ? url.href : null; }
+  try { const url = new URL(value); return url.protocol === "https:" && CHECKOUT_HOSTS.has(url.hostname) && !url.username && !url.password && !url.port ? url.href : null; }
   catch { return null; }
 }
 export type SubscriptionView = {

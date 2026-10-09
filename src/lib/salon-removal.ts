@@ -17,6 +17,8 @@ const inspectedTables = new Set([
   "FlexibleWaitlist", "FlexibleWaitlistService",
   // Reviewed SELECT policies allow the salon GUC set above; count, never cascade.
   "ClientPushSubscription", "SecretaryCreditLedger", "SecretaryCreditPurchase", "SalonPlanGrant",
+  // Stripe customer (033): its read policy follows the salon too; any row blocks the deletion.
+  "BillingCustomer",
 ]);
 const identifier = (value: string) => Prisma.raw('"' + value.replaceAll('"', '""') + '"');
 

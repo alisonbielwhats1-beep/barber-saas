@@ -12,6 +12,7 @@ const labels: Record<string, string> = {
   CareEntry: "Cuidados dos clientes", FlexibleWaitlist: "Fila flexível", FlexibleWaitlistService: "Serviços na fila flexível",
   ClientPushSubscription: "Dispositivos de clientes",
   SecretaryCreditLedger: "Histórico de créditos da Secretária", SecretaryCreditPurchase: "Compras de créditos da Secretária",
+  BillingCustomer: "Cadastro de pagamento na Stripe",
 };
 export function removalBlockerLabel(blocker: { table: string; count: number }) {
   if (blocker.count < 0) return "Um vínculo adicional precisa de revisão técnica. Nenhum dado será apagado.";

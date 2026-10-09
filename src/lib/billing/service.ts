@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { BillingSubscription } from "@prisma/client";
 import { withSalon, withTenant, type Tx } from "../prisma-tenant";
-import { BILLING_PLANS, BillingError, periodEnd, quoteContract } from "./catalog";
+import { assertProvider, BILLING_PLANS, BillingError, periodEnd, quoteContract } from "./catalog";
 import { billingConfig } from "./config";
 import * as mp from "./provider";
 import { allowedRemoteTerms, changesEnabled, invoiceRevision, RENEWAL_EARLY_TOLERANCE_MS } from "./change-terms";
@@ -74,6 +74,7 @@ export async function contract(ctx: { salonId: string; userId: string }, input: 
 }
 
 export async function ensureCreated(sub: BillingSubscription) {
+  assertProvider(sub, "mercadopago");
   if (sub.providerId || sub.cancelledAt) return;
   const config = billingConfig();
   if (sub.mode !== config.mode || sub.collectorId !== config.collectorId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
