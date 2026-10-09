@@ -35,7 +35,7 @@ describe("decisão de acesso da plataforma", () => {
     mocks.salonUpdateMany.mockResolvedValue({ count: 1 });
   });
 
-  it("aprova como Pro e registra valores anteriores e novos", async () => {
+  it("aprova preservando o plano e registra valores anteriores e novos", async () => {
     mocks.salonFindUnique.mockResolvedValue({
       id: "salon-1",
       plan: "FREE",
@@ -45,14 +45,14 @@ describe("decisão de acesso da plataforma", () => {
     await reviewSalonAccess({
       salonId: "salon-1",
       decision: "APPROVE",
-      plan: "PRO",
       reason: "Piloto aprovado",
     });
 
     expect(mocks.salonUpdateMany).toHaveBeenCalledWith({
       where: { id: "salon-1", accessStatus: "PENDING" },
-      data: expect.objectContaining({ accessStatus: "APPROVED", plan: "PRO" }),
+      data: expect.objectContaining({ accessStatus: "APPROVED" }),
     });
+    expect(mocks.salonUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.not.objectContaining({ plan: expect.anything() }) }));
     expect(mocks.eventCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorUserId: "platform-admin",
@@ -60,7 +60,7 @@ describe("decisão de acesso da plataforma", () => {
         previousStatus: "PENDING",
         newStatus: "APPROVED",
         previousPlan: "FREE",
-        newPlan: "PRO",
+        newPlan: "FREE",
       }),
     });
   });
@@ -88,7 +88,7 @@ describe("decisão de acesso da plataforma", () => {
     mocks.salonUpdateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      reviewSalonAccess({ salonId: "salon-1", decision: "APPROVE", plan: "FREE" }),
+      reviewSalonAccess({ salonId: "salon-1", decision: "APPROVE" }),
     ).rejects.toThrow("alterada por outra pessoa");
     expect(mocks.eventCreate).not.toHaveBeenCalled();
   });
@@ -103,10 +103,10 @@ describe("decisão de acesso da plataforma", () => {
     await reviewSalonAccess({
       salonId: "salon-1",
       decision: "APPROVE",
-      plan: "PRO",
       reason: "Acesso regularizado",
     });
 
+    expect(mocks.salonUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.not.objectContaining({ plan: expect.anything() }) }));
     expect(mocks.eventCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         type: "REACTIVATED",

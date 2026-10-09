@@ -37,7 +37,7 @@ describe("Mercado Pago code never touches a Stripe contract or purchase", () => 
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.doUnmock("../service"); vi.resetModules(); });
 
-  it("treats rows from before 032 as Mercado Pago and refuses the other provider", () => {
+  it("treats rows from before 033 as Mercado Pago and refuses the other provider", () => {
     expect(() => assertProvider({}, "mercadopago")).not.toThrow();
     expect(() => assertProvider({ provider: null }, "mercadopago")).not.toThrow();
     expect(() => assertProvider({ provider: "mercadopago" }, "stripe")).toThrow("PROVIDER_MISMATCH");

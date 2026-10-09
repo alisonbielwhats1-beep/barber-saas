@@ -61,14 +61,14 @@ export function getPlanEntitlement(plan: Plan | string | PlanEntitlement | null 
 }
 
 export function canUsePlanFeature(
-  plan: Plan | string | null | undefined,
+  plan: Plan | string | PlanEntitlement | null | undefined,
   feature: PlanFeature,
 ): boolean {
   return getPlanEntitlement(plan).features[feature];
 }
 
 export function assertPlanFeature(
-  plan: Plan | string | null | undefined,
+  plan: Plan | string | PlanEntitlement | null | undefined,
   feature: PlanFeature,
 ): void {
   if (canUsePlanFeature(plan, feature)) return;

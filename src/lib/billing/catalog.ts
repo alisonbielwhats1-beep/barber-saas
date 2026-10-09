@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const CATALOG_VERSION = "2026-10-02";
 /** Owner decision 09/10/2026: Stripe (card, Apple Pay, Google Pay) alongside Mercado Pago. Each contract or purchase keeps
- * the provider it was created with (032 makes it immutable); existing ones are Mercado Pago. */
+ * the provider it was created with (033 makes it immutable); existing ones are Mercado Pago. */
 export const BILLING_PROVIDERS = ["mercadopago", "stripe"] as const;
 export type BillingProvider = (typeof BILLING_PROVIDERS)[number];
 export const billingProvider = z.enum(BILLING_PROVIDERS);
@@ -35,7 +35,7 @@ export class BillingError extends Error {
   constructor(public code: string, public status = 409) { super(code); this.name = "BillingError"; }
 }
 
-/** Each provider's code only ever touches its own contracts and purchases. Rows from before 032 (and test doubles of them)
+/** Each provider's code only ever touches its own contracts and purchases. Rows from before 033 (and test doubles of them)
  * carry no provider: they are Mercado Pago. */
 export function assertProvider(record: { provider?: string | null }, provider: BillingProvider) {
   if ((record.provider ?? "mercadopago") !== provider) throw new BillingError("PROVIDER_MISMATCH", 409);

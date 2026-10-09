@@ -28,8 +28,8 @@ Stripe como forma de pagamento e não tem efeito com a cobrança desligada.
 
 | Fase | Conteúdo | Situação |
 | --- | --- | --- |
-| 0 | Conta Stripe em modo de teste, marca no Checkout, chave restrita, verificação enviada | área restrita pronta (09/10); verificação para produção pendente |
-| 1 | SDK, configuração, migration 032, trava por gateway, `safeCheckout` | PR #168 (rascunho) |
+| 0 | Conta Stripe em modo de teste, marca no Checkout, chave restrita, verificação enviada | área restrita pronta; conta de produção enviada para análise (09/10) |
+| 1 | SDK, configuração, migration 033, trava por gateway, `safeCheckout` | PR #168 (rascunho) |
 | 2 | Contratar pela Stripe: Checkout em modo assinatura, webhook `/api/webhooks/stripe`, conciliação, falha/carência, cancelamento, escolha do meio de pagamento | branch `claude/stripe-fase2-assinatura` |
 | 3 | Troca de plano e reativação da renovação na Stripe: prévia proporcional, upgrade pago na hora, redução e ciclo na renovação | pendente |
 | 4 | Pacotes da Secretária pela Stripe (pagamento único) | pendente |
@@ -70,7 +70,7 @@ Stripe como forma de pagamento e não tem efeito com a cobrança desligada.
 
 | Variável | Uso |
 | --- | --- |
-| `STRIPE_BILLING_ENABLED` | oferece a Stripe a **novas** contratações (`true` só depois da 032 e da homologação; exige `MERCADOPAGO_BILLING_ENABLED=true`). Com `false`, contratos que já existem continuam conciliados — renovação, atraso e cancelamento pedido pelo dono — enquanto as credenciais existirem |
+| `STRIPE_BILLING_ENABLED` | oferece a Stripe a **novas** contratações (`true` só depois da 033 e da homologação; exige `MERCADOPAGO_BILLING_ENABLED=true`). Com `false`, contratos que já existem continuam conciliados — renovação, atraso e cancelamento pedido pelo dono — enquanto as credenciais existirem |
 | `STRIPE_MODE` | `test` fora de produção; `live` somente com `APP_ENV=production` |
 | `STRIPE_SECRET_KEY` | chave **restrita** do mesmo modo (`rk_test_`/`rk_live_`) |
 | `STRIPE_WEBHOOK_SECRET` | segredo do endpoint de webhook daquele ambiente (`whsec_`) |
@@ -82,7 +82,7 @@ restrita (a confirmar na fase 2): leitura de conta; escrita em Customers,
 Checkout Sessions, Subscriptions, Subscription Schedules, Invoices e Billing
 Portal; leitura de Charges, PaymentIntents, Disputes e Events.
 
-### Migration 032 (`prisma/sql/manual/032_stripe_billing*.sql`)
+### Migration 033 (`prisma/sql/manual/033_stripe_billing*.sql`)
 
 Aditiva: `provider TEXT NOT NULL DEFAULT 'mercadopago'` com CHECK e trigger de
 imutabilidade em `BillingSubscription` e `SecretaryCreditPurchase` (sem
@@ -92,14 +92,14 @@ modo e conta) com FORCE RLS, leitura do próprio salão ou HQ, inserção só co
 alteração. A chave estrangeira usa as mesmas ações da relação do Prisma
 (`ON DELETE RESTRICT ON UPDATE CASCADE`), então `prisma migrate diff` não acusa
 divergência. O rollback recusa quando já existe qualquer registro da Stripe e,
-de propósito, **mantém** as colunas `provider` (versões a partir da 032 as leem;
+de propósito, **mantém** as colunas `provider` (versões a partir da 033 as leem;
 as anteriores as ignoram): remove só a tabela `BillingCustomer`, depois de
 reverter a aplicação.
 
-**Ordem obrigatória:** aplicar a 032 em Production **antes** do merge desta
+**Ordem obrigatória:** aplicar a 033 em Production **antes** do merge desta
 branch. O Prisma Client novo seleciona a coluna `provider`; sem ela, consultas
 de assinatura e de pacotes falham. O código atual de Production funciona com a
-032 aplicada (as colunas novas têm padrão e são ignoradas por ele). A aplicação
+033 aplicada (as colunas novas têm padrão e são ignoradas por ele). A aplicação
 segue o `AGENTS.md`: projeto identificado, preflight, backup, autorização
 explícita, aplicação única e verify.
 
@@ -113,8 +113,8 @@ gateway; CHECK recusou gateway desconhecido; índice único recusou segundo
 cliente igual; rollback recusou com histórico da Stripe. Depois da revisão, num
 banco novo: verify conferindo a chave estrangeira, rollback mantendo as colunas
 `provider`, reaplicação e `prisma migrate diff` sem divergência nos objetos da
-032. Os 78 testes de integração do Mercado Pago (`billing-postgres`) passaram
-com a 032 aplicada. O CI (`schema-smoke`) repete 029, 030 e 032 com impressão
+033. Os 78 testes de integração do Mercado Pago (`billing-postgres`) passaram
+com a 033 aplicada. O CI (`schema-smoke`) repete 029, 030 e 033 com impressão
 digital, rollback e reaplicação.
 
 ## Fase 2 — o que entrou
@@ -156,7 +156,7 @@ digital, rollback e reaplicação.
 - **Testes:** `billing-stripe-postgres.integration.test.ts` (PostgreSQL com
   FORCE RLS e papel sem BYPASSRLS, Stripe simulada em memória e assinatura de
   webhook real do SDK) e testes da tela de escolha. O CI roda o teste depois de
-  aplicar a 032 e prova que o rollback recusa quando há histórico da Stripe.
+  aplicar a 033 e prova que o rollback recusa quando há histórico da Stripe.
 
 Fora da fase 2: troca de plano/reativação (fase 3), pacotes da Secretária
 (fase 4), portal para trocar o cartão e textos finais (fase 5).

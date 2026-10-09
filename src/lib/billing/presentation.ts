@@ -26,7 +26,7 @@ export function safeCheckout(value: string | null) {
 }
 export type SubscriptionView = {
   id: string; plan: string; cycle: string; amountCents: number; agendaLimit: number;
-  /** Gateway that bills this contract (032); absent in views from before Stripe, which are Mercado Pago. */
+  /** Gateway that bills this contract (033); absent in views from before Stripe, which are Mercado Pago. */
   provider?: string;
   state: string; paidThrough: string | null; nextPaymentAt: string | null;
   cancelRequestedAt: string | null; cancelledAt: string | null; reviewRequired: boolean;

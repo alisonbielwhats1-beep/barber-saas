@@ -1,4 +1,5 @@
 "use server";
+import { featureEntitlement } from "@/lib/billing/plan-grants";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -35,7 +36,7 @@ export async function recordCampaignInteraction(input: z.infer<typeof interactio
       where: { id: ctx.salonId },
       select: { plan: true },
     });
-    assertPlanFeature(salon?.plan, "MARKETING");
+    assertPlanFeature(await featureEntitlement(tx, ctx.salonId, salon?.plan), "MARKETING");
     const client = await tx.clientProfile.findFirst({ where: { id: data.clientId, salonId: ctx.salonId }, select: { id: true, name: true } });
     if (!client) throw new Error("Cliente não encontrado");
     const actor = await tx.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });
@@ -66,7 +67,7 @@ export async function updateMarketingSettings(input: z.infer<typeof settingsInpu
       where: { id: ctx.salonId },
       select: { plan: true },
     });
-    assertPlanFeature(salon?.plan, "MARKETING");
+    assertPlanFeature(await featureEntitlement(tx, ctx.salonId, salon?.plan), "MARKETING");
     const actor = await tx.user.findUnique({
       where: { id: ctx.userId },
       select: { name: true },

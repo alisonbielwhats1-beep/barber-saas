@@ -2,7 +2,7 @@
 -- Owner decision 09/10/2026: Stripe (card, Apple Pay, Google Pay) alongside Mercado Pago, for subscriptions and Secretária packs.
 -- Existing rows become 'mercadopago' through the column default (no table rewrite, no change to their terms or history).
 BEGIN;
-SELECT pg_advisory_xact_lock(hashtextextended('migration:032_stripe_billing',0));
+SELECT pg_advisory_xact_lock(hashtextextended('migration:033_stripe_billing',0));
 
 ALTER TABLE "BillingSubscription" ADD COLUMN IF NOT EXISTS "provider" TEXT NOT NULL DEFAULT 'mercadopago';
 ALTER TABLE "SecretaryCreditPurchase" ADD COLUMN IF NOT EXISTS "provider" TEXT NOT NULL DEFAULT 'mercadopago';

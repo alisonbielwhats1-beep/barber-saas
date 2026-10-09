@@ -7,6 +7,15 @@ import { withUser } from "@/lib/prisma-tenant";
 import { withHq } from "@/lib/hq/access";
 import { inspectSalonRemoval, removeEmptySalon } from "@/lib/salon-removal";
 import { setSalonArchived } from "@/lib/salon-history";
+import { grantPlan } from "@/lib/billing/plan-grants";
+
+export async function grantSalonPlan(input: unknown) {
+  await withHq((tx, actorId) => grantPlan(tx, actorId, input));
+  revalidatePath("/plataforma", "layout");
+  revalidatePath("/hq", "layout");
+  revalidatePath("/", "layout");
+  return { ok: true as const };
+}
 
 export async function archiveSalon(salonId: string, archived: boolean) {
   const input = z.object({ salonId: z.string().min(1).max(100), archived: z.boolean() }).parse({ salonId, archived });
@@ -31,7 +40,6 @@ const reviewInput = z.discriminatedUnion("decision", [
   z.object({
     salonId: z.string().min(1),
     decision: z.literal("APPROVE"),
-    plan: z.enum(["FREE", "STARTER", "PRO", "ENTERPRISE"]),
     reason: z.string().max(500).optional(),
   }),
   z.object({
@@ -65,7 +73,7 @@ export async function reviewSalonAccess(raw: ReviewSalonAccessInput) {
         : input.decision === "REJECT"
           ? "REJECTED"
           : "SUSPENDED";
-    const newPlan = input.decision === "APPROVE" ? input.plan : salon.plan;
+    const newPlan = salon.plan;
 
     if (input.decision === "REJECT" && salon.accessStatus !== "PENDING") {
       throw new Error("Somente solicitações pendentes podem ser recusadas");
@@ -74,11 +82,12 @@ export async function reviewSalonAccess(raw: ReviewSalonAccessInput) {
       throw new Error("Somente estabelecimentos ativos podem ser suspensos");
     }
 
+    if (input.decision === "APPROVE" && salon.accessStatus === "APPROVED") throw new Error("O estabelecimento já está ativo.");
+
     const updated = await tx.salon.updateMany({
       where: { id: salon.id, accessStatus: salon.accessStatus },
       data: {
         accessStatus: newStatus,
-        plan: newPlan,
         accessReviewedAt: new Date(),
       },
     });

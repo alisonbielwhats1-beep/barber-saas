@@ -16,7 +16,7 @@ export function stripeCheckoutUrl(value: string | null) {
   return url.href;
 }
 
-/** One Stripe customer per salon, account and mode (032), created once: a repeated creation within a day returns the same one. */
+/** One Stripe customer per salon, account and mode (033), created once: a repeated creation within a day returns the same one. */
 export async function stripeCustomerFor(salonId: string, email: string) {
   const config = stripeConfig({ forExisting: true });
   const where = { salonId_provider_mode_accountId: { salonId, provider: "stripe", mode: config.mode, accountId: config.accountId } };

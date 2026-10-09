@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { billingCapacityLabel, billingMoney, gatewayWords, isRenewalReactivation, nextChargeOf, pendingPriceOutdated, reactivationState, renewalStatusOf, safeCheckout, subscriptionStatus, tablePriceCents, type BillingIntent, type BillingTone, type SubscriptionView } from "@/lib/billing/presentation";
 import { StatusPill } from "./status-pill";
 
-export type LegacyPlan = { label: string; agendas: number; free: boolean };
+export type LegacyPlan = { label: string; agendas: number; free: boolean; courtesyThrough?: string };
 const changeLabels: Record<string, string> = { PREPARING: "Preparando a troca", AWAITING_PAYMENT: "Aguardando você no Mercado Pago", APPLYING: "Pagamento confirmado · atualizando renovação", SCHEDULED: "Troca agendada", APPLIED: "Troca concluída", CANCEL_REQUESTED: "Cancelamento da troca em confirmação", CANCELLED: "Troca cancelada", EXPIRED: "Troca não concluída", REVIEW: "Troca em revisão" };
 const reactivationLabels: Record<string, string> = { PREPARING: "Preparando a nova autorização", AWAITING_PAYMENT: "Aguardando sua autorização no Mercado Pago", SCHEDULED: "Renovação reativada", CANCEL_REQUESTED: "Cancelando a reativação", REVIEW: "Reativação em revisão" };
 const noticeTone: Record<BillingTone, string> = {
@@ -84,7 +84,8 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
             {status && <StatusPill role="status" label={status.label} tone={status.tone} />}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">{sub ? `${billingMoney(sub.amountCents)}/${periodWord} · cobrança ${sub.cycle === "ANNUAL" ? "anual" : "mensal"} ${g.by}`
-            : legacy.free ? "1 agenda · até 30 agendamentos por mês" : `${legacy.agendas} agendas · liberado pela plataforma, sem renovação pelo Mercado Pago`}</p>
+            : legacy.courtesyThrough ? `${legacy.agendas} agenda(s) · grátis até ${legacy.courtesyThrough.split("-").reverse().join("/")}, inclusive`
+              : legacy.free ? "1 agenda · até 30 agendamentos por mês" : `${legacy.agendas} agendas · liberado pela plataforma, sem renovação pelo Mercado Pago`}</p>
           {abandoned && <p className="mt-1 text-sm text-muted-foreground">A tentativa de contratar {billingCapacityLabel(subscription!.plan as BillingIntent["plan"], subscription!.agendaLimit)} foi cancelada sem cobrança.</p>}
         </div>
       </div>
