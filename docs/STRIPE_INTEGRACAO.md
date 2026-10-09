@@ -28,14 +28,41 @@ Stripe como forma de pagamento e não tem efeito com a cobrança desligada.
 
 | Fase | Conteúdo | Situação |
 | --- | --- | --- |
-| 0 | Conta Stripe em modo de teste, marca no Checkout, chave restrita, verificação enviada | área restrita pronta; conta de produção enviada para análise (09/10) |
-| 1 | SDK, configuração, migration 033, trava por gateway, `safeCheckout` | PR #168 (rascunho) |
-| 2 | Contratar pela Stripe: Checkout em modo assinatura, webhook `/api/webhooks/stripe`, conciliação, falha/carência, cancelamento, escolha do meio de pagamento | branch `claude/stripe-fase2-assinatura` |
+| 0 | Conta Stripe em modo de teste, marca no Checkout, chave restrita, verificação enviada | área restrita pronta; conta de produção em análise pela Stripe (09/10) |
+| 1 | SDK, configuração, migration 033, trava por gateway, `safeCheckout` | em Production (PR #168, 09/10) |
+| 2 | Contratar pela Stripe: Checkout em modo assinatura, webhook `/api/webhooks/stripe`, conciliação, falha/carência, cancelamento, escolha do meio de pagamento | em Production, desligada (PR #170, 09/10) |
 | 3 | Troca de plano e reativação da renovação na Stripe: prévia proporcional, upgrade pago na hora, redução e ciclo na renovação | pendente |
 | 4 | Pacotes da Secretária pela Stripe (pagamento único) | pendente |
 | 5 | Escolha da forma de pagamento nas telas, portal só para trocar cartão, HQ, Termos/Privacidade | pendente |
-| 6 | Production: conta verificada, chaves reais, migration, piloto na conta de apresentação, cobrança real de ponta a ponta | pendente |
+| 6 | Production: conta verificada, chaves reais, migration, piloto na conta de apresentação, cobrança real de ponta a ponta | em andamento: 033 aplicada e webhook configurado (09/10); aguardando aprovação da conta |
 | 7 | Medir por 60–90 dias e decidir | pendente |
+
+## Ligar em Production (fase 6)
+
+Estado em 09/10/2026: 033 aplicada, código publicado e Stripe **desligada**.
+
+1. **Conta aprovada pela Stripe** (Status da conta sem tarefas pendentes e
+   pagamentos ativos). Radar no plano Lite.
+2. **Chave restrita de produção** criada pelo responsável, com as permissões
+   validadas no modo de teste em 09/10:
+   - Escrever: Customers, Checkout Sessions, Subscriptions;
+   - Leitura: Invoices (inclui Invoice Payments), Charges and Refunds, Accounts.
+3. **Destino de webhook** `everflair-producao` → `https://everflair.com.br/api/webhooks/stripe`,
+   escopo da própria conta, payload "snapshot", 16 eventos:
+   `checkout.session.{completed,expired,async_payment_succeeded,async_payment_failed}`,
+   `customer.subscription.{created,updated,deleted}`,
+   `invoice.{paid,payment_failed,payment_action_required,marked_uncollectible,voided}`,
+   `charge.refunded` e `charge.dispute.{created,closed,funds_withdrawn}`.
+   O painel só oferece a versão de API da conta (`2026-09-30.endive`); o
+   webhook lê apenas `client_reference_id`, `metadata.ef_reference`,
+   `parent.subscription_details.metadata` e `charge`, que não mudaram, e a
+   conciliação relê tudo pela API na versão fixada do SDK.
+4. **Variáveis na Vercel (Production)**: `STRIPE_MODE=live`, `STRIPE_ACCOUNT_ID`,
+   `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET` (sensíveis, coladas pelo
+   responsável), `STRIPE_ALLOWED_SALONS` só com o slug do salão de demonstração
+   e, por último, `STRIPE_BILLING_ENABLED=true`, seguido de novo deploy.
+5. **Cobrança real de ponta a ponta** no salão de demonstração (contratar,
+   voltar, conciliar, cancelar); só depois ampliar `STRIPE_ALLOWED_SALONS`.
 
 ## Fase 1 — o que entrou
 
