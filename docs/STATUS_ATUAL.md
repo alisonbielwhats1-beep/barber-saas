@@ -1,6 +1,10 @@
-# Candidato local — 09/10/2026: planos e cortesia no HQ
+# Produção — 09/10/2026: planos e cortesia no HQ
 
-Implementação em `codex/platform-plans-access`, ainda sem promoção: catálogo atual no controle administrativo, cortesia com prazo inclusivo e auditoria, bloqueios de exclusão explicados. Migration 032 e flag `PLATFORM_PLAN_GRANTS_ENABLED` permanecem pendentes de aprovação/implantação em Production. Bianca ainda não deve ser declarada no plano Individual por esta implementação. Ver [plano e rollout](PLANOS_CORTESIA_HQ_2026-10-09.md). O estado implantado documentado abaixo permanece válido.
+PR #169 integrada em `230f3216a73227ed381053ff1e30c449d1432e81`, com CI e schema-smoke aprovados e promoção autorizada. Migration 032 aplicada e verificada no projeto produtivo identificado, após backup criptografado validado. Deploy `dpl_3rHhDeiuDxUgNXAdnGWuLUFtWexz` READY em `everflair.com.br`, com `PLATFORM_PLAN_GRANTS_ENABLED=true`; demais flags preservadas.
+
+Studio Bianca Correia está no **Individual em cortesia até 19/10/2026 inclusive**, referência **R$39,90/mês**, uma agenda. Concessão `7a8e955d-24e9-4a11-9861-be92b702a352`, término `2026-10-20T03:00:00Z`, confirmada no banco, Estabelecimentos e HQ. Nenhuma assinatura, fatura ou cobrança automática criada; para continuar após o prazo, a proprietária contrata. Sem contratação, retorna ao Grátis e preserva dados.
+
+Catálogo administrativo atualizado; exclusão apenas de cadastros vazios e desativados, com confirmação e motivos de bloqueio. **Nenhum cliente excluído ou arquivado. Studio Martinelli preservado.** Fingerprints de salões, profissionais, serviços, clientes, agendamentos e financeiro intactos após a concessão; somente os registros autorizados da Bianca foram adicionados ao HQ. Ver [evidências e limites da verificação](PLANOS_CORTESIA_HQ_2026-10-09.md).
 
 # Status atual canônico — Salon SaaS
 
