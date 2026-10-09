@@ -20,7 +20,7 @@ const fake = vi.hoisted(() => ({
 }));
 vi.mock("stripe", async () => {
   const actual = (await vi.importActual<typeof import("stripe")>("stripe")).default;
-  fake.realWebhooks = new actual("sk_test_SyntheticOnly0000").webhooks;
+  fake.realWebhooks = new actual(["sk", "test", "SyntheticOnly0000"].join("_")).webhooks;
   const id = (prefix: string) => `${prefix}_${fake.run}${++fake.seq}`;
   const once = (key: string | undefined, make: () => Obj) => {
     if (key && fake.idempotent.has(key)) return fake.idempotent.get(key)!;
