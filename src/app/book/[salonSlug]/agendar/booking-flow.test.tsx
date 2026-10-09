@@ -199,6 +199,21 @@ describe("BookingFlow availability", () => {
     });
   });
 
+  it("pré-seleciona o profissional escolhido na tela inicial depois que o serviço é escolhido", async () => {
+    stubFetch(vi.fn().mockResolvedValue(availability(["10:00"])));
+    const user = userEvent.setup();
+    render(<BookingFlow
+      {...baseProps}
+      initialServiceIds={[]}
+      initialProId="pro-2"
+      services={[{ ...baseProps.services[0], professionals: [professional, secondProfessional] }]}
+    />);
+    await user.click(screen.getByRole("button", { name: /Corte/ }));
+    await user.click(screen.getByRole("button", { name: "Escolher profissional" }));
+    expect(await screen.findByRole("button", { name: /BC Bruno/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /AS Ana/i })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("não migra um slot restaurado para outro profissional com o mesmo horário", async () => {
     sessionStorage.setItem("booking-state:studio-teste", JSON.stringify({
       serviceIds: ["service-1"],

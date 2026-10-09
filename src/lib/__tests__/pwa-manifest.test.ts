@@ -36,16 +36,16 @@ describe("manifesto instalavel", () => {
     expect(metadata.height).toBe(size);
     expect(metadata.hasAlpha).toBe(false);
 
-    // The install tile must be opaque graphite, with a visible mark wholly
-    // inside the OS mask's safe circle (40% of the full width).
+    // The install tile must be opaque Everflair violet, with the light petals
+    // wholly inside the OS mask's safe circle (40% of the full width).
     const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
-    expect([...data.subarray(0, 3)]).toEqual([19, 19, 21]);
+    expect([...data.subarray(0, 3)]).toEqual([109, 74, 255]);
     let markPixels = 0;
     let maxMarkRadius = 0;
     for (let y = 0; y < info.height; y++) {
       for (let x = 0; x < info.width; x++) {
         const offset = (y * info.width + x) * info.channels;
-        if (data[offset] > 70) {
+        if (data[offset + 1] > 150) {
           markPixels++;
           maxMarkRadius = Math.max(maxMarkRadius,
             Math.hypot(x - (info.width - 1) / 2, y - (info.height - 1) / 2));
@@ -59,7 +59,7 @@ describe("manifesto instalavel", () => {
   it("atualiza o cache offline e inclui os ícones de instalação", () => {
     const serviceWorker = readFileSync(resolve(process.cwd(), "public", "sw.js"), "utf8");
 
-    expect(serviceWorker).toContain('const CACHE = "everflair-shell-v5"');
+    expect(serviceWorker).toContain('const CACHE = "everflair-shell-v6"');
     for (const src of [...PWA_ICONS.map(icon => icon.src), PWA_APPLE_ICON]) {
       expect(serviceWorker).toContain(JSON.stringify(src));
     }

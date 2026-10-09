@@ -17,7 +17,9 @@ describe("Everflair entrance", () => {
     navigation.path = "/book/studio-a/welcome";
     const html = renderToString(<BrandIntro />);
     expect(html).toContain('data-audience="client"');
-    expect(html).toContain('ef-intro-logo');
+    // Abertura "do ícone ao app": o nome entra letra a letra.
+    expect(html).toContain('efx-word');
+    expect(html).toContain('efx-ltr');
   });
   it("finishes under StrictMode and only appears once per session", () => {
     const first = render(<StrictMode><BrandIntro /></StrictMode>);
@@ -49,7 +51,7 @@ describe("Everflair entrance", () => {
     act(() => vi.advanceTimersByTime(1100));
     navigation.path = "/book/studio-flair/agendar";
     view.rerender(<BrandIntro />);
-    act(() => vi.advanceTimersByTime(1100));
+    act(() => vi.advanceTimersByTime(1400));
     expect(view.container.querySelector(".ef-intro")).toBeNull();
     navigation.path = "/book/studio-flair/minhas";
     view.rerender(<BrandIntro />);
@@ -61,7 +63,7 @@ describe("Everflair entrance", () => {
   it("does not share the client's introduction with another establishment", () => {
     navigation.path = "/book/studio-a";
     const view = render(<BrandIntro />);
-    act(() => vi.advanceTimersByTime(2200));
+    act(() => vi.advanceTimersByTime(2500));
     navigation.path = "/book/studio-b";
     view.rerender(<BrandIntro />);
     expect(view.container.querySelector('.ef-intro[data-audience="client"]')).not.toBeNull();
@@ -69,8 +71,8 @@ describe("Everflair entrance", () => {
   it("finishes the client entrance under StrictMode without replaying on internal navigation", () => {
     navigation.path = "/book/studio-flair";
     const view = render(<StrictMode><BrandIntro /></StrictMode>);
-    expect(view.container.querySelector(".ef-intro-orbit")).not.toBeNull();
-    act(() => vi.advanceTimersByTime(2200));
+    expect(view.container.querySelector(".efx-word")).not.toBeNull();
+    act(() => vi.advanceTimersByTime(2500));
     expect(view.container.querySelector(".ef-intro")).toBeNull();
     navigation.path = "/book/studio-flair/agendar";
     view.rerender(<StrictMode><BrandIntro /></StrictMode>);

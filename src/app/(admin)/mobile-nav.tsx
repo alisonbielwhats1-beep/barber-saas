@@ -122,7 +122,7 @@ function MobileNavBar({
         <h2 className="sr-only">Todos os módulos</h2>
         {/* Cabeçalho reserva o canto do botão Fechar, que fica por último no DOM. */}
         <div className="flex min-h-16 shrink-0 items-center border-b border-border pl-4 pr-16">
-          <BrandLogo className="!h-9 !w-[120px] text-[hsl(var(--selection-foreground))]" />
+          <BrandLogo className="!h-9 !w-[120px] text-foreground" />
         </div>
         <div className="scrollbar-dark flex-1 space-y-4 overflow-y-auto px-4 pb-6 pt-4">
           {accountControls}

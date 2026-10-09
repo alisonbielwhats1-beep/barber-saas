@@ -8,7 +8,7 @@
 .client-brand-logo.ef-logo {
   width: min(166px, 100%);
   height: 42px;
-  color: var(--ef-lilac-light);
+  color: hsl(var(--foreground));
 }
 .client-home-header {
   display: flex;
@@ -44,11 +44,11 @@
 }
 .client-access form button[type="submit"] { min-height: 3rem; }
 .client-access form button[type="submit"], .client-access-primary {
-  background: #126949;
-  color: #fff;
-  border: 1px solid #368967;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: 1px solid transparent;
 }
-.client-access form button[type="submit"]:hover, .client-access-primary:hover { background: #0f5b40; }
+.client-access form button[type="submit"]:hover, .client-access-primary:hover { background: hsl(var(--primary) / .9); }
 .client-access a:focus-visible, .client-access button:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 3px;
@@ -61,14 +61,6 @@
   .client-shell { padding-inline: max(2rem, env(safe-area-inset-left, 0px)) max(2rem, env(safe-area-inset-right, 0px)); }
 }
 
-.client-app .client-booking-cta {
-  background: #126949;
-  color: #fff;
-  border: 1px solid #368967;
-  box-shadow: 0 12px 32px -20px #19875f;
-  transition: background-color 180ms ease;
-}
-.client-app .client-booking-cta:hover { background: #0f5b40; }
 .client-app .client-booking-cta-action {
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
@@ -151,3 +143,113 @@
 @media (forced-colors: active) {
   .client-contact-icon, .client-reservation-status { forced-color-adjust: auto; }
 }
+
+/* ── Tela inicial (out/2026): marca, Agendar, equipe e informações recolhidas ── */
+.client-home-header { gap: .625rem .75rem; }
+.client-home-header > .client-brand-logo.ef-logo { width: 140px; height: 36px; }
+.client-home-actions { gap: .375rem; }
+.client-header-contacts { display: flex; align-items: center; gap: .625rem; margin-left: auto; margin-right: .3125rem; }
+.client-header-contact {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 999px;
+  transition: transform 150ms ease;
+}
+/* O desenho tem 34 px; a área de toque continua com 44 px. */
+.client-header-contact::after { content: ""; position: absolute; inset: -5px; }
+.client-header-contact:active { transform: scale(.94); }
+.client-header-contact:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
+.client-header-contact[data-channel="whatsapp"] { background: rgb(37 211 102 / .14); color: #1a9e53; }
+[data-theme="salon-dark"] .client-header-contact[data-channel="whatsapp"] { color: #25d366; }
+.client-header-contact[data-channel="instagram"] { background: linear-gradient(145deg, #6434b8, #bc2864 60%, #d46a2a); color: #fff; }
+.client-header-contact[data-channel="website"] { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+
+@media (max-width: 639px) {
+  /* Na tela inicial, o botão de tema divide a linha com o logo. */
+  .client-shell:has(.client-home-header) { position: relative; }
+  .client-shell:has(.client-home-header) > .client-appearance-bar {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 6px);
+    right: max(4px, env(safe-area-inset-right, 0px));
+    z-index: 5;
+    padding: 0;
+  }
+  .client-home-header > .client-brand-logo { flex-basis: 100%; }
+  .client-home-header > .client-brand-logo > svg { width: auto; max-width: 140px; }
+  .client-home-header > .client-home-actions { flex: 1 1 auto; }
+}
+@media (max-width: 340px) {
+  .client-header-contacts { gap: .5625rem; }
+  .client-home-header { column-gap: .375rem; }
+  .client-home-actions { gap: .125rem; }
+}
+
+.client-app .client-booking-cta {
+  background: linear-gradient(160deg, hsl(var(--primary) / .1), hsl(var(--card)) 60%);
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--primary) / .45);
+  box-shadow: none;
+}
+.client-app .client-booking-cta:hover { background: linear-gradient(160deg, hsl(var(--primary) / .14), hsl(var(--card)) 60%); }
+.client-app .client-booking-cta p { color: hsl(var(--muted-foreground)); }
+
+.client-info-card { overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 1.25rem; background: hsl(var(--card)); }
+.client-info-summary {
+  display: flex;
+  min-height: 3.5rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  gap: .625rem;
+  padding: .5rem .875rem;
+}
+.client-info-summary::-webkit-details-marker { display: none; }
+.client-info-summary:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; border-radius: 1.25rem; }
+.client-info-body { border-top: 1px solid hsl(var(--border)); }
+.client-info-row { display: flex; min-height: 2.875rem; align-items: center; gap: .625rem; padding: .375rem .875rem; font-size: .875rem; color: hsl(var(--foreground)); }
+.client-info-row + .client-info-row { border-top: 1px solid hsl(var(--border)); }
+a.client-info-row:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }
+.client-open-badge { border-radius: 999px; padding: .125rem .5rem; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.client-open-badge[data-open="true"] { color: hsl(var(--success)); background: hsl(var(--success) / .14); }
+.client-open-badge[data-open="false"] { color: hsl(var(--muted-foreground)); background: hsl(var(--muted)); }
+
+/* Instalar o app: card neutro, ação em contorno (o violeta fica para Agendar). */
+.client-app section[aria-label="Instalar aplicativo"] { background: hsl(var(--card)); border-color: hsl(var(--border)); }
+.client-app section[aria-label="Instalar aplicativo"] > div > span:first-child { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+.client-app section[aria-label="Instalar aplicativo"] > button { background: transparent; color: hsl(var(--foreground)); border: 1px solid hsl(var(--border)); }
+
+/* Convite de lembretes no topo da tela inicial. */
+.client-push-popup {
+  position: fixed;
+  z-index: 60;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 12px;
+  right: 12px;
+  max-width: 456px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  padding: .375rem .375rem .375rem .75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.125rem;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: 0 16px 36px -14px rgb(0 0 0 / .55);
+  animation: client-push-in 320ms cubic-bezier(.2,.9,.25,1) both;
+}
+.client-push-popup[data-leaving] { animation: client-push-out 200ms ease-in both; }
+.client-push-popup-icon { display: grid; width: 2.25rem; height: 2.25rem; flex-shrink: 0; place-items: center; border-radius: .75rem; background: hsl(var(--primary) / .16); color: hsl(var(--primary)); }
+.client-push-popup-title { margin: 0; font-size: .8125rem; font-weight: 600; line-height: 1.25; }
+.client-push-popup-sub { margin: .125rem 0 0; overflow: hidden; font-size: .75rem; color: hsl(var(--muted-foreground)); text-overflow: ellipsis; white-space: nowrap; }
+.client-push-popup-on { min-height: 2.75rem; flex-shrink: 0; border-radius: .75rem; background: hsl(var(--primary)); padding: 0 .875rem; font-size: .8125rem; font-weight: 600; color: hsl(var(--primary-foreground)); }
+.client-push-popup-on:disabled { opacity: .6; }
+.client-push-popup-close { display: grid; width: 2.75rem; height: 2.75rem; flex-shrink: 0; place-items: center; border-radius: .75rem; color: hsl(var(--muted-foreground)); }
+.client-push-popup :is(button):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+@keyframes client-push-in { from { transform: translateY(-120%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes client-push-out { to { transform: translateY(-120%); opacity: 0; } }
+@media (max-width: 340px) { .client-push-popup-sub { display: none; } .client-push-popup-on { padding: 0 .625rem; } }
+@media (prefers-reduced-motion: reduce) { .client-push-popup, .client-push-popup[data-leaving] { animation: none; } }

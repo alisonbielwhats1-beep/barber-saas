@@ -28,7 +28,7 @@ function installedApp(existingSubscription: typeof subscription | null) {
 }
 
 describe("convite de push para cliente que já instalou o app", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear(); });
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -44,13 +44,15 @@ describe("convite de push para cliente que já instalou o app", () => {
     vi.stubGlobal("fetch", fetcher);
 
     render(<PushPermissionCard salonSlug="studio-martinelli" placement="home" />);
-    const button = await screen.findByRole("button", { name: "Ativar lembretes" });
-    expect(screen.getByText(/inclusive as que você já marcou/)).toBeInTheDocument();
+    // O convite desce no topo depois da abertura do app (2,8 s).
+    const button = await screen.findByRole("button", { name: "Ativar" }, { timeout: 4000 });
+    expect(screen.getByRole("dialog", { name: "Lembretes de horário" })).toBeInTheDocument();
+    expect(screen.getByText("Aviso na véspera e no dia")).toBeInTheDocument();
     expect(requestPermission).not.toHaveBeenCalled();
     expect(pushManager.subscribe).not.toHaveBeenCalled();
 
     await userEvent.setup().click(button);
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Lembretes no celular" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lembretes de horário" })).not.toBeInTheDocument());
     expect(requestPermission).toHaveBeenCalledOnce();
     expect(pushManager.subscribe).toHaveBeenCalledOnce();
     expect(fetcher).toHaveBeenCalledWith("/api/client/push?salon=studio-martinelli", expect.objectContaining({ method: "POST" }));
@@ -67,8 +69,23 @@ describe("convite de push para cliente que já instalou o app", () => {
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith(
       "/api/client/push?salon=studio-martinelli", expect.objectContaining({ method: "PUT" }),
     ));
-    expect(screen.queryByRole("region", { name: "Lembretes no celular" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Lembretes de horário" })).not.toBeInTheDocument();
   });
+
+  it("fecha o convite sem pedir permissão e não o repete na mesma visita", async () => {
+    const { requestPermission } = installedApp(null);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ enabled: true, publicKey: "AQ" }), { status: 200 })));
+
+    const first = render(<PushPermissionCard salonSlug="studio-martinelli" placement="home" />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Fechar" }, { timeout: 4000 }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lembretes de horário" })).not.toBeInTheDocument());
+    expect(requestPermission).not.toHaveBeenCalled();
+    first.unmount();
+
+    render(<PushPermissionCard salonSlug="studio-martinelli" placement="home" />);
+    await new Promise((resolve) => setTimeout(resolve, 3200));
+    expect(screen.queryByRole("dialog", { name: "Lembretes de horário" })).not.toBeInTheDocument();
+  }, 10_000);
 
   it("não oferece ativação enquanto o recurso estiver desligado", async () => {
     installedApp(null);
@@ -77,6 +94,6 @@ describe("convite de push para cliente que já instalou o app", () => {
 
     render(<PushPermissionCard salonSlug="studio-martinelli" placement="home" />);
     await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
-    expect(screen.queryByRole("region", { name: "Lembretes no celular" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Lembretes de horário" })).not.toBeInTheDocument();
   });
 });

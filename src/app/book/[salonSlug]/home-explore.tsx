@@ -175,7 +175,7 @@ export function HomeExplore({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <p className="max-w-32 text-right text-[14px] font-bold text-primary">
+                  <p className="max-w-32 text-right text-[14px] font-bold text-foreground">
                     {servicePriceLabel(s, currency)}
                   </p>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />

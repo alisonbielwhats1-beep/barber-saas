@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { BellRing, Mail, ShieldCheck, Smartphone } from "lucide-react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { BellRing, Mail, ShieldCheck, Smartphone, X } from "lucide-react";
 
 type State = "checking" | "ready" | "active" | "denied" | "install" | "unsupported" | "unavailable";
 
@@ -102,23 +101,7 @@ export function PushPermissionCard({ salonSlug, placement = "notifications" }: {
   // the invitation there only while this device still needs to be linked.
   // The browser permission prompt remains behind the client's button tap.
   if (placement === "home") {
-    if (state !== "ready") return null;
-    return <section className="relative overflow-hidden rounded-2xl border border-[#8055cb]/35 bg-[#17141f] p-4 text-white shadow-[0_18px_45px_-30px_rgba(128,85,203,0.8)]" aria-label="Lembretes no celular">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-[#8055cb]/20 blur-3xl" />
-      <div className="relative flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#8055cb]/25 text-[#d8bfff]"><BellRing className="h-5 w-5" /></span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#bda0ee]">Lembretes EverFlair</p>
-          <h2 className="mt-1 text-base font-semibold">Receba avisos dos seus horários</h2>
-          <p className="mt-1 text-sm leading-relaxed text-white/75">Ative neste aparelho para reservas futuras, inclusive as que você já marcou.</p>
-        </div>
-      </div>
-      <div className="relative mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" disabled={busy} onClick={enable} className="min-h-11 rounded-xl bg-[#a476ee] px-4 text-sm font-semibold text-[#180d28] hover:bg-[#b88fff] disabled:opacity-60">{busy ? "Ativando…" : "Ativar lembretes"}</button>
-        <Link href={`/book/${salonSlug}/notificacoes`} className="inline-flex min-h-11 items-center text-sm font-medium text-white/75 underline underline-offset-4 hover:text-white">Como funciona</Link>
-      </div>
-      {error && <p role="alert" className="relative mt-3 text-sm text-rose-200">{error}</p>}
-    </section>;
+    return <PushReminderPopup salonSlug={salonSlug} ready={state === "ready"} busy={busy} error={error} onEnable={enable} />;
   }
 
   return <section className="relative overflow-hidden rounded-3xl border border-[#8055cb]/35 bg-[#17141f] p-5 text-white shadow-[0_18px_45px_-30px_rgba(128,85,203,0.8)]">
@@ -147,4 +130,51 @@ export function PushPermissionCard({ salonSlug, placement = "notifications" }: {
       {error && <p role="alert" className="mt-3 text-sm text-rose-200">{error}</p>}
     </div>
   </section>;
+}
+
+/**
+ * Convite compacto no topo da tela inicial: aparece depois da abertura, só
+ * enquanto este aparelho ainda pode ativar os lembretes, e some ao fechar
+ * durante a visita. A permissão do navegador continua atrás do toque em Ativar.
+ */
+function PushReminderPopup({ salonSlug, ready, busy, error, onEnable }: {
+  salonSlug: string;
+  ready: boolean;
+  busy: boolean;
+  error: string;
+  onEnable: () => void;
+}) {
+  const storageKey = `everflair:push-popup:${salonSlug}`;
+  const [visible, setVisible] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
+
+  useEffect(() => {
+    if (!ready) { setVisible(false); return; }
+    try { if (sessionStorage.getItem(storageKey)) return; } catch { /* sem armazenamento: mostra mesmo assim */ }
+    const timer = window.setTimeout(() => setVisible(true), 2800);
+    return () => window.clearTimeout(timer);
+  }, [ready, storageKey]);
+
+  function close() {
+    try { sessionStorage.setItem(storageKey, "closed"); } catch { /* fecha só nesta tela */ }
+    setLeaving(true);
+    leaveTimer.current = window.setTimeout(() => setVisible(false), 200);
+  }
+
+  if (!visible) return null;
+  return <div className="client-push-popup" data-leaving={leaving || undefined} role="dialog" aria-modal="false" aria-labelledby="client-push-popup-title">
+    <span className="client-push-popup-icon"><BellRing className="h-[18px] w-[18px]" aria-hidden="true" /></span>
+    <div className="min-w-0 flex-1">
+      <p id="client-push-popup-title" className="client-push-popup-title">Lembretes de horário</p>
+      {error
+        ? <p role="alert" className="client-push-popup-sub text-danger">{error}</p>
+        : <p className="client-push-popup-sub">Aviso na véspera e no dia</p>}
+    </div>
+    <button type="button" disabled={busy} onClick={onEnable} className="client-push-popup-on">{busy ? "Ativando…" : "Ativar"}</button>
+    <button type="button" onClick={close} className="client-push-popup-close" aria-label="Fechar">
+      <X className="h-[18px] w-[18px]" aria-hidden="true" />
+    </button>
+  </div>;
 }
