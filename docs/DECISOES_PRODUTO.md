@@ -1,5 +1,26 @@
 # Decisões de produto para as próximas fases
 
+## 09/10/2026 — Stripe ao lado do Mercado Pago, autorizada para implementação
+
+Depois da avaliação de 09/10 (veredito técnico "não agora": conta Stripe no
+Brasil tem Pix só por convite, sem Pix Automático e sem parcelamento; o ganho
+real é Apple Pay e Google Pay), o responsável decidiu seguir e autorizou a
+implementação por fases:
+
+- **Estratégia:** Stripe **junto com** o Mercado Pago. O dono escolhe no
+  pagamento entre cartão, Apple Pay ou Google Pay (Stripe) e Pix, boleto ou
+  cartão (Mercado Pago). Quem já assina continua no Mercado Pago.
+- **Escopo:** assinatura (mensal, anual, troca de plano, cancelamento,
+  reativação) e pacotes da Secretária. Pix continua só pelo Mercado Pago.
+- **Conta Stripe:** tipo e documento da conta definidos pelo responsável e
+  registrados fora do repositório (Brain).
+- Cada contrato e cada compra ficam presos ao gateway que os criou; acesso,
+  carência, trava de agendas e HQ continuam lendo o mesmo contrato.
+
+Esta autorização cobre código e testes. Migration em Production, chaves reais e
+ativação continuam exigindo autorização própria em cada etapa. Plano e
+andamento em `STRIPE_INTEGRACAO.md`.
+
 ## 09/10/2026 — cadastro de estabelecimento sem verificação de e-mail, temporariamente
 
 O responsável pediu suspender a verificação de e-mail na criação de conta pela

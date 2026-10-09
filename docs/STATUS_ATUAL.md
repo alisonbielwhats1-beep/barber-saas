@@ -1,5 +1,22 @@
 # Status atual canônico — Salon SaaS
 
+## 09/10/2026 — Stripe fase 1: base técnica (PR desta branch, desligada)
+
+Branch `claude/stripe-fase1-base`. Decisão do dono em `DECISOES_PRODUTO.md`;
+plano e ordem de liberação em `STRIPE_INTEGRACAO.md`. Nada cobra pela Stripe
+ainda e nenhuma tela muda.
+- SDK oficial `stripe@22.6.2` com a API `2026-08-26.dahlia` fixada; configuração
+  em `src/lib/billing/stripe/` (`STRIPE_*`), que só liga junto com
+  `MERCADOPAGO_BILLING_ENABLED` e recusa chave, modo ou deploy de outro ambiente.
+- Migration manual **032** (aditiva): `provider` em `BillingSubscription` e
+  `SecretaryCreditPurchase` (padrão `mercadopago`, imutável) e tabela
+  `BillingCustomer` com FORCE RLS e só inserção. **Precisa ser aplicada em
+  Production antes do merge**: o Prisma Client novo lê a coluna `provider`.
+- O código do Mercado Pago recusa (`PROVIDER_MISMATCH`) qualquer contrato ou
+  compra da Stripe antes de chamar a API; a conciliação dos pacotes só busca
+  compras do Mercado Pago. `safeCheckout` aceita `checkout.stripe.com` e
+  `billing.stripe.com`.
+
 ## 09/10/2026 — pausa da verificação de e-mail no cadastro da landing (em revisão)
 
 A pedido do responsável, novos estabelecimentos em `/signup` usam o login por
@@ -2390,7 +2407,9 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
   senha usa as mesmas credenciais, sem ativar convites, e também deve ser
   validada primeiro no Preview seguro.
 - WhatsApp: somente atalho manual; nenhuma integração paga automática.
-- Billing automático/Stripe: não implementado nem autorizado.
+- Billing automático: Mercado Pago em produção desde 13/09/2026. Stripe autorizada
+  em 09/10/2026, ao lado do Mercado Pago, em implementação e desligada
+  (`STRIPE_INTEGRACAO.md`).
 
 ## Melhoria da jornada do cliente implantada
 

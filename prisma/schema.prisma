@@ -539,6 +539,7 @@ model User {
 model Salon {
   hqBillingAccount HqAccounts?
   billingSubscriptions BillingSubscription[]
+  billingCustomers BillingCustomer[]
   id                String            @id @default(cuid())
   slug              String            @unique
   name              String
@@ -633,6 +634,8 @@ model BillingSubscription {
   collectorId String
   payerEmail String
   legacyPlan Plan
+  /// mercadopago | stripe (032). Set at creation and never changed; existing contracts are Mercado Pago.
+  provider String @default("mercadopago")
   providerId String? @unique
   providerStatus String @default("pending")
   providerUpdatedAt DateTime? @db.Timestamptz(3)
@@ -658,6 +661,19 @@ model BillingSubscription {
   @@unique([salonId, requestKey])
   @@unique([salonId, id])
   @@index([salonId, current])
+}
+
+/// One provider customer per salon, provider, mode and account (032). Append-only: never updated or deleted.
+model BillingCustomer {
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  provider String
+  mode String
+  accountId String
+  customerId String @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  @@unique([salonId, provider, mode, accountId])
 }
 
 model BillingPlanChange {
@@ -1469,6 +1485,8 @@ model SecretaryCreditPurchase {
   packCode          String
   amountCents       Int
   units             Int
+  /// mercadopago | stripe (032). Set at creation and never changed.
+  provider          String    @default("mercadopago")
   state             String    @default("CREATED")
   expiresAt         DateTime  @db.Timestamptz(3)
   creationStartedAt DateTime? @db.Timestamptz(3)

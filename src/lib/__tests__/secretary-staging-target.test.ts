@@ -29,7 +29,7 @@ describe('audited Codespace configuration admission (offline)', () => {
     ['KV_REST_API_TOKEN', 'shared'], ['REDIS_URL', 'redis://shared.invalid'],
     ['KV_URL', 'redis://shared.invalid'], ['SUPABASE_URL', 'https://shared.supabase.co'],
     ['RESEND_API_KEY', 'external'], ['OPENAI_API_KEY', 'hq-key'],
-    ['MERCADOPAGO_ACCESS_TOKEN', 'external'], ['AUTH_PROVIDER', 'supabase'],
+    ['MERCADOPAGO_ACCESS_TOKEN', 'external'], ['STRIPE_SECRET_KEY', 'rk_test_external'], ['AUTH_PROVIDER', 'supabase'],
     ['SECRETARY_FRONT_E2E_SCRIPT', 'mock.json'], ['MERCADOPAGO_BILLING_ENABLED', 'true'],
     ['SALON_SECRETARY_JEV_ROUTER_ENABLED', 'true'], ['EMAIL_INVITES_ENABLED', undefined],
   ])('fails closed before smoke for %s=%s', (key, value) => {

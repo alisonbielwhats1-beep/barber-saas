@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { BillingSubscription } from "@prisma/client";
 import { withTenant, type Tx } from "../prisma-tenant";
-import { BillingError } from "./catalog";
+import { assertProvider, BillingError } from "./catalog";
 import { billingConfig } from "./config";
 import { assertOwner, enqueue, subscriptionLock } from "./service";
 import { billingTermsSchema, quotePlanChange, sameTerms } from "./change-rules";
@@ -32,6 +32,8 @@ async function eligibleSubscription(tx: Tx, ctx: { salonId: string; userId: stri
     const interruptedCycle = sub.cancelledAt && await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: ctx.salonId, kind: "CYCLE", state: { in: ["CANCELLED", "EXPIRED"] } } });
     if (!interruptedCycle) throw new BillingError("CHANGE_REQUIRES_ACTIVE_SUBSCRIPTION");
   }
+  // Plan changes here are Mercado Pago's; a Stripe contract gets its own in a later phase.
+  assertProvider(sub, "mercadopago");
   const config = billingConfig();
   if (sub.mode !== config.mode || sub.collectorId !== config.collectorId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
   return sub;
@@ -103,6 +105,7 @@ export async function reactivateRenewal(ctx: { salonId: string; userId: string }
     if (!sub) throw new BillingError("NOT_FOUND", 404);
     // At least one hour left, so the owner has time to authorize before the period ends.
     if (!sub.providerId || sub.reviewRequired || sub.delinquentSince || !sub.paidThrough || sub.paidThrough.getTime() <= Date.now() + 60 * 60_000) throw new BillingError("RENEWAL_REACTIVATION_UNAVAILABLE");
+    assertProvider(sub, "mercadopago");
     const config = billingConfig();
     if (sub.mode !== config.mode || sub.collectorId !== config.collectorId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
     if (renewalCancellationStatus(await cancellationSubscriptions(tx, sub)) !== "CANCELLED") throw new BillingError("RENEWAL_NOT_CANCELLED");

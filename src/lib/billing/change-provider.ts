@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { BillingPlanChange, BillingSubscription } from "@prisma/client";
 import { withSalon } from "../prisma-tenant";
-import { BillingError } from "./catalog";
+import { assertProvider, BillingError } from "./catalog";
 import { billingCapacityLabel } from "./presentation";
 import { billingConfig } from "./config";
 import { billingTermsSchema } from "./change-rules";
@@ -18,6 +18,7 @@ export function parseUpgradeReference(value: string) {
 const preferenceSchema = z.object({ id: z.string(), collector_id: z.union([z.string(), z.number()]).transform(String), external_reference: z.string(), init_point: z.string().url(),
   items: z.array(z.object({ quantity: z.number(), unit_price: z.number(), currency_id: z.string() })), expires: z.boolean(), expiration_date_to: z.string() });
 export async function prepareUpgradeCheckout(sub: BillingSubscription, change: BillingPlanChange) {
+  assertProvider(sub, "mercadopago");
   const config = billingConfig();
   if (change.preferenceId) return;
   if (change.expiresAt <= new Date()) throw new BillingError("CHANGE_QUOTE_EXPIRED");

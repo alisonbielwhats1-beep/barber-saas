@@ -2,7 +2,7 @@ import "server-only";
 import { syncBillingToHq } from "./hq-sync";
 import { createHash } from "node:crypto";
 import { withSalon, type Tx } from "../prisma-tenant";
-import { BillingError } from "./catalog";
+import { assertProvider, BillingError } from "./catalog";
 import { billingConfig } from "./config";
 import * as mp from "./provider";
 import { applyInvoice, applyRemoteSubscription, enqueue, ensureCreated, parseReference, validateRemote, subscriptionLock } from "./service";
@@ -66,6 +66,9 @@ export async function receiveWebhook(topic: string, resourceId: string, notifica
 
 export async function syncSubscription(salonId: string, id: string) {
   let sub = await withSalon(salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id } }));
+  // Dispatch by provider. Stripe contracts get their own reconciliation in the next phase; until then they wait in the
+  // queue with backoff and never reach Mercado Pago.
+  assertProvider(sub, "mercadopago");
   const wasUncreated = !sub.providerId;
   await ensureCreated(sub);
   sub = await withSalon(salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id } }));
