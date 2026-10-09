@@ -31,9 +31,9 @@ test.describe("@database administrative plan courtesy", () => {
       await dialog.getByLabel("Motivo da cortesia").fill("Synthetic browser review");
       for (const width of [390, 1440]) {
         await page.setViewportSize({ width, height: 900 });
-        expect(await dialog.evaluate(el => el.scrollWidth > el.clientWidth + 1)).toBe(false);
+        await expect.poll(() => dialog.evaluate(el => { const rect = el.getBoundingClientRect(); return rect.left >= 0 && rect.right <= window.innerWidth && el.scrollWidth <= el.clientWidth + 1; })).toBe(true);
         await expect(dialog.getByRole("button", { name: "Confirmar cortesia" })).toBeVisible();
-        await page.screenshot({ path: test.info().outputPath(`grant-${width}.png`), fullPage: true });
+        await page.screenshot({ path: test.info().outputPath(`grant-${width}.png`), fullPage: false });
       }
       await dialog.getByRole("button", { name: "Confirmar cortesia" }).click();
       await expect(dialog).toHaveCount(0);

@@ -11,7 +11,7 @@ function fixture() {
   const mock = {
     user: { findUnique: vi.fn(async () => ({ platformRole: "SUPER_ADMIN" })) },
     salon: { findUniqueOrThrow: vi.fn(async () => ({ id: "salon-a", name: "Synthetic", plan: "FREE", accessStatus: "APPROVED", timezone: "America/Sao_Paulo" })) },
-    salonPlanGrant: { findFirst: vi.fn(async () => grant), findUnique: vi.fn(async (): Promise<null | typeof grant> => null), updateMany: vi.fn(), create: vi.fn(async () => grant) },
+    salonPlanGrant: { findFirst: vi.fn(async (): Promise<typeof grant | null> => grant), findUnique: vi.fn(async (): Promise<null | typeof grant> => null), updateMany: vi.fn(), create: vi.fn(async () => grant) },
     billingSubscription: { count: vi.fn(async () => 0), findFirst: vi.fn(async (): Promise<null | { id: string }> => null) },
     professional: { count: vi.fn(async () => 1) }, userInvite: { count: vi.fn(async () => 0) },
     membership: { findFirst: vi.fn(async () => null) },
@@ -69,8 +69,16 @@ describe("administrative plan courtesy", () => {
   it("returns the Free features when the database reports no current courtesy", async () => {
     vi.stubEnv("PLATFORM_PLAN_GRANTS_ENABLED", "true");
     const { mock, tx } = fixture();
-    mock.salonPlanGrant.findFirst.mockImplementation(async () => null as never);
+    mock.salonPlanGrant.findFirst.mockResolvedValue(null);
     expect((await featureEntitlement(tx, "salon-a", "FREE", now)).features.INVENTORY).toBe(false);
+  });
+  it("reserves the smaller capacity of a pending paid checkout", async () => {
+    vi.stubEnv("PLATFORM_PLAN_GRANTS_ENABLED", "true");
+    vi.stubEnv("MERCADOPAGO_PLAN_CHANGES_ENABLED", "false");
+    const { mock, tx, grant } = fixture(); grant.planCode = "TEAM_MAX"; grant.agendaLimit = 10;
+    const pending = { id: "pending", planCode: "INDIVIDUAL", cycle: "MONTHLY", catalogVersion: "2026-10-02", amountCents: 3990, agendaLimit: 1, intervalMonths: 1 };
+    mock.billingSubscription.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(pending);
+    expect((await effectiveEntitlement(tx, "salon-a", "FREE", now)).maxProfessionals).toBe(1);
   });
   it("cannot choose legacy/unknown codes or client-supplied pricing", () => {
     expect(grantInput.safeParse({ ...input, plan: "PRO" }).success).toBe(false);

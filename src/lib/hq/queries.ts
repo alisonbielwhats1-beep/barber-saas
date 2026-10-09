@@ -44,9 +44,10 @@ export async function accounts(tx: Tx, params: { kind?: string; q?: string; stat
   if (planGrantsEnabled()) {
     const ids = result.flatMap(r => r.billingSalonId ? [String(r.billingSalonId)] : []);
     const grants = await tx.salonPlanGrant.findMany({ where: { salonId: { in: ids }, revokedAt: null } });
+    const contracts = await tx.billingSubscription.findMany({ where: { salonId: { in: ids }, OR: [{ paidThrough: { not: null } }, { reviewRequired: true }] }, select: { salonId: true } });
     for (const row of result) {
       const grant = grants.find(g => g.salonId === row.billingSalonId);
-      if (!grant || row.planLabel) continue; // A financial contract always takes precedence.
+      if (!grant || row.planLabel || contracts.some(s => s.salonId === row.billingSalonId)) continue; // A financial contract always takes precedence.
       const active = grant.endsAt > new Date();
       row.planLabel = active ? grantEntitlement(grant).label + " · cortesia" : "Grátis · cortesia encerrada";
       row.courtesyThrough = grant.throughDate; row.planAmount = 0; row.planCycle = "Sem cobrança"; row.trialEnd = grant.throughDate;
