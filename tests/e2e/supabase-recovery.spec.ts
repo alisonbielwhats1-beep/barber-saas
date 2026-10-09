@@ -99,7 +99,7 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     await page.getByLabel("E-mail", { exact: true }).fill(email);
     await page.getByLabel("Senha", { exact: true }).fill(originalPassword);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("E-mail ou senha incorretos");
+    await expect(page.locator('p[role="alert"]')).toContainText("E-mail ou senha incorretos");
     await expect(page.getByText(/Confirme seu e-mail pelo link recebido antes de entrar/)).toBeVisible();
     await page.getByRole("button", { name: "Reenviar confirmação de e-mail" }).click();
     await expect(page.getByRole("status")).toContainText("Se houver um cadastro");
