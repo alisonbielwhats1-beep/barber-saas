@@ -17,6 +17,15 @@ ainda e nenhuma tela muda.
   compras do Mercado Pago. `safeCheckout` aceita `checkout.stripe.com` e
   `billing.stripe.com`.
 
+## 09/10/2026 — acesso do cliente e senha de oito caracteres em revisão
+
+Candidata `codex/auth-password-audit`: retomada de cadastro pelo login existente,
+orientação/reenvio de confirmação, retorno ao mesmo salão e política Supabase
+de oito caracteres com letras/números. Logs produtivos somente leitura confirmam
+recusas por e-mail não confirmado e limite de envio no cadastro. Não publicada;
+configuração remota e contas intactas. Sincronizar o mínimo remoto antes da
+promoção autorizada. Evidências/limites: `AUDITORIA_ACESSO_CLIENTE_2026-10-09.md`.
+
 ## 09/10/2026 — pausa da verificação de e-mail no cadastro da landing (em revisão)
 
 A pedido do responsável, novos estabelecimentos em `/signup` usam o login por

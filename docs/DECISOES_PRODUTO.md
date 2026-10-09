@@ -21,6 +21,15 @@ Esta autorização cobre código e testes. Migration em Production, chaves reais
 ativação continuam exigindo autorização própria em cada etapa. Plano e
 andamento em `STRIPE_INTEGRACAO.md`.
 
+## 09/10/2026 — senha de oito caracteres e confiabilidade do acesso do cliente
+
+O responsável pediu investigar cadastro, login e e-mails do link de agendamento
+e reduzir o mínimo de dez para oito caracteres, mantendo senha segura. A candidata
+mantém letras/números, confirmação, limite de bytes, rate limiting e isolamento.
+Não muda senhas existentes nem dispensa prova de e-mail no cadastro do cliente.
+A regra compartilhada Supabase precisa ser sincronizada entre aplicação e provedor
+antes da promoção. Detalhes: `AUDITORIA_ACESSO_CLIENTE_2026-10-09.md`.
+
 ## 09/10/2026 — cadastro de estabelecimento sem verificação de e-mail, temporariamente
 
 O responsável pediu suspender a verificação de e-mail na criação de conta pela

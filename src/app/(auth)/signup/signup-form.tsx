@@ -11,6 +11,7 @@ import {
   StarterServicePicker,
   useSegmentSelection,
 } from "@/components/segment-service-picker";
+import { NEW_PASSWORD_MIN_LENGTH, NEW_PASSWORD_HELP } from "@/lib/recovery-validation";
 import { signup } from "./actions";
 import type { SegmentId } from "@/lib/segments";
 import { firstAccessHref, resolvePlanIntent, type MarketingPlanKey } from "@/lib/marketing-plan";
@@ -126,7 +127,7 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
         id="password"
         name="password"
         label="Senha"
-        minLength={provider ? 10 : 6}
+        minLength={provider ? NEW_PASSWORD_MIN_LENGTH : 6}
         autoComplete="new-password"
         required
       />
@@ -134,11 +135,11 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
         id="confirmPassword"
         name="confirmPassword"
         label="Confirmar senha"
-        minLength={provider ? 10 : 6}
+        minLength={provider ? NEW_PASSWORD_MIN_LENGTH : 6}
         autoComplete="new-password"
         required
       />
-      <p className="text-xs text-muted-foreground">{provider ? "Use pelo menos 10 caracteres, com letras e números." : "Mínimo 6 caracteres."}</p>
+      <p className="text-xs text-muted-foreground">{provider ? NEW_PASSWORD_HELP : "Mínimo 6 caracteres."}</p>
       </fieldset>
       {error && (
         <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
