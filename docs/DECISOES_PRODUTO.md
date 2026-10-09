@@ -1,5 +1,16 @@
 # Decisões de produto para as próximas fases
 
+## 09/10/2026 — cadastro de estabelecimento sem verificação de e-mail, temporariamente
+
+O responsável pediu suspender a verificação de e-mail na criação de conta pela
+landing. A pausa vale para novos donos em `/signup`: senha obrigatória e entrada
+imediata pelo fluxo bcrypt/NextAuth existente, sem marcar o e-mail como verificado
+e sem vincular perfis de cliente por coincidência de endereço. Contas existentes,
+clientes, convites e recuperação permanecem iguais. É uma exceção temporária à
+adoção do Supabase em novos cadastros; a migração voluntária por recuperação
+continua exigindo prova de posse do e-mail. Reativação pelo servidor com
+`OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED=true`.
+
 ## 08/10/2026 — nova marca Everflair e nova tela inicial do cliente
 
 Aprovado pelo dono depois de conferência visual no iPhone (prévia com o app

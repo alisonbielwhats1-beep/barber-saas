@@ -35,6 +35,15 @@ it("preserva a contratação escolhida antes de oferecer o guia", async () => {
   completeForm();
   await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/assinatura?billingPlan=INDIVIDUAL&cycle=ANNUAL&extraAgendas=0"));
 });
+it("entra direto após cadastro sem confirmação mesmo com recuperação Supabase ativa", async () => {
+  render(<SignupForm provider />);
+  completeForm();
+  await waitFor(() => expect(mocks.signIn).toHaveBeenCalledWith("credentials", {
+    email: "teste@example.com", password: "senha-de-teste", redirect: false,
+  }));
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/onboarding/configuracao?next=%2Fdashboard%3Fwelcome%3D1"));
+});
 it("mantém os dados e o contexto do plano após falha de cadastro", async () => {
   mocks.signup.mockResolvedValue({ ok: false, error: "Tente novamente." });
   render(<SignupForm planIntent="equipe" />);

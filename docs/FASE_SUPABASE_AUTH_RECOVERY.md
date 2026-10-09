@@ -1,5 +1,26 @@
 # Recuperação por Supabase Auth — publicada em 20/09/2026
 
+## Complemento de 09/10/2026 — pausa do e-mail no cadastro do dono, em revisão
+
+Por solicitação do responsável, `/signup` cria novos donos com hash bcrypt e
+sem `authIdentityId` enquanto `OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED` estiver
+ausente ou diferente de `true`. NextAuth já autentica essas contas mesmo com
+`AUTH_PROVIDER=supabase`; a tela segue para login automático e configuração
+inicial (ou o plano escolhido). Mantém a política de senha forte quando Supabase
+está ativo e os guards de cadastro. O e-mail informado não é prova de posse.
+
+O provedor não é chamado nesse cadastro, nenhuma identidade é autoconfirmada e
+nenhum perfil existente é vinculado. Contas que já aguardam confirmação continuam
+no fluxo anterior. Clientes, convites e recuperação não mudam. Para novas contas
+criadas durante a pausa, a recuperação voluntária continua preparando a identidade
+e vinculando os perfis somente após comprovar o e-mail, como no legado.
+
+Rollback: `OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED=true` e novo deployment
+restauram o cadastro Supabase para os próximos donos; contas criadas durante a
+pausa continuam funcionando por senha. Não alterar `AUTH_PROVIDER`, a configuração
+global de confirmação no Supabase, hashes ou vínculos já existentes. Sem migration.
+Esta implementação ainda não foi publicada em Production.
+
 Complemento em revisão no PR #116: falso alerta de conexão no login do cliente
 era causado pelo catch interceptando o redirecionamento de sucesso do Next.js.
 Tratamento com `unstable_rethrow`, mantendo feedback de erros reais. Regressão

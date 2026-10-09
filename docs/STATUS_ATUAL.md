@@ -1,5 +1,16 @@
 # Status atual canônico — Salon SaaS
 
+## 09/10/2026 — pausa da verificação de e-mail no cadastro da landing (em revisão)
+
+A pedido do responsável, novos estabelecimentos em `/signup` usam o login por
+senha já suportado (bcrypt/NextAuth), sem link de verificação. A senha forte,
+limite de tentativas, unicidade do usuário e criação transacional do salão são
+preservados. `OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED=true` restaura o cadastro
+Supabase; ausente ou `false` mantém a pausa. Contas existentes não são alteradas.
+Recuperação Supabase, cadastro do cliente e convites mantêm os fluxos atuais.
+Sem migration, configuração remota ou publicação em Production nesta etapa.
+Detalhes e rollback em `FASE_SUPABASE_AUTH_RECOVERY.md`.
+
 ## 2026-10-08 — nova marca Everflair e tela inicial do cliente (PR desta branch)
 
 Branch `claude/everflair-logo-redesign-ddd49b`. Decisão do dono de 08/10 em

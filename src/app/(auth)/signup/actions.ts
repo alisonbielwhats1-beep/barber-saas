@@ -93,7 +93,9 @@ export async function signup(input: SignupInput): Promise<
   const { segmentId, services } = resolved.setup;
 
   let provider: { identityId: string; confirmationRequired: boolean } | undefined;
-  if (supabaseAuthEnabled()) {
+  // Temporarily keep new owner accounts on the supported password login path.
+  // Do not mark an unverified mailbox as confirmed or change existing identities.
+  if (supabaseAuthEnabled() && process.env.OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED === "true") {
     try {
       provider = await registerProviderAccount(email, data.password, recoveryRedirect().replace("redefinir-senha", "login"));
     } catch { return { ok: false, error: "Não foi possível criar a conta com os dados informados." }; }

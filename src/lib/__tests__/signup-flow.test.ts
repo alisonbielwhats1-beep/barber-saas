@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   headers: vi.fn(async () => new Headers()),
@@ -14,7 +14,10 @@ const mocks = vi.hoisted(() => ({
   accessEventCreateMany: vi.fn(async () => ({ count: 1 })),
   executeRaw: vi.fn(),
   transaction: vi.fn(),
+  registerProviderAccount: vi.fn(),
 }));
+
+vi.mock("@/lib/supabase-auth", () => ({ registerProviderAccount: mocks.registerProviderAccount }));
 
 vi.mock("next/headers", () => ({
   headers: mocks.headers,
@@ -46,8 +49,11 @@ const VALID = {
 };
 
 describe("signup", () => {
+  afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("AUTH_PROVIDER", "legacy");
+    vi.stubEnv("OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED", undefined);
     mocks.userFindUnique.mockResolvedValue(null);
     mocks.checkRateLimit.mockResolvedValue({ allowed: true, source: "memory" });
     mocks.accessEventCreateMany.mockResolvedValue({ count: 1 });
@@ -61,6 +67,48 @@ describe("signup", () => {
         $executeRaw: mocks.executeRaw,
       }),
     );
+  });
+
+  it.each([undefined, "false"])("permite novo dono sem verificar e-mail com pausa %s", async (flag) => {
+    vi.stubEnv("AUTH_PROVIDER", "supabase");
+    vi.stubEnv("OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED", flag);
+    const result = await signup({ ...VALID, password: "senha-segura123", confirmPassword: "senha-segura123" });
+
+    expect(result).toEqual({ ok: true, slug: "studio-teste" });
+    expect(mocks.registerProviderAccount).not.toHaveBeenCalled();
+    expect(mocks.userCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ passwordHash: "password-hash", authIdentityId: undefined }),
+    }));
+  });
+
+  it("mantém a exigência de senha forte durante a pausa", async () => {
+    vi.stubEnv("AUTH_PROVIDER", "supabase");
+    expect(await signup(VALID)).toMatchObject({ ok: false });
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("restaura o cadastro no provedor somente com ativação explícita", async () => {
+    vi.stubEnv("AUTH_PROVIDER", "supabase");
+    vi.stubEnv("OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED", "true");
+    vi.stubEnv("OWNER_APP_URL", "http://localhost:3000");
+    mocks.registerProviderAccount.mockResolvedValue({ identityId: "identity-1", confirmationRequired: true });
+
+    expect(await signup({ ...VALID, password: "senha-segura123", confirmPassword: "senha-segura123" }))
+      .toEqual({ ok: true, slug: "studio-teste", confirmationRequired: true });
+    expect(mocks.registerProviderAccount).toHaveBeenCalledWith(VALID.email, "senha-segura123", "http://localhost:3000/login");
+    expect(mocks.userCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ passwordHash: null, authIdentityId: "identity-1" }),
+    }));
+  });
+
+  it("não cria conta por senha local se o provedor falhar com verificação ativa", async () => {
+    vi.stubEnv("AUTH_PROVIDER", "supabase");
+    vi.stubEnv("OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED", "true");
+    vi.stubEnv("OWNER_APP_URL", "http://localhost:3000");
+    mocks.registerProviderAccount.mockRejectedValue(new Error("provider unavailable"));
+    expect(await signup({ ...VALID, password: "senha-segura123", confirmPassword: "senha-segura123" })).toMatchObject({ ok: false });
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
   it("cria conta e libera o plano Grátis de forma atômica", async () => {
