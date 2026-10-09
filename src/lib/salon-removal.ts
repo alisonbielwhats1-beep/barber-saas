@@ -15,6 +15,8 @@ const inspectedTables = new Set([
   "PlatformInvoice", "ClientReview", "ServicePricingRule", "RescheduleProposal",
   "PhysicalResource", "ResourceBooking", "ClientDependent", "CareEntry",
   "FlexibleWaitlist", "FlexibleWaitlistService",
+  // Financial history whose read policy follows the salon (029, 032): any row blocks the deletion.
+  "SecretaryCreditLedger", "SecretaryCreditPurchase", "BillingCustomer",
 ]);
 const identifier = (value: string) => Prisma.raw('"' + value.replaceAll('"', '""') + '"');
 
