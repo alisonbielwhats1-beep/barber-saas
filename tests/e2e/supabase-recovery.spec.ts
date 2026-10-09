@@ -94,7 +94,7 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     const firstLink = await recoveryLink(email);
     expect(new URL(firstLink).pathname).toBe("/auth/confirm");
     expect(new URL(firstLink).searchParams.get("next")).toBe(`http://127.0.0.1:3100/book/${slug}/login`);
-    await page.getByRole("link", { name: "Entrar", exact: true }).click();
+    await page.locator("form").getByRole("link", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/\/login\?/);
     await page.getByLabel("E-mail", { exact: true }).fill(email);
     await page.getByLabel("Senha", { exact: true }).fill(originalPassword);

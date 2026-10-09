@@ -27,6 +27,9 @@ cadastro antes de signUp; não equivale a 23 reclamações. HTTP 200 de recovery
 comprova entrega na caixa de entrada. Não houve inspeção atual de Delivered/Bounce
 no Resend nem associação de cada reclamação a um cliente.
 Health público somente leitura: HTTP 200, banco ok, versão `5a52c3caa1c7`.
+DNS público: TXT `resend._domainkey.auth.everflair.com.br` e CNAMEs
+`rsend.auth.everflair.com.br`/`send.auth.everflair.com.br` resolvem. Isso não
+equivale a comprovação de entrega na caixa de entrada.
 
 ## Defeitos confirmados e correções da candidata
 
@@ -81,13 +84,21 @@ A pausa de confirmação do dono, AUTH_PROVIDER e AUTH_EMAIL_ENABLED não mudam.
 - Após correção inicial: 57 testes direcionados passaram; reenvio/configuração:
   14 testes passaram. Resultados finais da revisão ficam no PR.
 - npm run lint: zero erros, seis warnings preexistentes fora do escopo.
-- TypeScript, suíte geral, build e CI: resultados finais no PR; não inferir aprovação.
+- `npx tsc --noEmit --incremental false`: aprovado após correção de uma propriedade
+  inserida indevidamente no formulário de convite durante a edição.
+- `npm run build`: aprovado com configuração sintética local e banco loopback.
+- Testes finais direcionados de UI/reenvio/retomada: 16 aprovados.
+- Suíte geral e CI: resultados finais no PR; não inferir aprovação.
 - Novo E2E com Supabase Auth + Mailpit descartáveis: cadastro real com oito,
   e-mail, bloqueio antes de confirmação, reenvio, link sem consumo no GET,
   confirmação, login com a senha ORIGINAL e link repetido no mesmo salão.
   Recovery de dono/cliente passa também a exercer senha nova de oito caracteres.
 - Docker local está instalado, mas o daemon Linux não está em execução. A jornada
   completa roda no workflow auth-recovery.yml, sem dados/secrets produtivos.
+- Primeira execução CI 37942145211: dono passou; cliente criou conta com oito e
+  recebeu e-mail, mas a automação encontrou dois links Entrar. Seletor corrigido
+  para o link do formulário, mantendo asserções e regras. Cinco testes posteriores
+  não rodaram nessa tentativa; revalidação obrigatória, sem declarar PASS anterior.
 
 ## Limites remanescentes
 
