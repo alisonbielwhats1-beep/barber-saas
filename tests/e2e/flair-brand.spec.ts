@@ -14,8 +14,17 @@ test("@static Flair mantém contraste e lilás discreto na landing", async ({ pa
       await page.getByRole("button", { name, exact: true }).click();
       await expect(page.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "true");
       await expect(page.locator(".mk-header .ef-logo")).toBeVisible();
-      const mask = await page.locator(".mk-header .ef-logo").evaluate(el => getComputedStyle(el).maskImage);
-      expect(mask).toContain("everflair-flair-logo.png");
+      // Logo em SVG: o nome segue o texto do cabeçalho e as pétalas nunca caem no preto padrão.
+      const logo = page.locator(".mk-header .ef-logo");
+      await expect(logo.locator("svg .ef-wordmark")).toBeAttached();
+      const colors = await logo.evaluate(el => ({
+        text: getComputedStyle(el).color,
+        wordmark: getComputedStyle(el.querySelector(".ef-wordmark")!).fill,
+        petal: getComputedStyle(el.querySelector(".ef-petal-a")!).fill,
+      }));
+      expect(colors.wordmark).toBe(colors.text);
+      expect(colors.petal).not.toBe("rgb(0, 0, 0)");
+      if (name === "Espaço misto") expect(colors.petal).toBe("rgb(196, 178, 255)");
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
       expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
       await page.screenshot({ path: test.info().outputPath(`flair-landing-${width}-${name}.png`), animations: "disabled" });
@@ -37,13 +46,13 @@ test("@database Flair abre o app do cliente independentemente do painel", async 
   await page.goto("/book/luna-hair/welcome");
   const intro = page.locator('.ef-intro[data-audience="client"]');
   await expect(intro).toBeAttached();
-  await expect(intro).toHaveCSS("background-color", "rgb(19, 19, 21)");
-  const light = intro.locator(".ef-intro-light");
-  await expect(light).toHaveCSS("animation-name", "ef-client-aurora");
-  await expect(light).toHaveCSS("animation-duration", "2.2s");
+  // Abertura "do ícone ao app": fundo grafite, íris violeta e nome letra a letra.
+  await expect(intro.locator(".efx-base")).toHaveCSS("background-color", "rgb(19, 19, 21)");
+  await expect(intro.locator(".efx-word .efx-ltr")).toHaveCount(9);
+  await expect(intro).toHaveCSS("animation-duration", "2.5s");
   await page.evaluate(() => document.getAnimations().forEach(animation => { animation.pause(); animation.currentTime = 600; }));
   await page.screenshot({ path: test.info().outputPath("flair-entrada-cliente.png") });
-  await page.clock.runFor(2200);
+  await page.clock.runFor(2500);
   await expect(intro).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Entrar na minha conta" })).toBeVisible();
   await page.getByRole("link", { name: "Entrar na minha conta" }).click();
@@ -51,7 +60,7 @@ test("@database Flair abre o app do cliente independentemente do painel", async 
   await expect(page.locator(".ef-intro")).toHaveCount(0);
   await page.reload();
   await expect(intro).toBeAttached();
-  await page.clock.runFor(2200);
+  await page.clock.runFor(2500);
   await expect(intro).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.evaluate(() => sessionStorage.clear());
@@ -61,12 +70,12 @@ test("@database Flair abre o app do cliente independentemente do painel", async 
   // The client keeps its own installed destination but uses the Everflair
   // install tile, including the explicit Apple fallback in the rendered HTML.
   const appleIcon = await page.locator('link[rel="apple-touch-icon"]').getAttribute("href");
-  expect(appleIcon).toContain("apple-touch-icon-180.png?v=flair-dark-1");
+  expect(appleIcon).toContain("apple-touch-icon-180.png?v=flair-violeta-1");
   expect((await request.get(appleIcon!)).headers()["content-type"]).toContain("image/png");
   const manifestHref = await page.locator('link[rel="manifest"]').getAttribute("href");
   expect(manifestHref).toBe("/book/luna-hair/manifest.webmanifest");
   const manifest = await (await request.get(manifestHref!)).json();
   expect(manifest.start_url).toBe("/book/luna-hair/welcome");
   expect(manifest.background_color).toBe("#131315");
-  expect(manifest.icons.every((icon: { src: string }) => icon.src.includes("v=flair-dark-1"))).toBe(true);
+  expect(manifest.icons.every((icon: { src: string }) => icon.src.includes("v=flair-violeta-1"))).toBe(true);
 });

@@ -62,10 +62,10 @@ function SidebarBody({ current, memberships, role, plan, unreadNotifications, is
     <>
       <div className={cn("flex shrink-0 items-center p-3", collapsed ? "flex-col gap-1" : "justify-between")}>
         {collapsed ? (
-          <span role="img" aria-label="Everflair — símbolo Flair" className="grid h-11 w-11 place-items-center text-[hsl(var(--selection-foreground))]">
+          <span role="img" aria-label="Everflair — símbolo Flair" className="grid h-11 w-11 place-items-center text-foreground">
             <BrandMark className="!h-8 !w-8" />
           </span>
-        ) : <BrandLogo className="!h-11 !w-[144px] text-[hsl(var(--selection-foreground))]" />}
+        ) : <BrandLogo className="!h-11 !w-[144px] text-foreground" />}
         <AnimatedSidebarTrigger title={`${label} (Ctrl+B)`} aria-controls="admin-navigation" className="text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground">
           {collapsed ? <PanelLeftOpen size={19} aria-hidden="true" /> : <PanelLeftClose size={19} aria-hidden="true" />}
         </AnimatedSidebarTrigger>

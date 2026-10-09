@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Everflair</title>
+  <g id="icon">
+    <rect width="512" height="512" rx="112" fill="#6D4AFF"/>
+    <path d="M122.9 284.5A257 257 0 0 1 389.1 104.9A257 257 0 0 1 122.9 284.5Z" fill="#FFFFFF"/>
+    <path d="M122.9 407.4A172.6 172.6 0 0 1 301.8 286.7A172.6 172.6 0 0 1 122.9 407.4Z" fill="#C9BBFF"/>
+  </g>
+</svg>
