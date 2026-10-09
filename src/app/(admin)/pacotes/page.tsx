@@ -1,3 +1,4 @@
+import { featureEntitlement } from "@/lib/billing/plan-grants";
 import { requireRole } from "@/lib/tenant";
 import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
@@ -59,7 +60,7 @@ export default async function PacotesPage({ searchParams }: { searchParams: Prom
       });
       const clients = await tx.clientProfile.findMany({ where: { salonId }, select: { id: true, name: true }, orderBy: { name: "asc" } });
       const services = await tx.service.findMany({ where: { salonId, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
-      return { packages, purchases, plans, subscriptions, clients, services, plan: salon?.plan };
+      return { packages, purchases, plans, subscriptions, clients, services, plan: await featureEntitlement(tx, salonId, salon?.plan) };
     },
   );
 

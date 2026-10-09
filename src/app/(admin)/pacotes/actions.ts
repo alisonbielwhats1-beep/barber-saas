@@ -1,4 +1,5 @@
 "use server";
+import { featureEntitlement } from "@/lib/billing/plan-grants";
 
 import { writeAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -13,7 +14,7 @@ async function assertPackagesEnabled(tx: Tx, salonId: string) {
     where: { id: salonId },
     select: { plan: true },
   });
-  assertPlanFeature(salon?.plan, "PACKAGES");
+  assertPlanFeature(await featureEntitlement(tx, salonId, salon?.plan), "PACKAGES");
 }
 
 /* ───────────────────────── Pacotes (ofertas) ───────────────────────── */

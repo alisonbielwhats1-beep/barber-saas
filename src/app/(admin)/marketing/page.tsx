@@ -1,3 +1,4 @@
+import { featureEntitlement } from "@/lib/billing/plan-grants";
 import { formatInTimeZone } from "date-fns-tz";
 import {
   ArrowRight,
@@ -27,7 +28,7 @@ import { MarketingSettingsForm } from "./marketing-settings-form";
 
 export default async function MarketingPage() {
   const ctx = await requireRole(MARKETING_ROLES);
-  const { clients, salon, history, settings } = await withTenant(ctx, async (tx) => {
+  const { clients, salon, history, settings, plan } = await withTenant(ctx, async (tx) => {
     const settings = await getMarketingSettings(tx, ctx.salonId);
     const clients = await getClientList(tx, ctx.salonId, {
       lapsedClientDays: settings.lapsedClientDays,
@@ -46,7 +47,7 @@ export default async function MarketingPage() {
       take: 50,
       select: { id: true, actorName: true, createdAt: true, metadata: true },
     });
-    return { clients, salon, history, settings };
+    return { clients, salon, history, settings, plan: await featureEntitlement(tx, ctx.salonId, salon?.plan) };
   });
 
   const toTarget = (client: (typeof clients)[number]) => ({
@@ -75,7 +76,7 @@ export default async function MarketingPage() {
       : [];
   });
   const summary = summarizeCampaignDeliveries(interactions);
-  const marketingEnabled = canUsePlanFeature(salon?.plan, "MARKETING");
+  const marketingEnabled = canUsePlanFeature(plan, "MARKETING");
 
   return (
     <div className="space-y-6">

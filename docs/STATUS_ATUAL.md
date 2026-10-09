@@ -1,3 +1,7 @@
+# Candidato local — 09/10/2026: planos e cortesia no HQ
+
+Implementação em `codex/platform-plans-access`, ainda sem promoção: catálogo atual no controle administrativo, cortesia com prazo inclusivo e auditoria, bloqueios de exclusão explicados. Migration 032 e flag `PLATFORM_PLAN_GRANTS_ENABLED` permanecem pendentes de aprovação/implantação em Production. Bianca ainda não deve ser declarada no plano Individual por esta implementação. Ver [plano e rollout](PLANOS_CORTESIA_HQ_2026-10-09.md). O estado implantado documentado abaixo permanece válido.
+
 # Status atual canônico — Salon SaaS
 
 ## 09/10/2026 — Stripe fase 1: base técnica (PR desta branch, desligada)

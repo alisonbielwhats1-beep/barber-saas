@@ -1,4 +1,5 @@
 "use server";
+import { featureEntitlement } from "@/lib/billing/plan-grants";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -15,7 +16,7 @@ async function assertInventoryEnabled(tx: Tx, salonId: string) {
     where: { id: salonId },
     select: { plan: true },
   });
-  assertPlanFeature(salon?.plan, "INVENTORY");
+  assertPlanFeature(await featureEntitlement(tx, salonId, salon?.plan), "INVENTORY");
 }
 
 const productInput = z.object({

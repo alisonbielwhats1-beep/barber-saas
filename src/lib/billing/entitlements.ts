@@ -3,9 +3,18 @@ import { getPlanEntitlement, PlanLimitError, type PlanEntitlement } from "../pla
 import { accessState } from "./catalog";
 import { changesEnabled, currentTerms, pendingChangeStates } from "./change-terms";
 import { billingTermsSchema } from "./change-rules";
+import { complimentaryEntitlement, grantEntitlement } from "./plan-grants";
 
 /** Read inside the caller's tenant transaction. Flag off never queries unapplied tables. */
 export async function effectiveEntitlement(tx: Tx, salonId: string, legacyPlan: string, now = new Date()): Promise<PlanEntitlement> {
+  const grant = await complimentaryEntitlement(tx, salonId, now);
+  if (grant) {
+    const entitlement = grantEntitlement(grant);
+    // A checkout already accepted by the owner reserves its smaller capacity.
+    const pending = await tx.billingSubscription.findFirst({ where: { salonId, current: true } });
+    if (pending) entitlement.maxProfessionals = Math.min(entitlement.maxProfessionals, (await currentTerms(tx, pending)).agendaLimit);
+    return entitlement;
+  }
   if (process.env.MERCADOPAGO_BILLING_ENABLED !== "true") return getPlanEntitlement(legacyPlan);
   const sub = await tx.billingSubscription.findFirst({ where: { salonId, current: true } });
   if (!sub) return getPlanEntitlement(legacyPlan);

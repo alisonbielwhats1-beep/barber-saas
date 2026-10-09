@@ -15,8 +15,10 @@ const inspectedTables = new Set([
   "PlatformInvoice", "ClientReview", "ServicePricingRule", "RescheduleProposal",
   "PhysicalResource", "ResourceBooking", "ClientDependent", "CareEntry",
   "FlexibleWaitlist", "FlexibleWaitlistService",
-  // Financial history whose read policy follows the salon (029, 032): any row blocks the deletion.
-  "SecretaryCreditLedger", "SecretaryCreditPurchase", "BillingCustomer",
+  // Reviewed SELECT policies allow the salon GUC set above; count, never cascade.
+  "ClientPushSubscription", "SecretaryCreditLedger", "SecretaryCreditPurchase", "SalonPlanGrant",
+  // Stripe customer (033): its read policy follows the salon too; any row blocks the deletion.
+  "BillingCustomer",
 ]);
 const identifier = (value: string) => Prisma.raw('"' + value.replaceAll('"', '""') + '"');
 

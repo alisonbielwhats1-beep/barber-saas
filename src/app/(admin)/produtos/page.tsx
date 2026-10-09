@@ -1,3 +1,4 @@
+import { featureEntitlement } from "@/lib/billing/plan-grants";
 import { requireRole } from "@/lib/tenant";
 import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
@@ -30,7 +31,7 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
       take: 30,
       select: { id: true, actorName: true, reason: true, createdAt: true, metadata: true },
     });
-    return { products, sales, movements, plan: salon?.plan };
+    return { products, sales, movements, plan: await featureEntitlement(tx, salonId, salon?.plan) };
   });
   const inventoryEnabled = canUsePlanFeature(plan, "INVENTORY");
 
