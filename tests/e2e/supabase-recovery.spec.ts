@@ -57,6 +57,27 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     return result;
   }
 
+  test("new establishment enters without email verification while Supabase stays enabled", async ({ page }) => {
+    const email = `signup-paused-${Date.now()}@example.test`;
+    await page.goto("/signup");
+    await page.getByLabel("Nome do estabelecimento", { exact: true }).fill("Cadastro sintético sem link");
+    await page.getByLabel("Seu nome", { exact: true }).fill("Dono sintético");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(password);
+    await page.getByLabel("Confirmar senha", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Criar meu espaço", exact: true }).click();
+    await expect(page).toHaveURL(/\/onboarding\/configuracao/, { timeout: 30_000 });
+    const owner = await db.user.findUniqueOrThrow({ where: { email } });
+    expect(owner.authIdentityId).toBeNull();
+    expect(await bcrypt.compare(password, owner.passwordHash!)).toBe(true);
+    expect((await (await page.request.get("/api/auth/session")).json()).user.id).toBe(owner.id);
+    expect(await db.authIdentity.findUnique({ where: { email } })).toBeNull();
+    const inbox = await (await fetch("http://127.0.0.1:54324/api/v1/messages")).json() as {
+      messages: Array<{ To: Array<{ Address: string }> }>;
+    };
+    expect(inbox.messages.some(message => message.To.some(to => to.Address === email))).toBe(false);
+  });
+
   for (const app of ["owner", "client"]) {
     test(`${app}: login → email → link → new password → correct login`, async ({ page }) => {
       await page.setViewportSize(app === "owner" ? { width: 1440, height: 900 } : { width: 390, height: 844 });
