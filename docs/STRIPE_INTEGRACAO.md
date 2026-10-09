@@ -76,6 +76,7 @@ Stripe como forma de pagamento e não tem efeito com a cobrança desligada.
 | `STRIPE_WEBHOOK_SECRET` | segredo do endpoint de webhook daquele ambiente (`whsec_`) |
 | `STRIPE_ACCOUNT_ID` | `acct_…` da conta, conferido por `verifyStripeAccount` |
 | `STRIPE_CHECKOUT_PAUSED` | `true` impede novas contratações; renovação, webhook e cancelamento continuam |
+| `STRIPE_ALLOWED_SALONS` | slugs dos salões que podem **começar** um contrato pela Stripe, separados por vírgula; `*` libera todos; vazio libera nenhum. A tela e o servidor (`contract`) conferem a lista. Piloto em produção: só o salão de demonstração |
 
 Valores nunca vão para o repositório, chat ou logs. Permissões mínimas da chave
 restrita (a confirmar na fase 2): leitura de conta; escrita em Customers,

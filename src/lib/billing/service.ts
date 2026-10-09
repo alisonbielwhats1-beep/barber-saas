@@ -4,7 +4,7 @@ import type { BillingSubscription } from "@prisma/client";
 import { withSalon, withTenant, type Tx } from "../prisma-tenant";
 import { assertProvider, BILLING_PLANS, BillingError, contractProvider, periodEnd, quoteContract } from "./catalog";
 import { billingConfig } from "./config";
-import { stripeCheckoutPaused, stripeConfig } from "./stripe/config";
+import { stripeAllowedFor, stripeCheckoutPaused, stripeConfig } from "./stripe/config";
 import { ensureStripeCheckout } from "./stripe/checkout";
 import * as mp from "./provider";
 import { allowedRemoteTerms, changesEnabled, invoiceRevision, RENEWAL_EARLY_TOLERANCE_MS } from "./change-terms";
@@ -54,8 +54,10 @@ export async function contract(ctx: { salonId: string; userId: string }, input: 
       if (previous.fingerprint !== fingerprint) throw new BillingError("IDEMPOTENCY_MISMATCH");
       return previous;
     }
-    const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { plan: true, accessStatus: true } });
+    const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { plan: true, accessStatus: true, slug: true } });
     if (salon.accessStatus !== "APPROVED") throw new BillingError("SALON_NOT_APPROVED", 403);
+    // The page only offers Stripe to the allowed salons; a hand-made request for any other one is refused here.
+    if (provider === "stripe" && !stripeAllowedFor(salon.slug)) throw new BillingError("STRIPE_DISABLED", 503);
     const active = await tx.billingSubscription.findFirst({ where: { salonId: ctx.salonId, current: true } });
     if (active && (!active.cancelledAt || (active.paidThrough && active.paidThrough > new Date()))) throw new BillingError("SUBSCRIPTION_EXISTS");
     if (active && renewalCancellationStatus(await cancellationSubscriptions(tx, active)) !== "CANCELLED") throw new BillingError("SUBSCRIPTION_EXISTS");

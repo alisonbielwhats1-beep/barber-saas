@@ -65,7 +65,7 @@ pg("Stripe billing with PostgreSQL and runtime FORCE RLS", () => {
   let worker: typeof import("../worker");
   let webhook: typeof import("./webhook");
   let scope: typeof import("../../prisma-tenant");
-  let ownerId: string, salonId: string, otherSalon: string;
+  let ownerId: string, salonId: string, otherSalon: string, allowedSalons: string;
   const context = () => ({ salonId, userId: ownerId });
   const load = (id: string) => admin.billingSubscription.findUniqueOrThrow({ where: { id } });
 
@@ -121,6 +121,8 @@ pg("Stripe billing with PostgreSQL and runtime FORCE RLS", () => {
     ownerId = owner.id;
     const salons = await Promise.all(["a", "b"].map(name => admin.salon.create({ data: { name, slug: randomUUID(), accessStatus: "APPROVED" } })));
     [salonId, otherSalon] = salons.map(s => s.id);
+    allowedSalons = `everflair-apresentacao, ${salons[0].slug}`;
+    vi.stubEnv("STRIPE_ALLOWED_SALONS", allowedSalons);
     await admin.membership.create({ data: { userId: ownerId, salonId, role: "OWNER" } });
     const url = new URL(process.env.DATABASE_URL!); url.username = "stripe_test_runtime"; url.password = "stripe-only-test";
     runtime = new PrismaClient({ datasources: { db: { url: url.toString() } } });
@@ -344,5 +346,17 @@ pg("Stripe billing with PostgreSQL and runtime FORCE RLS", () => {
       await startFresh();
       await expect(service.contract(context(), { plan: "TEAM", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, randomUUID())).rejects.toThrow("STRIPE_DISABLED");
     } finally { vi.stubEnv("STRIPE_BILLING_ENABLED", "true"); }
+  });
+
+  it("starts Stripe contracts only for the allowed salons, checked again on the server", async () => {
+    await startFresh();
+    const before = await admin.billingSubscription.count({ where: { salonId } });
+    try {
+      for (const list of ["everflair-apresentacao", ""]) {
+        vi.stubEnv("STRIPE_ALLOWED_SALONS", list);
+        await expect(service.contract(context(), { plan: "TEAM", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, randomUUID())).rejects.toThrow("STRIPE_DISABLED");
+      }
+      expect(await admin.billingSubscription.count({ where: { salonId } })).toBe(before);
+    } finally { vi.stubEnv("STRIPE_ALLOWED_SALONS", allowedSalons); }
   });
 });

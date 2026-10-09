@@ -11,7 +11,9 @@ Branch `claude/stripe-fase2-assinatura`, sobre a fase 1 (PR #168). Com
 "Pagar pelo Mercado Pago" ao contratar. Checkout em modo assinatura, conciliação
 pela API da Stripe, webhook `/api/webhooks/stripe`, carência e cancelamento no
 fim do período. Troca de plano e reativação continuam só no Mercado Pago (fase 3).
-Detalhes em `STRIPE_INTEGRACAO.md`. Nada ligado em Production.
+A oferta vale só para os salões de `STRIPE_ALLOWED_SALONS` (vazio = nenhum; `*` =
+todos), conferida na tela e no servidor; o piloto em Production começa pelo salão
+de demonstração. Detalhes em `STRIPE_INTEGRACAO.md`. Nada ligado em Production.
 
 ## 09/10/2026 — Stripe fase 1: base técnica (PR #168, desligada)
 

@@ -3,7 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { requireRole } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { billingEnabled, checkoutPaused, planChangesPaused } from "@/lib/billing/config";
-import { stripeCheckoutPaused, stripeEnabled } from "@/lib/billing/stripe/config";
+import { stripeOfferedTo } from "@/lib/billing/stripe/config";
 import { resolveBillingIntent } from "@/lib/billing/presentation";
 import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { SubscriptionPortal } from "@/components/billing/subscription-portal";
@@ -17,7 +17,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
   const query = await searchParams;
   const data = await withTenant(ctx, async tx => {
     const [salon, user, professionals, invites] = await Promise.all([
-      tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { name: true, timezone: true, plan: true } }),
+      tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { name: true, timezone: true, plan: true, slug: true } }),
       tx.user.findUniqueOrThrow({ where: { id: ctx.userId }, select: { email: true } }),
       // Display only: same occupancy the billing service enforces under its capacity lock.
       tx.professional.count({ where: { salonId: ctx.salonId, active: true } }),
@@ -42,8 +42,8 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
     </section>}
     {billingEnabled() ? <SubscriptionPortal key={ctx.salonId} salonId={ctx.salonId} email={data.user.email} timezone={data.salon.timezone} initial={resolveBillingIntent(query)}
       legacy={legacy} occupiedAgendas={data.occupiedAgendas} billingOrigin={billingOrigin} returnedFromCheckout={query.retorno === "mercadopago" || query.retorno === "stripe"}
-      newContractsPaused={checkoutPaused() && !(stripeEnabled() && !stripeCheckoutPaused())} changesPaused={planChangesPaused()}
-      stripeAvailable={stripeEnabled() && !stripeCheckoutPaused()} mercadoPagoPaused={checkoutPaused()} />
+      newContractsPaused={checkoutPaused() && !stripeOfferedTo(data.salon.slug)} changesPaused={planChangesPaused()}
+      stripeAvailable={stripeOfferedTo(data.salon.slug)} mercadoPagoPaused={checkoutPaused()} />
       : <p>A contratação online ainda não está disponível. Seu acesso atual permanece preservado.</p>}
     {creditsEnabled() && secretaryAvailableTo(ctx) && <SecretaryCreditsCard salonId={ctx.salonId} timezone={data.salon.timezone} returnedFromCheckout={query.retorno === "creditos"} />}
     <details className="admin-detail-section"><summary>Guia de configuração do estabelecimento</summary><p className="mt-2 text-sm text-muted-foreground">Configure horários, serviços e profissionais. No final do guia, conheça o aplicativo e o link que você compartilha com os clientes.</p><Link href="/onboarding/configuracao" className="mb-4 mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Configurar meu estabelecimento</Link></details>

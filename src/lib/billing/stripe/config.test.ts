@@ -8,7 +8,7 @@ vi.mock("stripe", () => ({
     constructor(key: string, config: Record<string, unknown>) { constructed.push({ key, config }); }
   },
 }));
-import { stripeCheckoutPaused, stripeConfig, stripeEnabled } from "./config";
+import { stripeAllowedFor, stripeCheckoutPaused, stripeConfig, stripeEnabled, stripeOfferedTo } from "./config";
 import { STRIPE_API_VERSION, stripeClient, stripeRequest, verifyStripeAccount } from "./client";
 
 /** Synthetic keys are assembled here, so no key-shaped literal ever sits in the source for secret scanners to confuse. */
@@ -72,6 +72,23 @@ describe("Stripe configuration trust boundaries", () => {
     vi.stubEnv("STRIPE_CHECKOUT_PAUSED", "true");
     expect(stripeCheckoutPaused()).toBe(true);
     expect(stripeEnabled()).toBe(true);
+  });
+
+  it("offers new contracts only to the allowed salons, and to none while the list is empty", () => {
+    vi.stubEnv("STRIPE_ALLOWED_SALONS", "");
+    expect(stripeAllowedFor("salao-a")).toBe(false);
+    expect(stripeOfferedTo("salao-a")).toBe(false);
+    vi.stubEnv("STRIPE_ALLOWED_SALONS", " everflair-apresentacao , salao-a ");
+    expect(stripeOfferedTo("salao-a")).toBe(true);
+    expect(stripeOfferedTo("salao-b")).toBe(false);
+    vi.stubEnv("STRIPE_ALLOWED_SALONS", "*");
+    expect(stripeOfferedTo("salao-b")).toBe(true);
+    // Allowed is not offered while new checkouts are paused or the Stripe offer is off.
+    vi.stubEnv("STRIPE_CHECKOUT_PAUSED", "true");
+    expect(stripeOfferedTo("salao-b")).toBe(false);
+    vi.stubEnv("STRIPE_CHECKOUT_PAUSED", "false"); vi.stubEnv("STRIPE_BILLING_ENABLED", "false");
+    expect(stripeOfferedTo("salao-b")).toBe(false);
+    expect(stripeAllowedFor("salao-b")).toBe(true);
   });
 
   it("pins the API version and a bounded network budget", () => {
