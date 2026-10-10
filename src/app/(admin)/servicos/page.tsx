@@ -1,5 +1,7 @@
+import { Plus } from "lucide-react";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
+import { Button } from "@/components/ui/button";
 import { ServiceForm } from "./service-form";
 import { ResourcePanel } from "./resource-panel";
 import { ServicesCatalog, type ServiceCard } from "./services-catalog";
@@ -55,22 +57,34 @@ export default async function ServicosPage() {
     sold: stats.get(s.id)?.sold ?? 0,
     revenueCents: stats.get(s.id)?.revenue ?? 0,
   }));
+  const categoryCount = new Set(cards.map((s) => s.category).filter(Boolean)).size;
 
   return (
-    <div className="admin-directory-page flex min-w-0 flex-col gap-3 pb-20 md:gap-6 md:pb-0">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 hidden md:block text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Catálogo
-          </p>
-          <h1 className="text-2xl md:text-[26px] font-semibold tracking-tight">Serviços</h1>
+    <div className="flex min-w-0 flex-col gap-3.5 lg:gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold leading-tight tracking-tight lg:text-2xl">Serviços</h1>
+          {cards.length > 0 && (
+            <p className="mt-1 hidden text-sm text-muted-foreground lg:block">
+              {cards.length} {cards.length === 1 ? "serviço" : "serviços"}
+              {categoryCount > 0 && ` · ${categoryCount} ${categoryCount === 1 ? "categoria" : "categorias"}`}
+            </p>
+          )}
         </div>
-        {canManage && <ServiceForm />}
-      </header>
-      {canManage && <div className="order-last"><ResourcePanel /></div>}
+        {/* No celular o "+" fica ao lado da busca (dentro do catálogo); sem serviços, o botão daqui vale para todas as telas. */}
+        {canManage && (
+          <ServiceForm
+            trigger={
+              <Button className={cards.length > 0 ? "hidden lg:inline-flex" : undefined}>
+                <Plus aria-hidden="true" className="h-4 w-4" /> Novo serviço
+              </Button>
+            }
+          />
+        )}
+      </div>
 
       {cards.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
+        <div className="rounded-[14px] border border-border bg-card p-10 text-center text-sm text-muted-foreground">
           Nenhum serviço cadastrado ainda. Crie o primeiro no botão acima.
         </div>
       ) : (
@@ -79,6 +93,12 @@ export default async function ServicosPage() {
           canManage={canManage}
           canSeeFinancial={canSeeFinancial}
         />
+      )}
+      {canManage && <ResourcePanel />}
+      {canSeeFinancial && cards.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Margem = (preço − custo) ÷ preço. Vendas: atendimentos concluídos.
+        </p>
       )}
     </div>
   );

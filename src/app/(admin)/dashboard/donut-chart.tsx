@@ -19,22 +19,22 @@ export function DonutChart({
   slices,
   centerLabel,
   centerValue,
+  size = "md",
 }: {
   slices: { name: string; value: number; color: string }[];
   centerLabel: string;
   centerValue: string;
+  size?: "sm" | "md";
 }) {
   const total = slices.reduce((s, x) => s + x.value, 0);
   const data = total === 0 ? [{ name: "Sem dados", value: 1, color: "hsl(var(--border))" }] : slices;
 
   return (
-    <div className="relative h-52 w-full">
-      <DonutPie data={data} paddingAngle={total === 0 ? 0 : 3} empty={total === 0} />
+    <div className={`relative mx-auto w-full ${size === "sm" ? "h-36 max-w-36" : "h-44 max-w-44"}`}>
+      <DonutPie data={data} paddingAngle={total === 0 ? 0 : 2} empty={total === 0} />
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xs uppercase tracking-widest text-muted-foreground">
-          {centerLabel}
-        </span>
-        <span className="mt-0.5 text-xl font-semibold tracking-tight">{centerValue}</span>
+        <span className="text-xs text-muted-foreground">{centerLabel}</span>
+        <span className="whitespace-nowrap text-base font-semibold tabular-nums">{centerValue}</span>
       </div>
     </div>
   );

@@ -20,11 +20,11 @@ export function PageHeader({
       <div>
         {meta}
         {kicker && (
-          <p className={`${compact ? "hidden md:block" : ""} mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground`}>
+          <p className={`${compact ? "hidden md:block" : ""} mb-1 text-xs font-semibold uppercase tracking-[0.04em] text-muted-foreground`}>
             {kicker}
           </p>
         )}
-        <h1 className={`${compact ? "text-2xl md:text-[26px]" : "text-[26px]"} font-semibold tracking-tight`}>{title}</h1>
+        <h1 className="text-lg font-semibold leading-tight tracking-tight lg:text-2xl">{title}</h1>
       </div>
       {children}
     </header>

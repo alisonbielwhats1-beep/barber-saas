@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-export function PwaInstallButton() {
+export function PwaInstallButton({ className }: { className?: string } = {}) {
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export function PwaInstallButton() {
         await promptEvent.userChoice;
         setPromptEvent(null);
       }}
-      className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       <Download className="h-4 w-4" />
     </button>

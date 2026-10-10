@@ -14,7 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
-import { UserPlus, Trash2, Loader2, RotateCw, XCircle } from "lucide-react";
+import { UserPlus, Trash2, Loader2, RotateCw, ShieldCheck, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { labelClass, noteClass, selectClass } from "./settings-ui";
 import {
   inviteMember,
   changeMemberRole,
@@ -48,12 +50,13 @@ const ROLE_LABEL: Record<string, string> = {
   PROFESSIONAL: "Profissional",
   RECEPTIONIST: "Recepção",
 };
-const ROLE_COLOR: Record<string, string> = {
-  OWNER: "#2ECC8B",
-  MANAGER: "#3B9EFF",
-  PROFESSIONAL: "#A855F7",
-  RECEPTIONIST: "#F59E0B",
-};
+const initials = (name: string) => name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+const pill = "inline-flex min-h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-medium";
+const pillTone = {
+  neutral: "bg-muted text-muted-foreground",
+  warning: "bg-warning/15 text-warning",
+  danger: "bg-danger/15 text-danger",
+} as const;
 
 export function AccessManager({
   members,
@@ -108,12 +111,17 @@ export function AccessManager({
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card">
-      <div className="flex items-center justify-between p-5 pb-3">
-        <div>
-          <h3 className="text-[13px] font-semibold">Acessos da equipe</h3>
-          <p className="text-xs text-muted-foreground">Quem pode entrar no painel e com qual papel.</p>
-        </div>
+    <div className="flex min-w-0 flex-col gap-3.5 lg:gap-4">
+      <div className="flex gap-2.5 rounded-xl border border-border-strong bg-card px-3.5 py-3 text-sm leading-relaxed">
+        <ShieldCheck aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <p>{canManage
+          ? "Só o dono convida pessoas, troca papéis e remove acessos. O salão precisa de ao menos um dono, e ninguém remove o próprio acesso."
+          : "Só o dono do salão convida pessoas, troca papéis e remove acessos. Aqui você vê quem tem acesso e com qual papel."}</p>
+      </div>
+
+    <div className="overflow-hidden rounded-[14px] border border-border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-4 pb-3 pt-4">
+        <h3 className="min-w-0 flex-auto text-sm font-semibold">Acessos da equipe</h3>
         {canManage && invitesEnabled && (
           <Button
             type="button"
@@ -124,89 +132,90 @@ export function AccessManager({
               setOpen(true);
             }}
           >
-            <UserPlus className="h-3.5 w-3.5" /> Convidar
+            <UserPlus aria-hidden="true" className="h-4 w-4" /> Convidar
           </Button>
         )}
+        <p className={cn(noteClass, "basis-full")}>Quem pode entrar no painel e com qual papel.</p>
       </div>
 
-      {error && <p className="mx-5 mb-3 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</p>}
+      {error && <p className="mx-4 mb-3 rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm">{error}</p>}
       {canManage && !invitesEnabled && (
-        <p className="mx-5 mb-3 rounded-lg bg-surface-1 px-3 py-2 text-[12px] text-muted-foreground">
+        <p className="mx-4 mb-3 rounded-xl border border-border-strong bg-background px-3.5 py-3 text-xs text-muted-foreground">
           Convites por e-mail estão em contingência e ainda não estão disponíveis.
         </p>
       )}
 
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border border-t border-border">
         {members.map((m) => (
-          <div key={m.userId} className="flex items-center gap-3 px-5 py-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold text-black/80" style={{ background: ROLE_COLOR[m.role] ?? "#94A3B8" }}>
-              {m.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
+          <div key={m.userId} className="flex flex-wrap items-center gap-x-3 gap-y-2.5 px-4 py-3 sm:flex-nowrap">
+            <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-foreground">
+              {initials(m.name)}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-medium">
-                {m.name} {m.isSelf && <span className="text-xs text-muted-foreground">(você)</span>}
+              <p className="text-sm font-medium [overflow-wrap:anywhere]">
+                {m.name} {m.isSelf && <span className="text-xs font-normal text-muted-foreground">(você)</span>}
               </p>
-              <p className="truncate text-xs text-muted-foreground">{m.email}</p>
+              <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{m.email}</p>
             </div>
-            {canManage && !m.isSelf ? (
-              <select
-                aria-label={`Papel de ${m.name}`}
-                value={m.role}
-                disabled={pending}
-                onChange={(e) => run(() => changeMemberRole(m.userId, e.target.value))}
-                className="min-h-11 rounded-lg border border-border bg-background px-2 text-[12px]"
-              >
-                {Object.keys(ROLE_LABEL).map((r) => (
-                  <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-                ))}
-              </select>
+            {(canManage && !m.isSelf) ? (
+              <div className="flex basis-full items-center gap-1.5 pl-[52px] sm:basis-auto sm:pl-0">
+                <select
+                  aria-label={`Papel de ${m.name}`}
+                  value={m.role}
+                  disabled={pending}
+                  onChange={(e) => run(() => changeMemberRole(m.userId, e.target.value))}
+                  className={cn(selectClass, "flex-1 sm:w-auto sm:flex-none")}
+                >
+                  {Object.keys(ROLE_LABEL).map((r) => (
+                    <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                  ))}
+                </select>
+                <IconButton
+                  label={`Remover acesso de ${m.name}`}
+                  onClick={() => run(() => removeMember(m.userId))}
+                  disabled={pending}
+                  className="shrink-0 hover:bg-danger/10 hover:text-danger"
+                >
+                  {pending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Trash2 aria-hidden="true" className="h-4 w-4" />}
+                </IconButton>
+              </div>
             ) : (
-              <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: `${ROLE_COLOR[m.role]}1f`, color: ROLE_COLOR[m.role] }}>
+              <span className={cn(pill, pillTone.neutral, "ml-[52px] sm:ml-0")}>
                 {ROLE_LABEL[m.role] ?? m.role}
               </span>
-            )}
-            {canManage && !m.isSelf && (
-              <IconButton
-                label={`Remover acesso de ${m.name}`}
-                onClick={() => run(() => removeMember(m.userId))}
-                disabled={pending}
-                className="shrink-0 hover:bg-danger/10 hover:text-danger"
-              >
-                {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-              </IconButton>
             )}
           </div>
         ))}
       </div>
 
       {pendingInvites.length > 0 && (
-        <div className="border-t border-border p-5">
-          <p className="text-[12px] font-semibold">Convites pendentes</p>
-          <div className="mt-2 space-y-2">
+        <div className="border-t border-border p-4">
+          <h4 className="text-sm font-semibold">Convites pendentes</h4>
+          <div className="mt-2.5 space-y-2">
             {pendingInvites.map((invite) => {
               const expired = new Date(invite.expiresAt).getTime() <= Date.now();
               const cancelled = Boolean(invite.revokedAt);
-              const status = cancelled
-                ? "Cancelado"
+              const state = cancelled
+                ? { label: "Cancelado", tone: pillTone.neutral }
                 : expired
-                  ? "Expirado"
-                  : invite.deliveryStatus === "FAILED"
-                    ? "Falha no envio"
-                    : invite.deliveryStatus === "SENDING"
-                      ? "Enviando"
-                      : "Pendente · enviado";
+                  ? { label: "Expirado", tone: pillTone.warning }
+                  : { label: "Pendente", tone: pillTone.warning };
+              const delivery = cancelled
+                ? null
+                : invite.deliveryStatus === "FAILED"
+                  ? { label: "Falha no envio", tone: pillTone.danger }
+                  : invite.deliveryStatus === "SENDING"
+                    ? { label: "Enviando", tone: pillTone.neutral }
+                    : { label: "Enviado", tone: pillTone.neutral };
               return (
-                <div key={invite.id} className="rounded-xl bg-surface-1 p-3">
+                <div key={invite.id} className="flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-background px-3.5 py-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-[12px] font-medium">{invite.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{invite.email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {ROLE_LABEL[invite.role] ?? invite.role} · {status}
-                      </p>
+                      <p className="text-sm font-medium [overflow-wrap:anywhere]">{invite.name}</p>
+                      <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{invite.email}</p>
                     </div>
                     {canManage && !cancelled && (
-                      <div className="flex">
+                      <div className="-my-1 -mr-1.5 flex shrink-0">
                         <IconButton
                           label={`Reenviar convite para ${invite.name}`}
                           disabled={pending}
@@ -219,7 +228,7 @@ export function AccessManager({
                             })
                           }
                         >
-                          <RotateCw className="h-3.5 w-3.5" />
+                          <RotateCw aria-hidden="true" className="h-4 w-4" />
                         </IconButton>
                         <IconButton
                           label={`Cancelar convite de ${invite.name}`}
@@ -227,17 +236,23 @@ export function AccessManager({
                           onClick={() => setInviteToCancel(invite)}
                           className="hover:bg-danger/10 hover:text-danger"
                         >
-                          <XCircle className="h-3.5 w-3.5" />
+                          <X aria-hidden="true" className="h-4 w-4" />
                         </IconButton>
                       </div>
                     )}
                   </div>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="whitespace-nowrap text-xs text-muted-foreground">{ROLE_LABEL[invite.role] ?? invite.role}</span>
+                    <span className={cn(pill, state.tone)}>{state.label}</span>
+                    {delivery && <span className={cn(pill, delivery.tone)}>{delivery.label}</span>}
+                  </p>
                 </div>
               );
             })}
           </div>
         </div>
       )}
+    </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
@@ -246,17 +261,17 @@ export function AccessManager({
           </DialogHeader>
           {inviteResult ? (
             <div className="grid gap-4">
-              <div className={`rounded-xl border p-4 ${
+              <div className={`rounded-xl border px-3.5 py-3 ${
                 inviteResult.status === "SENT"
-                  ? "border-success/25 bg-success/5"
-                  : "border-danger/25 bg-danger/5"
+                  ? "border-success/30 bg-success/10"
+                  : "border-danger/40 bg-danger/10"
               }`}>
                 <p className="text-sm font-medium">
                   {inviteResult.status === "SENT"
                     ? `Convite enviado para ${inviteResult.email}`
                     : "Convite salvo, mas o envio falhou"}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className={cn(noteClass, "mt-1")}>
                   {inviteResult.status === "SENT"
                     ? "O acesso só será criado depois que a pessoa aceitar pelo próprio e-mail."
                     : "Use a opção de reenvio no convite pendente depois de corrigir a configuração do provedor."}
@@ -269,24 +284,24 @@ export function AccessManager({
               </DialogFooter>
             </div>
           ) : (
-          <form onSubmit={onInvite} className="grid gap-4">
-            <div>
-              <label htmlFor="invite-member-name" className="mb-1 block text-sm font-medium">Nome</label>
+          <form onSubmit={onInvite} className="grid gap-3.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="invite-member-name" className={labelClass}>Nome</label>
               <Input id="invite-member-name" name="name" required autoFocus />
             </div>
-            <div>
-              <label htmlFor="invite-member-email" className="mb-1 block text-sm font-medium">Email</label>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="invite-member-email" className={labelClass}>Email</label>
               <Input id="invite-member-email" name="email" type="email" required />
             </div>
-            <div>
-              <label htmlFor="invite-member-role" className="mb-1 block text-sm font-medium">Papel</label>
-              <select id="invite-member-role" name="role" defaultValue="RECEPTIONIST" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="invite-member-role" className={labelClass}>Papel</label>
+              <select id="invite-member-role" name="role" defaultValue="RECEPTIONIST" className={selectClass}>
                 {Object.keys(ROLE_LABEL).map((r) => (
                   <option key={r} value={r}>{ROLE_LABEL[r]}</option>
                 ))}
               </select>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className={noteClass}>
               Um e-mail de uso único será enviado. Para conta nova, a própria
               pessoa definirá a senha; contas existentes mantêm a senha atual.
             </p>

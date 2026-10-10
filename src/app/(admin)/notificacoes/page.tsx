@@ -50,14 +50,18 @@ export default async function NotificationsPage() {
   }));
 
   return (
-    <section className="space-y-6">
-      <PageHeader
-        kicker="Central de avisos"
-        title="Notificações"
-      />
-      <p className="text-sm text-muted-foreground">
-        Atualizações internas sobre agendamentos, cancelamentos e lembretes.
-      </p>
+    // Prototype v6: one reading column (780px) on the computer; title, kicker and description form a single block.
+    <section className="space-y-3.5 lg:max-w-[780px]">
+      <div className="space-y-1">
+        <PageHeader
+          compact
+          kicker="Central de avisos"
+          title="Notificações"
+        />
+        <p className="text-sm text-muted-foreground">
+          Atualizações internas sobre agendamentos, cancelamentos e lembretes.
+        </p>
+      </div>
       <NotificationList
         notifications={notifications}
         timezone={result.salon.timezone}

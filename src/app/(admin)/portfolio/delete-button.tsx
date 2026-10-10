@@ -24,15 +24,15 @@ export function DeleteButton({ id }: { id: string }) {
     <>
       <Button
         type="button"
-        variant="destructive"
+        variant="outline"
         size="icon"
-        className="h-11 w-11"
+        className="h-11 w-11 border-border-strong bg-card text-danger hover:bg-card-hover hover:text-danger lg:h-9 lg:w-9"
         aria-label="Remover foto do portfólio"
         title="Remover foto do portfólio"
         disabled={pending}
         onClick={() => setConfirmOpen(true)}
       >
-        <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+        <Trash2 aria-hidden="true" className="h-4 w-4" />
       </Button>
       <ConfirmDialog
         open={confirmOpen}

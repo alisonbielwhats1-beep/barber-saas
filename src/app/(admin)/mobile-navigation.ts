@@ -39,8 +39,9 @@ export const MOBILE_TABS: readonly MobileTab[] = [
   { href: "/notificacoes", label: "Avisos", icon: Bell, badge: "notifications" },
 ];
 
-export function mobileTabsFor(role: string) {
-  return MOBILE_TABS.filter((tab) => canSee(tab, role));
+/** With the Secretária in the middle of the bar, "Avisos" moves to the bell of the top bar. */
+export function mobileTabsFor(role: string, secretary = false) {
+  return MOBILE_TABS.filter((tab) => canSee(tab, role) && !(secretary && tab.badge === "notifications"));
 }
 
 /** Asks the "Mais" sheet to open (back button of module screens). */
@@ -111,6 +112,28 @@ const EXTRA_TITLES: Array<[path: string, title: string]> = [
   ["/servicos/secretaria", "Secretária"],
   ["/plataforma", "Administração"],
 ];
+
+const DESKTOP_EXTRA_TITLES: Array<[path: string, title: string]> = [
+  ["/configuracoes", "Configurações"],
+  ["/assinatura", "Plano e assinatura"],
+  ["/servicos/secretaria", "Secretária"],
+  ["/plataforma", "Administração"],
+  ["/notificacoes", "Notificações"],
+  ["/fechamento", "Fechamento"],
+  ["/pagamentos", "Pagamentos"],
+];
+
+/** Title of the computer top bar: the module's own name (the page keeps its h1). */
+export function desktopTitleFor(pathname: string) {
+  const extra = DESKTOP_EXTRA_TITLES.find(([path]) => matchesPath(pathname, path));
+  if (extra) return extra[1];
+  for (const context of CONTEXT_AREAS) {
+    const link = context.links.find((item) => item.path && item.path === pathname);
+    if (link) return link.label === "Lista de clientes" ? "Clientes" : link.label;
+  }
+  const area = DESKTOP_AREAS.find((item) => item.activePaths.some((path) => matchesPath(pathname, path)));
+  return area?.label ?? "Everflair";
+}
 
 /** Title for the compact top bar of a screen; tab roots have no back button. */
 export function mobileScreenFor(pathname: string) {

@@ -98,13 +98,14 @@ test.describe("@database navegação compacta e calendário", () => {
     expect(new Set(professionalPalette.map(pro => pro.color)).size).toBe(professionalPalette.length);
     expect(professionalPalette.every(pro => pro.matches)).toBe(true);
     await page.goto("/agenda?date=2026-09-06");
+    // Menu lateral no padrão do protótipo: entra aberto; tema, instalar e sair ficam no rodapé, abaixo da navegação.
     const darkSidebar = page.getByRole("complementary", { name: "Menu do estabelecimento" });
-    await expect(darkSidebar).toHaveAttribute("data-collapsed", "true");
-    await expect(darkSidebar.getByRole("img", { name: "Everflair — símbolo Flair" })).toBeVisible();
+    await expect(darkSidebar).toHaveAttribute("data-collapsed", "false");
+    await expect(darkSidebar.getByRole("img", { name: "Everflair", exact: true })).toBeVisible();
     const themeBox = await darkSidebar.getByRole("button", { name: "Mudar para tema claro" }).boundingBox();
     const navBox = await darkSidebar.getByRole("navigation", { name: "Navegação principal" }).boundingBox();
-    expect(themeBox!.y + themeBox!.height).toBeLessThan(navBox!.y);
-    await page.screenshot({ path: test.info().outputPath("agenda-flair-escuro-recolhido.png"), animations: "disabled" });
+    expect(themeBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
+    await page.screenshot({ path: test.info().outputPath("agenda-flair-escuro-aberto.png"), animations: "disabled" });
     expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
     await changeAdminTheme(page, "claro");
     const lightPalette = await page.locator("[data-pro-col]").evaluateAll(columns => columns.map(column => ({
@@ -112,20 +113,21 @@ test.describe("@database navegação compacta e calendário", () => {
     })));
     expect(lightPalette).toEqual(professionalPalette.map(({ id, color }) => ({ id, color })));
     const sidebar = page.getByRole("complementary", { name: "Menu do estabelecimento" });
-    await page.getByRole("button", { name: "Expandir menu", exact: true }).click();
     await expect(sidebar).toHaveAttribute("data-collapsed", "false");
     await expect(sidebar.getByRole("img", { name: "Everflair", exact: true })).toBeVisible();
     await expect(sidebar.getByText("Painel de operação")).toHaveCount(0);
     await page.getByRole("button", { name: "Recolher menu", exact: true }).click();
     await expect(sidebar).toHaveAttribute("data-collapsed", "true");
-    await expect(sidebar.getByRole("img", { name: "Everflair — símbolo Flair" })).toBeVisible();
+    await expect(sidebar.getByRole("img", { name: "Everflair", exact: true })).toBeVisible();
+    // A preferência fica num cookie lido no servidor: recarregar mantém o menu recolhido, sem piscar.
     await page.reload();
     await expect(sidebar).toHaveAttribute("data-collapsed", "true");
     await expect(sidebar.getByRole("link", { name: "Agenda", exact: true })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath("agenda-lilas-profissionais.png"), animations: "disabled" });
+    // Wide screens open the side calendar next to the Day grid (approved prototype v6); it still collapses and reopens.
     const calendar = page.getByRole("region", { name: "Calendário lateral" });
-    await expect(calendar).not.toBeVisible();
-    await page.getByRole("button", { name: "Abrir calendário", exact: true }).click();
+    await expect(calendar).toBeVisible();
+    await expect(page.getByRole("button", { name: "Recolher calendário", exact: true })).toHaveAttribute("aria-expanded", "true");
     await calendar.getByRole("button", { name: "Avançar 1 semana", exact: true }).click();
     await expect(page).toHaveURL(/date=2026-09-13/);
     const next = format(addDays(parseISO("2026-09-13T12:00:00"), 1), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
@@ -147,7 +149,8 @@ test.describe("@database navegação compacta e calendário", () => {
     expect(gridBox!.height + weekStrip!.height + 8).toBeGreaterThan(620);
     const quickActionBox = await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).boundingBox();
     expect(quickActionBox!.y).toBeGreaterThan(700);
-    expect(quickActionBox!.width).toBe(44);
+    // "+" flutuante único do painel no celular: 56px (decisão de 07/10, protótipo v6).
+    expect(quickActionBox!.width).toBe(56);
     const dateControl = await page.getByRole("button", { name: "Abrir calendário", exact: true }).boundingBox();
     const viewControl = await page.getByRole("button", { name: "Dia", exact:true }).boundingBox();
     const filterControl = await page.getByRole("button", { name: "Buscar e filtrar agenda" }).boundingBox();

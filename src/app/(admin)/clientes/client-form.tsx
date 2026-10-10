@@ -5,7 +5,7 @@ import { useFormOperation } from "../use-form-operation";
 import { FormSection } from "../form-section";
 import { TaskForm } from "../task-form";
 import { useRef, useState } from "react";
-import { Plus, Pencil } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +20,8 @@ import { createClient, updateClient } from "./actions";
 import { SelectSheet } from "@/components/ui/select-sheet";
 
 type Props = {
+  /** Extra classes for the "Editar" button (the profile lays it out beside "Agendar"). */
+  triggerClassName?: string;
   client?: {
     id: string;
     name: string;
@@ -34,7 +36,7 @@ type Props = {
   };
 };
 
-export function ClientForm({ client }: Props) {
+export function ClientForm({ client, triggerClassName }: Props) {
   const editing = !!client;
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useFormOperation();
@@ -75,7 +77,7 @@ export function ClientForm({ client }: Props) {
     <Dialog pending={pending} open={open} onOpenChange={next => { setOpen(next); if (next) setError(null); }}>
       <DialogTrigger asChild>
         {editing ? (
-          <Button variant="ghost" size="sm"><Pencil className="h-4 w-4" aria-hidden />Editar</Button>
+          <Button type="button" variant="outline" className={triggerClassName}>Editar</Button>
         ) : (
           <Button className="admin-client-create" aria-label="Novo cliente">
             <Plus className="h-5 w-5" aria-hidden /> <span className="hidden md:inline">Novo cliente</span>
@@ -93,7 +95,7 @@ export function ClientForm({ client }: Props) {
         <TaskForm onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar cliente" : "Cadastrar cliente"}>
           <div>
           <div>
-            <label htmlFor="client-form-name" className="mb-1 block text-sm font-medium">Nome</label>
+            <label htmlFor="client-form-name" className="mb-1 block text-sm font-medium">Nome *</label>
             <Input id="client-form-name" aria-label="Nome" name="name" autoComplete="name" defaultValue={client?.name} required autoFocus />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -134,7 +136,7 @@ export function ClientForm({ client }: Props) {
               <label htmlFor="client-form-gender" className="mb-1 block text-sm font-medium">Gênero</label>
               <SelectSheet id="client-form-gender" aria-label="Gênero" name="gender" title="Gênero" defaultValue={client?.gender ?? ""} placeholder="Não informado"
                 options={[{ value: "FEMALE", label: "Feminino" }, { value: "MALE", label: "Masculino" }, { value: "OTHER", label: "Outro" }]}
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm" />
+                className="flex h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-base lg:h-10 lg:text-sm" />
             </div>
           </div>
           <div>
@@ -143,7 +145,7 @@ export function ClientForm({ client }: Props) {
               name="allergies"
               defaultValue={client?.allergies ?? ""}
               rows={2}
-              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="w-full resize-none rounded-[10px] border border-border-strong bg-background px-3 py-2 text-base placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:text-sm"
               placeholder="Alergia a amônia, sensibilidade na pele…"
             />
           </div>
@@ -153,7 +155,7 @@ export function ClientForm({ client }: Props) {
               name="preferences"
               defaultValue={client?.preferences ?? ""}
               rows={2}
-              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="w-full resize-none rounded-[10px] border border-border-strong bg-background px-3 py-2 text-base placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:text-sm"
               placeholder="Corte baixo, água morna, atendimento silencioso…"
             />
           </div>
@@ -163,11 +165,11 @@ export function ClientForm({ client }: Props) {
               name="notes"
               defaultValue={client?.notes ?? ""}
               rows={2}
-              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="w-full resize-none rounded-[10px] border border-border-strong bg-background px-3 py-2 text-base placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:text-sm"
               placeholder="Informações úteis para a equipe…"
             />
           </div>
-          <label className="flex items-start gap-2 rounded-lg border border-border bg-surface-1 p-3 text-sm">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border-strong bg-card p-3.5 text-sm">
             <input name="consentGiven" type="checkbox" defaultChecked={client?.consentGiven ?? false} className="mt-0.5 h-4 w-4 accent-primary" />
             <span>
               Cliente autorizou registrar estas informações para personalizar o atendimento.

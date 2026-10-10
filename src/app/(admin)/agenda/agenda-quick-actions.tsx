@@ -79,7 +79,7 @@ export function AgendaQuickActions({
           type="button"
           disabled={disabled}
           aria-label="Abrir ações rápidas da agenda"
-          className="app-fab fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(.75rem+var(--safe-right))] z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40 lg:static lg:z-auto lg:h-auto lg:w-auto lg:min-h-11 lg:gap-1.5 lg:rounded-lg lg:px-4 lg:py-2 lg:text-[13px] lg:font-semibold lg:shadow-none print:hidden"
+          className="app-fab fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(.75rem+var(--safe-right))] z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40 lg:static lg:z-auto lg:h-auto lg:w-auto lg:min-h-9 lg:gap-1.5 lg:rounded-[9px] lg:px-3.5 lg:py-0 lg:text-sm lg:font-semibold lg:shadow-none lg:hover:bg-primary/90 print:hidden"
         >
           <Plus aria-hidden="true" className="h-5 w-5 lg:h-4 lg:w-4" />
           <span className="sr-only lg:not-sr-only">Novo</span>
@@ -90,12 +90,12 @@ export function AgendaQuickActions({
         side="top"
         align="end"
         collisionPadding={16}
-        className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-xl p-2 shadow-xl"
+        className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border-strong p-1.5"
       >
-        <DropdownMenuLabel className="px-3 pb-2 pt-1">Criar na agenda</DropdownMenuLabel>
+        <DropdownMenuLabel className="px-2.5 pb-1.5 pt-1.5 text-xs font-semibold uppercase tracking-[.04em] text-muted-foreground">Criar na agenda</DropdownMenuLabel>
         {canCreateAppointment && (
-          <DropdownMenuItem onSelect={onNewAppointment} className="min-h-14 rounded-lg px-3 py-2">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+          <DropdownMenuItem onSelect={onNewAppointment} className="min-h-[52px] gap-2.5 rounded-lg px-2.5 py-2">
+            <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-muted text-foreground">
               <CalendarPlus aria-hidden="true" className="h-4 w-4" />
             </span>
             <span>
@@ -107,9 +107,9 @@ export function AgendaQuickActions({
         {canCreateAppointment && canManageAvailability && <DropdownMenuSeparator />}
         {canManageAvailability && (
           <>
-            {onWeeklyPause && <DropdownMenuItem onSelect={onWeeklyPause} className="min-h-11 rounded-lg px-3"><Coffee aria-hidden="true" className="h-4 w-4" />Pausa recorrente</DropdownMenuItem>}
-            <DropdownMenuItem onSelect={onNewBlock} className="min-h-14 rounded-lg px-3 py-2">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-warning/10 text-warning">
+            {onWeeklyPause && <DropdownMenuItem onSelect={onWeeklyPause} className="min-h-11 gap-2.5 rounded-lg px-2.5 py-1.5 font-medium"><span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-muted text-foreground"><Coffee aria-hidden="true" className="h-4 w-4" /></span>Pausa recorrente</DropdownMenuItem>}
+            <DropdownMenuItem onSelect={onNewBlock} className="min-h-[52px] gap-2.5 rounded-lg px-2.5 py-2">
+              <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-muted text-foreground">
                 <Ban aria-hidden="true" className="h-4 w-4" />
               </span>
               <span>
@@ -117,10 +117,10 @@ export function AgendaQuickActions({
                 <span className="block text-xs text-muted-foreground">Indisponibilize um intervalo desta data.</span>
               </span>
             </DropdownMenuItem>
-            {onSelectBlock && <DropdownMenuItem onSelect={onSelectBlock} className="min-h-11 rounded-lg px-3"><MousePointer2 aria-hidden="true" className="h-4 w-4" />Selecionar intervalo na grade</DropdownMenuItem>}
-            {onManageAvailability && <DropdownMenuItem onSelect={onManageAvailability} className="min-h-11 rounded-lg px-3"><Settings2 aria-hidden="true" className="h-4 w-4" />Expediente e bloqueios</DropdownMenuItem>}
-            <DropdownMenuItem onSelect={onNewDayOff} className="min-h-14 rounded-lg px-3 py-2">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+            {onSelectBlock && <DropdownMenuItem onSelect={onSelectBlock} className="min-h-11 gap-2.5 rounded-lg px-2.5 py-1.5 font-medium"><span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-muted text-foreground"><MousePointer2 aria-hidden="true" className="h-4 w-4" /></span>Selecionar intervalo na grade</DropdownMenuItem>}
+            {onManageAvailability && <DropdownMenuItem onSelect={onManageAvailability} className="min-h-11 gap-2.5 rounded-lg px-2.5 py-1.5 font-medium"><span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-muted text-foreground"><Settings2 aria-hidden="true" className="h-4 w-4" /></span>Expediente e bloqueios</DropdownMenuItem>}
+            <DropdownMenuItem onSelect={onNewDayOff} className="min-h-[52px] gap-2.5 rounded-lg px-2.5 py-2">
+              <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-muted text-foreground">
                 <CalendarOff aria-hidden="true" className="h-4 w-4" />
               </span>
               <span>

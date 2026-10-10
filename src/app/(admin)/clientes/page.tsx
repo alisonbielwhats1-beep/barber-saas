@@ -1,10 +1,8 @@
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getClientList } from "@/lib/crm";
-import { formatMoney } from "@/lib/utils";
-import { Users, Crown, Cake, Clock } from "lucide-react";
-import { PageHeader } from "@/components/page-header";
-import { ClientForm } from "./client-form";
+import { cn } from "@/lib/utils";
+import { Users, Crown, Cake, Clock, ChartPie, ChevronDown, type LucideIcon } from "lucide-react";
 import { ReturnOpportunities } from "./return-opportunities";
 import { ClientsCrm, type ClientSegment } from "./clients-crm";
 import { getMarketingSettings } from "@/lib/marketing-settings";
@@ -50,13 +48,10 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
   const lapsed = clients.filter((c) => c.isLapsed).length;
   const totalLtv = clients.reduce((s, c) => s + c.totalSpent, 0);
 
+  // The page's top element is the directory itself (no wrapper), so its sticky search spans the whole page.
   return (
-    <div className="min-w-0 space-y-3 md:space-y-6">
+    <>
       <AutoRefresh intervalMs={15_000} />
-      <PageHeader compact title="Clientes">
-        {role !== "PROFESSIONAL" && <ClientForm />}
-      </PageHeader>
-
       <ClientsCrm
         key={`${showExcluded ? "excluded" : "active"}-${initialSegment}`}
         clients={clients}
@@ -66,34 +61,73 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
         canDelete={role === "OWNER"}
         showExcluded={showExcluded}
         lapsedClientDays={marketingSettings.lapsedClientDays}
-        additionalTools={<div className="w-full space-y-3">      <details className="rounded-xl border border-border p-3">
-        <summary className="min-h-11 cursor-pointer py-3 text-sm">Indicadores da base de clientes</summary>
-        <section className="grid grid-cols-2 gap-3 pt-3 lg:grid-cols-4">
-          <Kpi icon={Users} accent="#3B9EFF" label="Base de clientes" value={clients.length.toString()} hint={`${formatMoney(totalLtv)} em LTV`} />
-          <Kpi icon={Crown} accent="#F4C430" label="Clientes VIP" value={vip.toString()} />
-          <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes do mês" value={birthday.toString()} />
-          <Kpi icon={Clock} accent="#EF4444" label={`Sumidos (${marketingSettings.lapsedClientDays}d+)`} value={lapsed.toString()} />
-        </section>
-      </details>
-      {!showExcluded && ["OWNER", "MANAGER"].includes(role) && <ReturnOpportunities />}</div>}
         initialSegment={initialSegment}
+        indicators={
+          <ClientIndicators
+            kpis={[
+              { icon: Users, tone: "selection", label: "Base de clientes", value: clients.length.toString(), hint: `${wholeMoney(totalLtv)} em LTV` },
+              { icon: Crown, tone: "selection", label: "Clientes VIP", value: vip.toString() },
+              { icon: Cake, tone: "neutral", label: "Aniversariantes do mês", value: birthday.toString() },
+              { icon: Clock, tone: "warning", label: `Sumidos (${marketingSettings.lapsedClientDays}d+)`, value: lapsed.toString() },
+            ]}
+            summary={`${clients.length} ${clients.length === 1 ? "cliente" : "clientes"} · ${vip} VIP · ${lapsed} ${lapsed === 1 ? "sumido" : "sumidos"}`}
+          />
+        }
+        returnOpportunities={!showExcluded && ["OWNER", "MANAGER"].includes(role) ? <ReturnOpportunities /> : null}
       />
-
-    </div>
+    </>
   );
 }
 
-function Kpi({ icon: Icon, accent, label, value, hint }: { icon: React.ComponentType<{ className?: string }>; accent: string; label: string; value: string; hint?: string }) {
+/** Indicators show whole reais, as in the prototype (lists of visits keep the cents). */
+function wholeMoney(cents: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(cents / 100);
+}
+
+type KpiTone = "selection" | "neutral" | "warning";
+type Kpi = { icon: LucideIcon; tone: KpiTone; label: string; value: string; hint?: string };
+const KPI_TONES: Record<KpiTone, string> = {
+  selection: "bg-[hsl(var(--selection))] text-[hsl(var(--selection-foreground))]",
+  neutral: "bg-muted text-muted-foreground",
+  warning: "bg-warning/15 text-warning",
+};
+
+/** Computer: one card split in four. Phone and tablet: a collapsed card that opens the four indicators. */
+function ClientIndicators({ kpis, summary }: { kpis: Kpi[]; summary: string }) {
+  // One wrapper element (not a fragment): a server component's fragment reaches the client list as an unkeyed array.
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 text-xs leading-snug text-muted-foreground">{label}</p>
-        {hint && <p className="mt-1 text-xs leading-snug text-muted-foreground">{hint}</p>}
+    <div>
+      <div role="group" aria-label="Indicadores da base de clientes" className="hidden rounded-[14px] border border-border bg-card lg:grid lg:grid-cols-4">
+        {kpis.map((kpi, index) => (
+          <div key={kpi.label} className={cn("flex min-w-0 flex-col gap-0.5 px-[18px] py-3", index > 0 && "border-l border-border")}>
+            <span className="text-xs text-muted-foreground">{kpi.label}</span>
+            <span className="text-lg font-semibold tabular-nums">{kpi.value}</span>
+            {kpi.hint && <span className="text-xs text-muted-foreground">{kpi.hint}</span>}
+          </div>
+        ))}
       </div>
+      <details className="group overflow-hidden rounded-[14px] border border-border bg-card lg:hidden">
+        <summary className="press-row flex min-h-[52px] cursor-pointer list-none items-center gap-3 px-3.5 py-2 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <span aria-hidden="true" className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] bg-muted text-foreground"><ChartPie className="h-4 w-4" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">Indicadores da base de clientes</span>
+            <span className="block truncate text-sm text-muted-foreground">{summary}</span>
+          </span>
+          <ChevronDown aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-2 gap-2.5 px-3.5 pb-3.5">
+          {kpis.map((kpi) => (
+            <div key={kpi.label} className="flex min-w-0 flex-col gap-2 rounded-[14px] border border-border bg-card p-3">
+              <span className="flex min-h-[34px] items-start justify-between gap-2 text-xs font-medium text-muted-foreground">
+                <span className="min-w-0">{kpi.label}</span>
+                <span aria-hidden="true" className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg", KPI_TONES[kpi.tone])}><kpi.icon className="h-4 w-4" /></span>
+              </span>
+              <span className="text-2xl font-semibold leading-none tabular-nums">{kpi.value}</span>
+              {kpi.hint && <span className="text-xs text-muted-foreground">{kpi.hint}</span>}
+            </div>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }

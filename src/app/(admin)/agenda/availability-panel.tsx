@@ -52,7 +52,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
   const [cancelReason, setCancelReason] = useState("");
   const [toCancel, setToCancel] = useState<string[]>([]);
   const [cancelResults, setCancelResults] = useState<{ id: string; success: boolean; error?: string }[]>([]);
-  const field = "mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm";
+  const field = "mt-1 min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm lg:min-h-10";
   function startTransition(action: () => Promise<void>) {
     if (submitting.current) return;
     submitting.current = true;
@@ -71,7 +71,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
     {!dialogOnly && <>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><p className="text-sm font-medium">Pausas e disponibilidade</p><a href="/configuracoes#jornadas" className="inline-flex min-h-11 items-center text-xs text-muted-foreground underline">Consultar expediente e jornadas</a></div>
-      <div className="flex flex-wrap gap-2"><WeeklyPausePanel professionals={professionals} /><button type="button" onClick={() => begin()} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium hover:bg-muted"><Ban size={16} /> Bloquear horário ou dia</button></div>
+      <div className="flex flex-wrap gap-2"><WeeklyPausePanel professionals={professionals} /><button type="button" onClick={() => begin()} className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-border-strong px-4 text-sm font-semibold transition-colors hover:bg-card-hover lg:min-h-9"><Ban size={16} /> Bloquear horário ou dia</button></div>
     </div>
     {blocks.length > 0 && <details><summary className="flex min-h-11 cursor-pointer items-center text-xs">Ver {blocks.length} bloqueio(s) do período</summary><ul className="mt-2 divide-y divide-border">{blocks.map(block => <li key={block.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
       <span><strong>{professionals.find(p => p.id === block.professionalId)?.name}</strong> · {formatInTimeZone(new Date(block.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(block.endAt), timezone, "dd/MM HH:mm")} · {block.reason || "Indisponível"}</span>
@@ -91,7 +91,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
           {affected.map(a => <label key={a.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" disabled={cancelResults.some(r => r.id === a.id && r.success)} checked={toCancel.includes(a.id)} onChange={e => setToCancel(e.target.checked ? [...toCancel, a.id] : toCancel.filter(id => id !== a.id))} />{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</label>)}
           <p className="text-xs text-muted-foreground">{cancelReason.trim() ? `Motivo: ${cancelReason.trim()}. ` : ""}O histórico será preservado e a fila não será promovida automaticamente.</p>
           <label className="block text-sm">Motivo do cancelamento (opcional)<input maxLength={200} value={cancelReason} onChange={e => setCancelReason(e.target.value)} className={field} /></label>
-          <button type="button" disabled={!toCancel.length || pending} className="min-h-11 rounded-lg bg-danger px-3 text-sm text-white disabled:opacity-50" onClick={() => {
+          <button type="button" disabled={!toCancel.length || pending} className="min-h-11 rounded-[10px] bg-destructive px-3 text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50 lg:min-h-10" onClick={() => {
             if (!window.confirm(`Cancelar ${toCancel.length} reserva(s) selecionada(s)?${cancelReason.trim() ? ` Motivo: ${cancelReason.trim()}` : ""}`)) return;
             startTransition(async () => {
               try {
@@ -103,7 +103,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
           {cancelResults.map(r => <p role="status" key={r.id} className="text-sm">{affected.find(a => a.id === r.id)?.name}: {r.success ? "cancelado" : r.error}</p>)}
         </fieldset>}
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-        <button className="min-h-11 rounded-lg bg-primary px-4 text-primary-foreground" onClick={() => setOpen(false)}>Concluir</button>
+        <button className="min-h-11 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 lg:min-h-10" onClick={() => setOpen(false)}>Concluir</button>
       </div> : <form className="space-y-4" onChange={() => setPreview(null)} onSubmit={event => {
         event.preventDefault(); setError(""); startTransition(async () => {
           try {
@@ -121,7 +121,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
       }}>
         <fieldset disabled={pending} className="space-y-3"><legend className="mb-2 text-sm font-medium">Profissionais</legend>
           {professionals.map(p => <label key={p.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(p.id)} onChange={e => setSelected(e.target.checked ? [...selected, p.id] : selected.filter(id => id !== p.id))} />{p.name}</label>)}
-          <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setPreview(null); setStart(`${date}T00:00`); setEnd(`${addCalendarDays(date, 1)}T00:00`); }}>Dia inteiro</button>
+          <button type="button" className="min-h-11 rounded-[10px] border border-border-strong px-3 text-sm font-medium transition-colors hover:bg-card-hover lg:min-h-9" onClick={() => { setPreview(null); setStart(`${date}T00:00`); setEnd(`${addCalendarDays(date, 1)}T00:00`); }}>Dia inteiro</button>
           <BlockDateTime label="Início" value={start} onChange={setStart} className={field} />
           <BlockDateTime label="Fim" value={end} onChange={setEnd} className={field} />
           <p className="text-xs text-muted-foreground">Escolha qualquer minuto, inclusive fora do expediente. Para terminar à meia-noite, use 00:00 do dia seguinte. Reservas existentes são mantidas.</p>
@@ -133,7 +133,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
         {preview !== null && <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">{summary && <p className="mb-2">{summary.occurrences} período(s) por profissional · {formatInTimeZone(new Date(summary.first), timezone, "dd/MM HH:mm")} até {formatInTimeZone(new Date(summary.last), timezone, "dd/MM HH:mm")}</p>}<strong>{preview.length} reserva(s) no intervalo</strong><ul>{preview.map(a => <li key={a.id}>{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</li>)}</ul><p className="mt-2 text-xs text-muted-foreground">Estas reservas serão mantidas. A lista será atualizada ao confirmar.</p></div>}
         <p className="text-xs text-muted-foreground">Horários no fuso {timezone}. Reservas existentes serão preservadas e listadas após o bloqueio.</p>
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-        <button disabled={pending || !selected.length} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 size={16} className="animate-spin" />}{preview === null ? "Revisar bloqueio" : "Confirmar bloqueio"}</button>
+        <button disabled={pending || !selected.length} className="inline-flex min-h-11 items-center gap-2 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 lg:min-h-10">{pending && <Loader2 size={16} className="animate-spin" />}{preview === null ? "Revisar bloqueio" : "Confirmar bloqueio"}</button>
       </form>}
     </DialogContent></Dialog>
   </section>;

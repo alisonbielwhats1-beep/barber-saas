@@ -7,45 +7,67 @@ vi.mock("@/components/brand", () => ({
   BrandLogo: () => <span>Everflare</span>,
   BrandMark: () => <span>EF</span>,
 }));
-vi.mock("./theme-toggle", () => ({ ThemeToggle: () => <button type="button">Tema</button> }));
+vi.mock("next-auth/react", () => ({ useSession: () => ({ data: { user: { name: "Marina Souza" } } }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/agenda" }));
 vi.mock("./salon-switcher", () => ({ SalonSwitcher: () => <div>Salão</div> }));
-vi.mock("./command-palette", () => ({ OpenCommandPaletteButton: () => <button type="button">Buscar</button> }));
+vi.mock("./command-palette", () => ({ requestCommandPaletteOpen: vi.fn() }));
 vi.mock("./sidebar-footer", () => ({ SidebarFooter: ({ compact }: { compact: boolean }) => <div data-testid="footer">{String(compact)}</div> }));
-vi.mock("./sidebar-nav", () => ({
+vi.mock("./sidebar-nav", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./sidebar-nav")>()),
   SidebarNav: () => <nav aria-label="Navegação principal" />,
 }));
 
-import { AdminSidebar } from "./admin-sidebar";
+import { AdminFrame, DesktopTopBar } from "./admin-sidebar";
 
 afterEach(cleanup);
 
-function renderSidebar() {
-  render(<AdminSidebar current={{ id: "salon-1", name: "Studio", role: "OWNER" }} memberships={[]} role="OWNER" plan="Pro" unreadNotifications={0} isPlatformAdmin={false} />);
+function renderFrame(defaultOpen?: boolean) {
+  render(
+    <AdminFrame defaultOpen={defaultOpen} current={{ id: "salon-1", name: "Studio", role: "OWNER" }} memberships={[]} role="OWNER" plan="Pro" unreadNotifications={2} isPlatformAdmin={false}>
+      <DesktopTopBar unreadNotifications={2} plan={{ plan: "Essencial", status: null, tone: "neutral", href: "/assinatura" }} />
+    </AdminFrame>,
+  );
   return screen.getByRole("complementary", { name: "Menu do estabelecimento" });
 }
 
-describe("AdminSidebar", () => {
-  it("entra recolhida e permite expansão explícita", () => {
-    const sidebar = renderSidebar();
-    expect(sidebar).toHaveAttribute("data-collapsed", "true");
-    expect(sidebar).toHaveAttribute("data-variant", "floating");
-    expect(screen.getByTestId("footer")).toHaveTextContent("true");
-
-    fireEvent.click(screen.getByRole("button", { name: "Expandir menu" }));
+describe("AdminFrame", () => {
+  it("entra aberta, como no protótipo, e recolhe pelo botão do topo guardando a escolha", () => {
+    const sidebar = renderFrame();
     expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    expect(sidebar).toHaveAttribute("data-variant", "sidebar");
     expect(screen.getByTestId("footer")).toHaveTextContent("false");
-    expect(screen.getByRole("button", { name: "Recolher menu" })).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Recolher menu" }));
+    expect(sidebar).toHaveAttribute("data-collapsed", "true");
+    expect(screen.getByTestId("footer")).toHaveTextContent("true");
+    expect(screen.getByRole("button", { name: "Expandir menu" })).toHaveAttribute("aria-expanded", "false");
+    expect(document.cookie).toContain("admin-sidebar=collapsed");
+  });
+
+  it("respeita a preferência recolhida vinda do servidor", () => {
+    const sidebar = renderFrame(false);
+    expect(sidebar).toHaveAttribute("data-collapsed", "true");
   });
 
   it("alterna com Ctrl+B, exceto enquanto se digita", () => {
-    const sidebar = renderSidebar();
+    const sidebar = renderFrame();
     fireEvent.keyDown(window, { key: "b", ctrlKey: true });
-    expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    expect(sidebar).toHaveAttribute("data-collapsed", "true");
 
     const input = document.createElement("input");
     document.body.append(input);
     fireEvent.keyDown(input, { key: "b", ctrlKey: true });
-    expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    expect(sidebar).toHaveAttribute("data-collapsed", "true");
     input.remove();
+  });
+
+  it("topo mostra título da tela, plano, busca, notificações e a pessoa", () => {
+    renderFrame();
+    const bar = screen.getByRole("banner", { name: "Barra do painel" });
+    expect(bar).toHaveTextContent("Agenda");
+    expect(screen.getByRole("link", { name: "Plano atual: Essencial. Alterar plano" })).toHaveAttribute("href", "/assinatura");
+    expect(screen.getByRole("button", { name: /^Buscar/ })).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("link", { name: "Notificações, 2 não lidas" })).toHaveAttribute("href", "/notificacoes");
+    expect(screen.getByRole("img", { name: "Marina Souza" })).toHaveTextContent("MS");
   });
 });

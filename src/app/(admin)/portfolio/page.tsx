@@ -1,6 +1,5 @@
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
-import { Card } from "@/components/ui/card";
 import { PortfolioForm } from "./portfolio-form";
 import { DeleteButton } from "./delete-button";
 import { ImageOff } from "lucide-react";
@@ -50,13 +49,13 @@ export default async function PortfolioPage() {
       : undefined;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Galeria
+    <div className="flex min-w-0 flex-col gap-3.5 lg:gap-4">
+      <div className="flex flex-col items-start gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold leading-tight tracking-tight lg:text-2xl">Portfólio</h1>
+          <p className="mt-1 hidden text-sm text-muted-foreground lg:block">
+            {lockedProfessional ? "Suas fotos publicadas no app do cliente" : "Galeria de trabalhos"}
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">Portfólio</h1>
         </div>
         {(canManage || lockedProfessional) && (
           <PortfolioForm
@@ -64,11 +63,11 @@ export default async function PortfolioPage() {
             lockedProfessional={lockedProfessional}
           />
         )}
-      </header>
+      </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-4 lg:gap-3.5">
         {items.map((it) => (
-          <Card key={it.id} className="group relative overflow-hidden">
+          <article key={it.id} className="relative min-w-0 overflow-hidden rounded-[14px] border border-border bg-card">
             <div className="relative aspect-square w-full bg-muted">
               {it.imageUrl ? <ImageWithFallback
                 src={it.imageUrl}
@@ -79,23 +78,21 @@ export default async function PortfolioPage() {
                 className="object-cover"
               /> : <MissingImage />}
             </div>
-            <div className="flex items-center justify-between gap-2 p-3">
-              <div className="min-w-0 text-xs text-foreground">
-                {it.caption && <p className="line-clamp-2 font-medium">{it.caption}</p>}
-                {it.professional && (
-                  <p className="opacity-70">por {it.professional.user.name}</p>
-                )}
-              </div>
-              {canManage && <DeleteButton id={it.id} />}
+            {canManage && <div className="absolute right-2 top-2 z-[1]"><DeleteButton id={it.id} /></div>}
+            <div className="min-h-[58px] px-3 py-2.5 text-sm">
+              {it.caption && <p className="line-clamp-3 break-words font-medium leading-snug">{it.caption}</p>}
+              {it.professional && (
+                <p className={`text-xs text-muted-foreground ${it.caption ? "mt-0.5" : ""}`}>por {it.professional.user.name}</p>
+              )}
             </div>
-          </Card>
+          </article>
         ))}
         {items.length === 0 && (
-          <Card className="col-span-full p-12 text-center text-[13px] text-muted-foreground">
+          <div className="col-span-full rounded-[14px] border border-border bg-card p-10 text-center text-sm text-muted-foreground">
             {role === "PROFESSIONAL" && !ownProfessional
               ? "Seu usuário ainda não possui um perfil profissional ativo neste estabelecimento."
               : "Nenhuma foto ainda. Adicione a primeira e o portfolio aparece no app."}
-          </Card>
+          </div>
         )}
       </div>
     </div>

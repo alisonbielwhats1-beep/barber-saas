@@ -20,7 +20,7 @@ export function PlanChangeReview({ quote, timezone, busy, error, onConfirm, onCl
     <DialogContent className="max-w-xl">
       <DialogHeader><DialogTitle>Revisar troca de plano</DialogTitle><DialogDescription>Confira os valores e quando a mudança entra em vigor.</DialogDescription></DialogHeader>
       {quote && <div className="space-y-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-border bg-surface-1 p-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-border bg-background px-3.5 py-3">
           <div className="min-w-0"><p className="text-xs text-muted-foreground">Atual</p><p className="font-medium">{billingCapacityLabel(quote.from.plan, quote.from.agendaLimit)}</p><p className="text-xs text-muted-foreground">{billingMoney(quote.from.amountCents)} {perCycle(quote.from.cycle)}</p></div>
           <ArrowRight aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
           <div className="min-w-0"><p className="text-xs text-muted-foreground">Novo</p><p className="font-semibold">{billingCapacityLabel(quote.to.plan, quote.to.agendaLimit)}</p><p className="text-xs text-muted-foreground">{billingMoney(quote.to.amountCents)} {perCycle(quote.to.cycle)}</p></div>

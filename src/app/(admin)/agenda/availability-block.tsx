@@ -56,13 +56,15 @@ export function AvailabilityBlockTrigger({
   className?: string;
   style?: CSSProperties;
 }) {
-  if (block.kind === "OFFER") return <div className={`overflow-hidden rounded-lg border border-dashed border-primary/50 bg-primary/10 px-2 py-1 text-xs ${className}`} style={style} role="note" aria-label={`Oferta da fila para ${professionalName}, ${dateTimeRange(block, timezone)}`}><strong>Oferta da fila</strong><span className="block">{timeRange(block, timezone)}</span><span className="block">{block.reason}</span></div>;
+  // Same card as a pause on the grid (prototype ".pause"): hatched, thin outline, title on top.
+  if (block.kind === "OFFER") return <div className={`overflow-hidden rounded-[7px] border border-dashed border-border-strong bg-[hsl(var(--selection))] px-2 py-1 text-xs leading-snug text-muted-foreground ${className}`} style={style} role="note" aria-label={`Oferta da fila para ${professionalName}, ${dateTimeRange(block, timezone)}`}><strong className="block truncate font-medium text-foreground">Oferta da fila</strong><span className="block truncate tabular-nums">{timeRange(block, timezone)}</span><span className="block truncate">{block.reason}</span></div>;
   const reason = block.reason || "Indisponível";
-  const content = <>Bloqueado · {reason}</>;
-  const sharedClassName = `overflow-hidden border-y border-border bg-muted/80 text-left text-muted-foreground ${className}`;
+  const content = <><span className="block truncate font-medium text-foreground">Bloqueado</span><span className="block truncate">{reason}</span></>;
+  const sharedClassName = `overflow-hidden rounded-[7px] border border-border-strong px-2 py-1 text-left text-xs leading-snug text-muted-foreground ${className}`;
   const sharedStyle = {
     ...style,
-    backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)",
+    backgroundColor: "hsl(var(--card))",
+    backgroundImage: "repeating-linear-gradient(135deg, hsl(var(--foreground) / .05) 0 6px, transparent 6px 12px)",
   };
 
   if (!onOpen) {
@@ -86,7 +88,7 @@ export function AvailabilityBlockTrigger({
         event.stopPropagation();
         onOpen(block);
       }}
-      className={`pointer-events-auto cursor-pointer transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${sharedClassName}`}
+      className={`pointer-events-auto cursor-pointer transition-[filter] hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${sharedClassName}`}
       style={sharedStyle}
     >
       {content}
@@ -185,16 +187,16 @@ export function AvailabilityBlockDialog({
           <p className="text-sm">{professionalName} · Alterar somente este bloqueio</p>
           <p className="text-xs text-muted-foreground">Atual: {dateTimeRange(block, timezone)}. As outras ocorrências e todas as reservas serão mantidas.</p>
           <fieldset disabled={pending} className="space-y-3">
-            <BlockDateTime label="Início" value={editStart} onChange={setEditStart} className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
-            <BlockDateTime label="Fim" value={editEnd} onChange={setEditEnd} className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
-            <label className="block text-sm">Motivo (opcional)<input maxLength={200} value={editReason} onChange={event => setEditReason(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" /></label>
+            <BlockDateTime label="Início" value={editStart} onChange={setEditStart} className="mt-1 min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm lg:min-h-10" />
+            <BlockDateTime label="Fim" value={editEnd} onChange={setEditEnd} className="mt-1 min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm lg:min-h-10" />
+            <label className="block text-sm">Motivo (opcional)<input maxLength={200} value={editReason} onChange={event => setEditReason(event.target.value)} className="mt-1 min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm lg:min-h-10" /></label>
           </fieldset>
           <p className="text-xs text-muted-foreground">Pode incluir horários fora do expediente. Meia-noite corresponde a 00:00 do dia seguinte. Fuso: {timezone}.</p>
           {error && <p role="alert" className="text-sm text-danger">{error}</p>}
           <DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={() => setStep("details")}>Voltar</Button><Button disabled={pending}>{pending ? "Salvando…" : "Salvar bloqueio"}</Button></DialogFooter>
         </form> : step === "updated" ? <div className="space-y-4"><p role="status">Bloqueio atualizado. Reservas preservadas e alteração registrada.</p><Button onClick={() => changeOpen(false)}>Concluir</Button></div> : step === "reopened" ? (
           <div className="space-y-4">
-            <div role="status" className="rounded-xl border border-primary/30 bg-primary/10 p-4">
+            <div role="status" className="rounded-xl border border-success/30 bg-success/10 p-4">
               <p className="font-semibold text-foreground">Horário reaberto</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 A disponibilidade foi atualizada e a alteração ficou registrada.
@@ -214,9 +216,9 @@ export function AvailabilityBlockDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-muted/40 p-4">
+            <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-2 text-sm font-semibold">
-                <Ban className="h-4 w-4 text-danger" aria-hidden="true" />
+                <Ban className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 {reason}
               </p>
               <dl className="mt-3 grid gap-2 text-sm">
@@ -261,7 +263,7 @@ export function AvailabilityBlockDialog({
                   {onSchedule && <Button type="button" onClick={scheduleNow}>
                     Agendar mantendo bloqueio
                   </Button>}
-                  <Button type="button" variant="destructive" onClick={() => setStep("confirm")}>
+                  <Button type="button" variant="outline" onClick={() => setStep("confirm")} className="border-danger/40 text-danger hover:bg-danger/10">
                     Reabrir horário
                   </Button>
                 </>

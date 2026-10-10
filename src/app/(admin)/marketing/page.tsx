@@ -3,16 +3,22 @@ import { formatInTimeZone } from "date-fns-tz";
 import {
   ArrowRight,
   Cake,
+  ChevronDown,
   Clock,
   Copy,
   Crown,
   History,
   Megaphone,
   MessageCircle,
+  SlidersHorizontal,
   Sparkles,
   Star,
   UserPlus,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { getClientList } from "@/lib/crm";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { getPublicBookingUrl } from "@/lib/public-booking-url";
@@ -25,6 +31,16 @@ import { canUsePlanFeature } from "@/lib/plan-entitlements";
 import { PlanUpgradeAction } from "@/components/plan-upgrade-action";
 import { MarketingCampaigns } from "./marketing-campaigns";
 import { MarketingSettingsForm } from "./marketing-settings-form";
+
+/** Names shown in the history; the record keeps only the campaign key. */
+const CAMPAIGN_TITLES: Record<string, string> = {
+  all: "Todos os clientes",
+  lapsed: "Lembrete de sumidos",
+  birthday: "Aniversariantes do mês",
+  review: "Pedir avaliação",
+  referral: "Programa de indicação",
+  vip: "Novidades para VIPs",
+};
 
 export default async function MarketingPage() {
   const ctx = await requireRole(MARKETING_ROLES);
@@ -79,25 +95,49 @@ export default async function MarketingPage() {
   const marketingEnabled = canUsePlanFeature(plan, "MARKETING");
 
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Crescimento</p>
-        <h1 className="text-[26px] font-semibold tracking-tight">Marketing</h1>
-        <p className="mt-1 max-w-2xl text-[12px] text-muted-foreground">Transforme sua base atual em retorno, avaliações e indicações — com mensagens pessoais, sem disparo automático.</p>
-      </header>
+    <div className="space-y-4 lg:space-y-6">
+      <div>
+        <PageHeader title="Marketing" />
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Transforme sua base atual em retorno, avaliações e indicações — com mensagens pessoais, sem disparo automático.</p>
+      </div>
 
       {!marketingEnabled && (
-        <section className="flex items-start gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
-          <Crown className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <section className="flex items-start gap-2.5 rounded-xl border border-border-strong bg-card px-3.5 py-3">
+          <Crown aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div>
-            <p className="text-[12px] font-semibold">Marketing fica disponível nos planos pagos</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            <p className="text-sm font-semibold">Marketing fica disponível nos planos pagos</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               Você continua vendo sua base e histórico. Ao contratar um plano pago, poderá preparar campanhas e abrir mensagens pelo WhatsApp.
             </p>
-            <PlanUpgradeAction role={ctx.role} className="text-[12px]" />
+            <PlanUpgradeAction role={ctx.role} className="text-sm" />
           </div>
         </section>
       )}
+
+      <section aria-label="Indicadores de marketing" className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+        <Kpi icon={Cake} tone="brand" label="Aniversariantes" value={birthdays.length.toString()} className="col-span-2 lg:col-span-1" />
+        <Kpi icon={Clock} tone="warning" label={`Sumidos · ${settings.lapsedClientDays}d+`} value={lapsed.length.toString()} />
+        <Kpi icon={Crown} tone="brand" label="VIPs" value={vips.length.toString()} />
+      </section>
+
+      <section aria-label="Foco da semana" className="space-y-3 rounded-[14px] border border-border bg-card p-4">
+        <span className="inline-flex min-h-[22px] items-center gap-1.5 rounded-full bg-muted px-2.5 text-xs font-medium text-muted-foreground">
+          <Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Foco da semana
+        </span>
+        <h2 className="max-w-2xl text-base font-semibold leading-snug tracking-[-0.01em]">
+          {lapsed.length > 0 ? <>Reative {lapsed.length} {lapsed.length === 1 ? "cliente que já conhece" : "clientes que já conhecem"} seu trabalho.</> : "Nenhum cliente precisa de resgate agora."}
+        </h2>
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          {lapsed.length > 0 ? <>Eles estão há pelo menos {settings.lapsedClientDays} dias sem voltar. Se cada um repetir uma visita no ticket médio anterior, a oportunidade estimada é de <strong className="whitespace-nowrap font-semibold text-foreground tabular-nums">{formatMoney(estimatedReturn)}</strong>.</> : <>Não há clientes na faixa de {settings.lapsedClientDays} dias sem retorno. Confira as campanhas de aniversário, avaliações e indicações.</>}
+        </p>
+        <a href="#campanhas" className={buttonVariants()}>
+          {lapsed.length > 0 ? "Preparar resgate" : "Ver campanhas"} <ArrowRight aria-hidden="true" className="h-4 w-4" />
+        </a>
+        <div className="grid gap-2.5 border-t border-border pt-3 sm:grid-cols-2 sm:gap-[18px]">
+          <GrowthIdea icon={Star} title="Reputação local" text={settings.googleReviewUrl ? `${attended.length} clientes atendidos podem receber seu link do Google.` : "Cadastre o link do Google para pedir avaliações depois do atendimento."} />
+          <GrowthIdea icon={UserPlus} title="Indicação" text={`${vips.length} clientes VIP podem compartilhar seu link de agendamento com amigos.`} />
+        </div>
+      </section>
 
       <div id="campanhas" className="scroll-mt-4">
         <MarketingCampaigns
@@ -114,83 +154,61 @@ export default async function MarketingPage() {
         />
       </div>
 
-      <details className="admin-detail-section"><summary>Indicadores, orientações e configurações</summary><div className="space-y-4 py-4">
-      <section className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
-        <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes" value={birthdays.length.toString()} />
-        <Kpi icon={Clock} accent="#EF4444" label={`Sumidos · ${settings.lapsedClientDays}d+`} value={lapsed.length.toString()} />
-        <Kpi icon={Crown} accent="#F4C430" label="VIPs" value={vips.length.toString()} />
-      </section>
+      <details className="group space-y-4">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2.5 rounded-[14px] border border-border bg-card px-3.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-10 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2.5"><SlidersHorizontal aria-hidden="true" className="h-4 w-4 text-muted-foreground" />Regras e orientações</span>
+          <ChevronDown aria-hidden="true" className="h-[18px] w-[18px] text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="space-y-4">
+          {ctx.role === "OWNER" ? (
+            <MarketingSettingsForm
+              lapsedClientDays={settings.lapsedClientDays}
+              googleReviewUrl={settings.googleReviewUrl}
+              disabled={!marketingEnabled}
+            />
+          ) : (
+            <div className="rounded-xl border border-border-strong bg-card px-3.5 py-3 text-sm text-muted-foreground">
+              O dono definiu clientes sumidos após <strong className="font-semibold text-foreground">{settings.lapsedClientDays} dias</strong>.
+            </div>
+          )}
 
-      <section className="overflow-hidden rounded-3xl border border-primary/25 bg-card">
-        <div className="grid lg:grid-cols-[1.45fr_1fr]">
-          <div className="border-b border-border p-5 sm:p-7 lg:border-b-0 lg:border-r">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
-              <Sparkles className="h-3.5 w-3.5" /> Foco da semana
-            </span>
-            <h2 className="mt-4 max-w-xl text-xl font-semibold tracking-tight sm:text-2xl">
-              {lapsed.length > 0 ? <>Reative {lapsed.length} {lapsed.length === 1 ? "cliente que já conhece" : "clientes que já conhecem"} seu trabalho.</> : "Nenhum cliente precisa de resgate agora."}
-            </h2>
-            <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-muted-foreground">
-              {lapsed.length > 0 ? <>Eles estão há pelo menos {settings.lapsedClientDays} dias sem voltar. Se cada um repetir uma visita no ticket médio anterior, a oportunidade estimada é de <strong className="text-foreground">{formatMoney(estimatedReturn)}</strong>.</> : <>Não há clientes na faixa de {settings.lapsedClientDays} dias sem retorno. Confira as campanhas de aniversário, avaliações e indicações.</>}
-            </p>
-            <a href="#campanhas" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground">
-              {lapsed.length > 0 ? "Preparar resgate" : "Ver campanhas"} <ArrowRight className="h-4 w-4" />
-            </a>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-1">
-            <GrowthIdea icon={Star} title="Reputação local" text={settings.googleReviewUrl ? `${attended.length} clientes atendidos podem receber seu link do Google.` : "Cadastre o link do Google para pedir avaliações depois do atendimento."} />
-            <GrowthIdea icon={UserPlus} title="Indicação" text={`${vips.length} clientes VIP podem compartilhar seu link de agendamento com amigos.`} divider />
+          <div className="flex items-start gap-2.5 rounded-xl border border-border-strong bg-card px-3.5 py-3">
+            <Megaphone aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <p className="text-sm leading-relaxed text-muted-foreground">Escolha uma campanha, revise a mensagem e abra o WhatsApp do destinatário. O sistema registra a preparação para você acompanhar a execução.</p>
           </div>
         </div>
-      </section>
+      </details>
 
-      {ctx.role === "OWNER" ? (
-        <MarketingSettingsForm
-          lapsedClientDays={settings.lapsedClientDays}
-          googleReviewUrl={settings.googleReviewUrl}
-          disabled={!marketingEnabled}
-        />
-      ) : (
-        <div className="rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
-          O dono definiu clientes sumidos após <strong className="text-foreground">{settings.lapsedClientDays} dias</strong>.
-        </div>
-      )}
-
-      <div className="flex items-start gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-        <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <p className="text-[12px] text-muted-foreground">Escolha uma campanha, revise a mensagem e abra o WhatsApp do destinatário. O sistema registra a preparação para você acompanhar a execução.</p>
-      </div>
-
-
-      </div></details>
-
-      <section className="overflow-hidden rounded-2xl border border-border bg-card">
-        <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <section aria-labelledby="marketing-history-title" className="overflow-hidden rounded-[14px] border border-border bg-card">
+        <div className={cn("space-y-2.5 px-4 py-3.5", history.length > 0 && "border-b border-border")}>
           <div>
-            <h2 className="flex items-center gap-2 text-[14px] font-semibold"><History className="h-4 w-4 text-primary" /> Histórico de campanhas</h2>
+            <h2 id="marketing-history-title" className="flex items-center gap-2 text-sm font-semibold"><History aria-hidden="true" className="h-4 w-4 text-muted-foreground" /> Histórico de campanhas</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">Registra a preparação manual; não afirma que a mensagem foi entregue pelo WhatsApp.</p>
           </div>
-          <div className="flex gap-2 text-xs">
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">{summary.uniqueClients} clientes</span>
-            <span className="rounded-full bg-surface-1 px-2.5 py-1 text-muted-foreground">{summary.openedWhatsApp} aberturas</span>
-            <span className="rounded-full bg-surface-1 px-2.5 py-1 text-muted-foreground">{summary.copied} cópias</span>
+          <div className="flex flex-wrap gap-1.5 text-xs tabular-nums">
+            <span className="inline-flex min-h-[22px] items-center rounded-full bg-muted px-2.5 font-medium text-foreground">{summary.uniqueClients} clientes</span>
+            <span className="inline-flex min-h-[22px] items-center rounded-full bg-muted px-2.5 font-medium text-muted-foreground">{summary.openedWhatsApp} aberturas</span>
+            <span className="inline-flex min-h-[22px] items-center rounded-full bg-muted px-2.5 font-medium text-muted-foreground">{summary.copied} cópias</span>
           </div>
         </div>
         {history.length === 0 ? (
-          <p className="p-8 text-center text-[12px] text-muted-foreground">O histórico aparecerá depois da primeira interação.</p>
+          <p className="p-7 text-center text-sm text-muted-foreground">O histórico aparecerá depois da primeira interação.</p>
         ) : history.slice(0, 12).map((item) => {
           const metadata = item.metadata as Record<string, unknown> | null;
           const opened = metadata?.status === "OPENED";
+          const campaignKey = String(metadata?.campaignKey ?? "campanha");
+          const when = formatInTimeZone(item.createdAt, salon?.timezone ?? "America/Sao_Paulo", "dd/MM · HH:mm");
           return (
-            <div key={item.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5">
-              <span className={`grid h-8 w-8 place-items-center rounded-lg ${opened ? "bg-[#25D366]/10 text-[#25D366]" : "bg-primary/10 text-primary"}`}>
+            <div key={item.id} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-0">
+              <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-muted text-foreground">
                 {opened ? <MessageCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[12px] font-medium">{String(metadata?.clientName ?? "Cliente")}</p>
-                <p className="text-xs text-muted-foreground">{String(metadata?.campaignKey ?? "campanha")} · por {item.actorName}</p>
+                <p className="text-sm font-medium [overflow-wrap:anywhere]">{String(metadata?.clientName ?? "Cliente")}</p>
+                <p className="text-xs text-muted-foreground">{CAMPAIGN_TITLES[campaignKey] ?? campaignKey} · por {item.actorName}</p>
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground sm:hidden">{when}</p>
               </div>
-              <p className="text-xs text-muted-foreground">{formatInTimeZone(item.createdAt, salon?.timezone ?? "America/Sao_Paulo", "dd/MM · HH:mm")}</p>
+              <p className="hidden shrink-0 text-xs tabular-nums text-muted-foreground sm:block">{when}</p>
             </div>
           );
         })}
@@ -199,21 +217,32 @@ export default async function MarketingPage() {
   );
 }
 
-function Kpi({ icon: Icon, accent, label, value }: { icon: React.ComponentType<{ className?: string }>; accent: string; label: string; value: string }) {
+const KPI_TONE = {
+  brand: "bg-info/15 text-info",
+  warning: "bg-warning/15 text-warning",
+  neutral: "bg-muted text-muted-foreground",
+} as const;
+
+function Kpi({ icon: Icon, tone, label, value, className }: { icon: LucideIcon; tone: keyof typeof KPI_TONE; label: string; value: string; className?: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}><Icon className="h-4 w-4" /></span>
-      <div className="min-w-0"><p className="text-lg font-semibold leading-none tracking-tight">{value}</p><p className="mt-1 text-xs leading-snug text-muted-foreground">{label}</p></div>
+    <div className={cn("flex min-h-24 flex-col gap-1.5 rounded-[14px] border border-border bg-card px-3.5 py-3 lg:gap-2 lg:p-4", className)}>
+      <p className="flex items-start justify-between gap-1.5 text-xs font-medium leading-snug text-muted-foreground">
+        {label}
+        <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg", KPI_TONE[tone])}><Icon aria-hidden="true" className="h-4 w-4" /></span>
+      </p>
+      <p className="mt-auto whitespace-nowrap text-2xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
 
-function GrowthIdea({ icon: Icon, title, text, divider = false }: { icon: React.ComponentType<{ className?: string }>; title: string; text: string; divider?: boolean }) {
+function GrowthIdea({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
   return (
-    <div className={`p-5 ${divider ? "border-t border-border sm:border-l sm:border-t-0 lg:border-l-0 lg:border-t" : ""}`}>
-      <Icon className="h-5 w-5 text-primary" />
-      <p className="mt-3 text-[13px] font-semibold">{title}</p>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{text}</p>
+    <div className="flex items-start gap-3">
+      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] bg-muted text-foreground"><Icon aria-hidden="true" className="h-4 w-4" /></span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="mt-0.5 block text-sm leading-snug text-muted-foreground">{text}</span>
+      </span>
     </div>
   );
 }

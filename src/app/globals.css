@@ -104,8 +104,9 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     /* Situação: verde = deu certo, âmbar = espera ação, vermelho = problema; "em andamento" em lilás. */
     --success: 131 44% 57%;           /* #62C073 */
     --info: 256 80% 85%;              /* #C9B8F7 */
-    --warning: 36 80% 57%;            /* #E9A23B */
-    --danger: 358 75% 59%;            /* #E5484D */
+    /* Texto de situação no tom claro do protótipo (contraste AA também sobre o fundo suave da cor). */
+    --warning: 38 85% 64%;            /* #F2B856 */
+    --danger: 359 100% 69%;           /* #FF6166 */
     --marketing: 256 74% 78%;
     --destructive: 358 66% 48%;
     --destructive-foreground: 0 0% 100%;
@@ -403,9 +404,10 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     background: hsl(var(--background));
   }
 
+  /* Menu lateral no padrão do protótipo: painel colado à esquerda, separado só pelo contorno. */
   [data-theme="admin-dark"] .admin-sidebar {
-    background: hsl(var(--surface-1));
-    box-shadow: 0 12px 32px -16px rgb(0 0 0 / 0.6);
+    background: hsl(var(--card));
+    box-shadow: none;
   }
 
   /* Clean light canvas: depth separates panels instead of dark outlines. */
@@ -416,7 +418,7 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
 
   [data-theme="admin-light"] .admin-sidebar {
     background: hsl(var(--card));
-    box-shadow: 0 12px 32px -18px rgb(22 34 52 / 0.28);
+    box-shadow: none;
   }
 
   [data-theme="admin-light"] .admin-main :where(

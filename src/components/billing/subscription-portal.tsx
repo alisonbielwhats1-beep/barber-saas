@@ -229,15 +229,15 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
   // Retention: before cancelling, show a cheaper plan when one still fits the team (it applies at renewal).
   const smallerPlanFits = Boolean(changeEligible && terms && Object.values(BILLING_PLANS).some(plan => plan.agendas < terms.agendaLimit && plan.agendas >= occupiedAgendas));
 
-  return <div className="space-y-8">
+  return <div className="space-y-6">
     {foreignHost && billingOrigin && <Notice tone="warn" title="Abra o endereço oficial para pagar ou trocar de plano"
       actions={<a href={`${billingOrigin}/assinatura`} className="font-semibold underline underline-offset-4">Abrir {new URL(billingOrigin).host}</a>}>
       Você está acessando por {foreignHost}. Por segurança, pagamentos, trocas e cancelamentos só são aceitos pelo endereço oficial do Everflair.
     </Notice>}
-    {error && <p ref={errorRef} role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-sm">{error}</p>}
-    {message && <p role="status" className="rounded-xl border border-border bg-surface-1 p-4 text-sm">{message}</p>}
+    {error && <p ref={errorRef} role="alert" className="rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm">{error}</p>}
+    {message && <p role="status" className="rounded-xl border border-border-strong bg-card px-3.5 py-3 text-sm">{message}</p>}
 
-    {subscription === undefined ? <div role="status" className="rounded-2xl border border-border bg-card p-6">
+    {subscription === undefined ? <div role="status" className="rounded-[14px] border border-border bg-card p-4">
       {error ? <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm">O acompanhamento está indisponível. Use Atualizar situação para tentar novamente.</p><Button variant="outline" disabled={refreshing} onClick={() => void refresh()}>Atualizar situação</Button></div>
         : <div className="flex items-center gap-3 text-sm text-muted-foreground"><Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />Consultando sua assinatura…</div>}
     </div>
@@ -248,10 +248,10 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
           onReactivate={canReactivate && !blockedByHost ? () => { setError(null); setReactivateOpen(true); } : undefined}
           onUpdatePrice={outdatedPending && terms && !newContractsPaused && !blockedByHost ? () => choose(intentForTerms(terms)) : undefined} />}
 
-    {showPlans && <section aria-labelledby="choose-subscription" className="space-y-4">
+    {showPlans && <section aria-labelledby="choose-subscription" className="space-y-3.5">
       <div>
-        <h2 id="choose-subscription" className="text-lg font-semibold">{mode === "subscribe" ? "Escolha seu plano" : mode === "replace-pending" ? "Prefere outro plano?" : "Mudar de plano"}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Todos os planos incluem agendamentos ilimitados e todos os recursos. A diferença está na quantidade de agendas.
+        <h2 id="choose-subscription" className="text-sm font-semibold">{mode === "subscribe" ? "Escolha seu plano" : mode === "replace-pending" ? "Prefere outro plano?" : "Mudar de plano"}</h2>
+        <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">Todos os planos incluem agendamentos ilimitados e todos os recursos. A diferença está na quantidade de agendas.
           {mode === "replace-pending" && ` Para trocar, primeiro encerramos a tentativa atual ${g.in} — nada é cobrado por isso.`}</p>
       </div>
       {mode === "subscribe" && initial && !newContractsPaused && <Notice tone="ok" title={`Você escolheu ${billingCapacityLabel(initial.plan, quoteContract(initial).agendaLimit)} · ${initial.cycle === "ANNUAL" ? "anual" : "mensal"}`}
@@ -262,19 +262,19 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
         current={mode === "change" ? terms : null} pending={mode === "replace-pending" && terms ? { ...terms, checkoutUrl: subscription?.cancelRequestedAt ? null : subscription?.checkoutUrl ?? null, outdated: outdatedPending } : null}
         occupiedAgendas={occupiedAgendas} disabled={busy || blockedByHost} lockedReason={lockedReason} loadingKey={quoting} onChoose={choose}
         paymentNote={mode === "subscribe" && stripeAvailable ? (mercadoPagoPaused ? "Pagamento seguro com cartão pela Stripe." : "Pagamento seguro com cartão pela Stripe ou pelo Mercado Pago.") : mode !== "subscribe" && subscription?.provider === "stripe" ? "Pagamento seguro com cartão pela Stripe." : undefined}
-        feedback={changeError && !quote && !cancelChangeOpen ? <p ref={changeErrorRef} role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-sm">{changeError}</p> : null} />
+        feedback={changeError && !quote && !cancelChangeOpen ? <p ref={changeErrorRef} role="alert" className="rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm">{changeError}</p> : null} />
     </section>}
 
     {subscription && <BillingHistory charges={subscription.charges} timezone={timezone} />}
 
     {/* While a reactivation awaits authorization, "Desistir da reativação" is the only exit. */}
-    {subscription && renewalStatus === "AVAILABLE" && !(reactivationPending && change?.state !== "SCHEDULED") && <section aria-labelledby="renewal-title" className="flex flex-col gap-4 rounded-2xl border border-border p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+    {subscription && renewalStatus === "AVAILABLE" && !(reactivationPending && change?.state !== "SCHEDULED") && <section aria-labelledby="renewal-title" className="flex flex-col gap-3 rounded-[14px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="max-w-2xl">
-        <h2 id="renewal-title" className="font-semibold">{unpaid ? "Contratação pendente" : "Renovação automática"}</h2>
+        <h2 id="renewal-title" className="text-sm font-semibold">{unpaid ? "Contratação pendente" : "Renovação automática"}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{unpaid ? `Se desistir, encerramos a tentativa ${g.in} sem nenhuma cobrança. ` : "Você pode cancelar a renovação aqui a qualquer momento, sem precisar falar com o suporte. "}
           {unpaid ? "Seu histórico é preservado." : accessBlocked ? "O período pago e seu histórico serão preservados." : "O plano continua disponível até o fim do período pago."}</p>
       </div>
-      <Button variant="outline" className="shrink-0 border-danger/40 text-danger hover:bg-danger/10 hover:text-danger" disabled={busy || blockedByHost} onClick={() => setCancelOpen(true)}>{unpaid ? "Cancelar contratação" : "Cancelar renovação"}</Button>
+      <Button variant="outline" className="shrink-0 border-danger/40 bg-danger/10 text-danger hover:bg-danger/15 hover:text-danger" disabled={busy || blockedByHost} onClick={() => setCancelOpen(true)}>{unpaid ? "Cancelar contratação" : "Cancelar renovação"}</Button>
     </section>}
 
     <p className="text-sm text-muted-foreground">Precisa de ajuda? <Link href="/contato" className="underline underline-offset-4">Fale com a plataforma</Link>.</p>
@@ -342,7 +342,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
       <DialogHeader><DialogTitle>Reativar a renovação?</DialogTitle><DialogDescription>Seu plano volta a renovar automaticamente no fim do período já pago. Nada é cobrado agora.</DialogDescription></DialogHeader>
       {subscription?.paidThrough && terms && <dl className="divide-y divide-border rounded-xl border border-border">
         <div className="flex flex-wrap items-baseline justify-between gap-2 p-4"><dt className="text-sm text-muted-foreground">Plano</dt><dd className="font-medium">{billingCapacityLabel(terms.plan, terms.agendaLimit)}</dd></div>
-        <div className="flex flex-wrap items-baseline justify-between gap-2 p-4"><dt className="text-sm text-muted-foreground">Cobrança agora</dt><dd className="text-xl font-semibold tabular-nums">{billingMoney(0)}</dd></div>
+        <div className="flex flex-wrap items-baseline justify-between gap-2 p-4"><dt className="text-sm text-muted-foreground">Cobrança agora</dt><dd className="text-lg font-semibold tabular-nums">{billingMoney(0)}</dd></div>
         <div className="flex flex-wrap items-baseline justify-between gap-2 p-4"><dt className="text-sm text-muted-foreground">Próxima cobrança, em {new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: timezone }).format(new Date(subscription.paidThrough))}</dt><dd className="font-medium tabular-nums">{billingMoney(terms.amountCents)} {terms.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"}</dd></div>
       </dl>}
       <p className="text-sm">Como a recorrência anterior foi encerrada, o Mercado Pago pede uma nova autorização do cartão. Você será levado para lá em seguida. Se não concluir em até 24 horas, a reativação é descartada e nada muda.</p>

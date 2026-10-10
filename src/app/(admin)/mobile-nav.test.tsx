@@ -74,3 +74,26 @@ describe("Mais (painel no celular)", () => {
     for (const link of within(clientes).getAllByRole("link")) expect(link).not.toHaveAttribute("aria-current");
   });
 });
+
+describe("Barra de abas", () => {
+  it("sem Secretária: Hoje, Agenda, Clientes, Avisos e Mais", () => {
+    render(<MobileNav role="OWNER" />);
+    const bar = screen.getByRole("navigation", { name: "Navegação do aplicativo" });
+    expect(within(bar).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/hoje", "/agenda", "/clientes", "/notificacoes"]);
+    expect(within(bar).queryByRole("button", { name: "Abrir Secretária" })).toBeNull();
+  });
+
+  it("com Secretária: ela fica no meio, abre o painel pelo evento e os avisos vão para o sino do topo", async () => {
+    const user = userEvent.setup();
+    const opened = vi.fn();
+    window.addEventListener("everflair:secretary-open", opened);
+    render(<MobileNav role="OWNER" secretary unreadNotifications={4} />);
+    const bar = screen.getByRole("navigation", { name: "Navegação do aplicativo" });
+    const items = Array.from(bar.querySelectorAll("a, button")).map((item) => item.getAttribute("href") ?? item.getAttribute("aria-label"));
+    expect(items).toEqual(["/hoje", "/agenda", "Abrir Secretária", "/clientes", "Abrir todos os módulos"]);
+    await user.click(within(bar).getByRole("button", { name: "Abrir Secretária" }));
+    expect(opened).toHaveBeenCalledTimes(1);
+    window.removeEventListener("everflair:secretary-open", opened);
+  });
+});
+

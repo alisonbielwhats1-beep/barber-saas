@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/tenant";
 import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { formatMoney } from "@/lib/utils";
-import { Layers, CircleDollarSign, BadgePercent, TrendingUp } from "lucide-react";
+import { Crown, Package, TrendingUp, Users, Wallet } from "lucide-react";
 import { PacotesView } from "./pacotes-view";
 import { canUsePlanFeature } from "@/lib/plan-entitlements";
 import { PlanUpgradeAction } from "@/components/plan-upgrade-action";
@@ -95,27 +95,28 @@ export default async function PacotesPage({ searchParams }: { searchParams: Prom
   const packagesEnabled = canUsePlanFeature(plan, "PACKAGES");
 
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Receita recorrente
-        </p>
-        <h1 className="text-[26px] font-semibold tracking-tight">Pacotes & Planos</h1>
-      </header>
+    <div className="flex min-w-0 flex-col gap-3.5 lg:gap-4">
+      <div className="min-w-0">
+        <h1 className="text-lg font-semibold leading-tight tracking-tight lg:text-2xl">Pacotes e planos</h1>
+        <p className="mt-1 hidden text-sm text-muted-foreground lg:block">Receita recorrente</p>
+      </div>
 
       {!packagesEnabled && (
-        <section className="rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-[12px] text-muted-foreground">
-          <strong className="text-foreground">Pacotes e planos recorrentes ficam disponíveis nos planos pagos.</strong>{" "}
-          Consulte os dados existentes e contrate um plano pago quando quiser ativar novas ofertas.
-          <PlanUpgradeAction role={ctx.role} className="mt-1" />
+        <section className="flex items-start gap-3 rounded-xl border border-border-strong bg-card px-3.5 py-3 text-sm">
+          <Crown aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 space-y-1">
+            <strong className="block font-semibold text-foreground">Pacotes e planos recorrentes ficam disponíveis nos planos pagos.</strong>
+            <p className="text-muted-foreground">Consulte os dados existentes e contrate um plano pago quando quiser ativar novas ofertas.</p>
+            <PlanUpgradeAction role={ctx.role} />
+          </div>
         </section>
       )}
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi icon={Layers} accent="#3B9EFF" label="Pacotes ativos" value={activePackages.toString()} />
-        <Kpi icon={CircleDollarSign} accent="#2ECC8B" label="Receita de pacotes" value={formatMoney(packageRevenue)} />
-        <Kpi icon={BadgePercent} accent="#A855F7" label="Assinantes ativos" value={activeSubs.length.toString()} />
-        <Kpi icon={TrendingUp} accent="#F59E0B" label="Receita recorrente (MRR)" value={formatMoney(mrr)} />
+      <section aria-label="Indicadores de pacotes e planos" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        <Kpi icon={Package} label="Pacotes ativos" value={activePackages.toString()} />
+        <Kpi icon={Wallet} label="Receita de pacotes" value={wholeMoney(packageRevenue)} full={formatMoney(packageRevenue)} />
+        <Kpi icon={Users} label="Assinantes ativos" value={activeSubs.length.toString()} />
+        <Kpi icon={TrendingUp} label="Receita recorrente (MRR)" value={wholeMoney(mrr)} full={formatMoney(mrr)} />
       </section>
 
       <PacotesView
@@ -132,16 +133,23 @@ export default async function PacotesPage({ searchParams }: { searchParams: Prom
   );
 }
 
-function Kpi({ icon: Icon, accent, label, value }: { icon: React.ComponentType<{ className?: string }>; accent: string; label: string; value: string }) {
+const WHOLE_BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+/** Indicadores sem centavos, como no restante do painel ("R$ 3.740"); o valor exato fica no title. */
+function wholeMoney(cents: number) {
+  return WHOLE_BRL.format(Math.round(cents / 100));
+}
+
+/** Cartão de indicador: rótulo 12 à esquerda, ícone de 28 px em lilás suave à direita e valor 24. */
+function Kpi({ icon: Icon, label, value, full }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; full?: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 text-xs leading-snug text-muted-foreground">{label}</p>
+    <div className="flex min-h-24 min-w-0 flex-col gap-1.5 rounded-[14px] border border-border bg-card p-3.5 lg:gap-2 lg:p-4">
+      <div className="flex min-h-[34px] items-start justify-between gap-2">
+        <p className="min-w-0 text-xs font-medium leading-snug text-muted-foreground">{label}</p>
+        <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-info/15 text-info">
+          <Icon className="h-4 w-4" />
+        </span>
       </div>
+      <p className="mt-auto overflow-hidden text-ellipsis whitespace-nowrap text-lg font-semibold leading-tight tracking-tight tabular-nums min-[380px]:text-2xl" title={full ?? value}>{value}</p>
     </div>
   );
 }

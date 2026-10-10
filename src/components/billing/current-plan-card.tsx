@@ -10,18 +10,22 @@ export type LegacyPlan = { label: string; agendas: number; free: boolean; courte
 const changeLabels: Record<string, string> = { PREPARING: "Preparando a troca", AWAITING_PAYMENT: "Aguardando você no Mercado Pago", APPLYING: "Pagamento confirmado · atualizando renovação", SCHEDULED: "Troca agendada", APPLIED: "Troca concluída", CANCEL_REQUESTED: "Cancelamento da troca em confirmação", CANCELLED: "Troca cancelada", EXPIRED: "Troca não concluída", REVIEW: "Troca em revisão" };
 const reactivationLabels: Record<string, string> = { PREPARING: "Preparando a nova autorização", AWAITING_PAYMENT: "Aguardando sua autorização no Mercado Pago", SCHEDULED: "Renovação reativada", CANCEL_REQUESTED: "Cancelando a reativação", REVIEW: "Reativação em revisão" };
 const noticeTone: Record<BillingTone, string> = {
-  ok: "border-success/30 bg-success/10",
+  ok: "border-border-strong bg-card",
   warn: "border-warning/40 bg-warning/10",
   danger: "border-danger/40 bg-danger/10",
-  neutral: "border-border bg-surface-1",
+  neutral: "border-border-strong bg-card",
 };
 const noticeIcon: Record<BillingTone, typeof Info> = { ok: CheckCircle2, warn: Clock3, danger: AlertTriangle, neutral: Info };
-const iconTone: Record<BillingTone, string> = { ok: "text-success", warn: "text-warning", danger: "text-danger", neutral: "text-muted-foreground" };
+// Phone: label left, value right, one row each; from sm up, two columns with the label above.
+const dlRow = "flex items-baseline justify-between gap-3 border-b border-border py-2.5 last:border-b-0 sm:block sm:border-b-0 sm:py-0";
+const dlTerm = "shrink-0 text-sm text-muted-foreground sm:text-xs";
+const dlValue = "text-right font-medium tabular-nums sm:mt-0.5 sm:text-left";
+const iconTone: Record<BillingTone, string> = { ok: "text-muted-foreground", warn: "text-warning", danger: "text-danger", neutral: "text-muted-foreground" };
 
 export function Notice({ tone, title, children, actions, className }: { tone: BillingTone; title?: string; children?: React.ReactNode; actions?: React.ReactNode; className?: string }) {
   const Icon = noticeIcon[tone];
-  return <div className={cn("flex gap-2.5 rounded-xl border p-3 sm:gap-3 sm:p-4", noticeTone[tone], className)}>
-    <Icon aria-hidden="true" className={cn("mt-0.5 h-5 w-5 shrink-0", iconTone[tone])} />
+  return <div className={cn("flex gap-2.5 rounded-xl border px-3.5 py-3", noticeTone[tone], className)}>
+    <Icon aria-hidden="true" className={cn("mt-0.5 h-[18px] w-[18px] shrink-0", iconTone[tone])} />
     <div className="min-w-0 flex-1 space-y-2 text-sm">
       {title && <p className="font-semibold">{title}</p>}
       {children}
@@ -73,28 +77,28 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
   const next = sub && sub.state !== "UNPAID" ? nextChargeOf(sub) : null;
   const cycleName = (cycle: string) => cycle === "ANNUAL" ? "Anual (12 meses)" : "Mensal";
 
-  return <section aria-labelledby="current-subscription" className="rounded-2xl border border-border bg-card">
-    <div className="flex items-start justify-between gap-2 p-4 sm:gap-4 sm:p-6">
-      <div className="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
-        <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-warning/15 text-warning sm:h-12 sm:w-12"><Crown className="h-5 w-5 sm:h-6 sm:w-6" /></span>
+  return <section aria-labelledby="current-subscription" className="overflow-hidden rounded-[14px] border border-border bg-card">
+    <div className="flex items-start justify-between gap-3 p-4">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-muted text-foreground"><Crown className="h-5 w-5" /></span>
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{sub?.state === "UNPAID" ? "Contratação em andamento" : "Seu plano"}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <h2 id="current-subscription" className="text-xl font-semibold tracking-tight">{title}</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.04em] text-muted-foreground">{sub?.state === "UNPAID" ? "Contratação em andamento" : "Seu plano"}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <h2 id="current-subscription" className="text-base font-semibold tracking-[-0.01em]">{title}</h2>
             {status && <StatusPill role="status" label={status.label} tone={status.tone} />}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{sub ? `${billingMoney(sub.amountCents)}/${periodWord} · cobrança ${sub.cycle === "ANNUAL" ? "anual" : "mensal"} ${g.by}`
+          <p className="mt-1 text-sm tabular-nums text-muted-foreground">{sub ? `${billingMoney(sub.amountCents)}/${periodWord} · cobrança ${sub.cycle === "ANNUAL" ? "anual" : "mensal"} ${g.by}`
             : legacy.courtesyThrough ? `${legacy.agendas} agenda(s) · grátis até ${legacy.courtesyThrough.split("-").reverse().join("/")}, inclusive`
               : legacy.free ? "1 agenda · até 30 agendamentos por mês" : `${legacy.agendas} agendas · liberado pela plataforma, sem renovação pelo Mercado Pago`}</p>
           {abandoned && <p className="mt-1 text-sm text-muted-foreground">A tentativa de contratar {billingCapacityLabel(subscription!.plan as BillingIntent["plan"], subscription!.agendaLimit)} foi cancelada sem cobrança.</p>}
         </div>
       </div>
-      <Button variant="ghost" size="sm" disabled={busy || refreshing} onClick={onRefresh} className="-mr-2 -mt-1 shrink-0 px-3" aria-label="Atualizar situação">
+      <Button variant="outline" size="sm" disabled={busy || refreshing} onClick={onRefresh} className="w-11 shrink-0 px-0 sm:w-auto sm:px-3" aria-label="Atualizar situação">
         <RefreshCw aria-hidden="true" className={cn("h-4 w-4", refreshing && "animate-spin")} /><span aria-hidden="true" className="hidden sm:inline">Atualizar situação</span>
       </Button>
     </div>
 
-    <div className="space-y-3 px-4 pb-4 empty:hidden sm:px-6 sm:pb-6">
+    <div className="space-y-2.5 px-4 pb-4 empty:hidden">
       {outdated && sub && tablePrice !== null && <Notice tone="warn" title="O preço deste plano mudou"
         actions={onUpdatePrice ? <Button disabled={busy} onClick={onUpdatePrice}>Atualizar para o novo preço</Button> : undefined}>
         <p>Sua contratação ainda não foi paga e foi criada pelo preço anterior, de {billingMoney(sub.amountCents)}/{periodWord}. Hoje este plano custa {billingMoney(tablePrice)}/{periodWord}.</p>
@@ -158,19 +162,19 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
       </Notice>}
     </div>
 
-    {showUsage && <div className="border-t border-border px-4 py-4 sm:px-6">
-      <div className="flex items-center justify-between gap-3 text-sm"><span className="font-medium">Agendas em uso</span><span className="tabular-nums text-muted-foreground"><strong className="font-semibold text-foreground">{occupiedAgendas}</strong> de {capacity}</span></div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Agendas em uso" aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={Math.min(occupiedAgendas, capacity)}>
-        <div className={cn("h-full rounded-full", occupiedAgendas >= capacity ? "bg-warning" : "bg-primary")} style={{ width: `${Math.min(100, capacity ? (occupiedAgendas / capacity) * 100 : 0)}%` }} />
+    {showUsage && <div className="border-t border-border px-4 py-3.5">
+      <div className="flex items-center justify-between gap-3 text-sm"><span className="font-semibold">Agendas em uso</span><span className="tabular-nums text-muted-foreground"><strong className="font-semibold text-foreground">{occupiedAgendas}</strong> de {capacity}</span></div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[hsl(var(--border-strong))]" role="progressbar" aria-label="Agendas em uso" aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={Math.min(occupiedAgendas, capacity)}>
+        <div className={cn("h-full rounded-full", occupiedAgendas >= capacity ? "bg-warning" : "bg-muted-foreground")} style={{ width: `${Math.min(100, capacity ? (occupiedAgendas / capacity) * 100 : 0)}%` }} />
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Profissionais ativos e convites pendentes ocupam uma agenda cada.{occupiedAgendas >= capacity ? " Para adicionar alguém, escolha um plano com mais agendas." : ""}</p>
     </div>}
 
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border px-4 py-4 text-sm sm:gap-x-6 sm:px-6 lg:grid-cols-4">
-      {sub && <div><dt className="text-muted-foreground">Acesso pago até</dt><dd className="mt-1 font-medium">{accessUntil ?? "Ainda não confirmado"}</dd></div>}
-      {sub && sub.state !== "UNPAID" && <div><dt className="text-muted-foreground">Próxima cobrança</dt><dd className="mt-1 font-medium">{next ? `${date(next.at)} · ${billingMoney(next.amountCents)}${next.afterAuthorization ? ", após sua autorização" : ""}` : "Sem novas cobranças"}</dd></div>}
-      {sub && <div><dt className="text-muted-foreground">Periodicidade</dt><dd className="mt-1 font-medium">{next && next.cycle !== sub.cycle ? `${cycleName(sub.cycle)} · ${cycleName(next.cycle).toLocaleLowerCase("pt-BR")} a partir de ${date(next.at)}` : cycleName(sub.cycle)}</dd></div>}
-      <div className="col-span-2 min-w-0 lg:col-span-1"><dt className="text-muted-foreground">E-mail da contratação</dt><dd className="mt-1 break-all font-medium">{email}</dd></div>
+    <dl className="grid grid-cols-1 border-t border-border px-4 py-1 text-sm sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3.5 sm:py-3.5">
+      {sub && <div className={dlRow}><dt className={dlTerm}>Acesso pago até</dt><dd className={dlValue}>{accessUntil ?? "Ainda não confirmado"}</dd></div>}
+      {sub && sub.state !== "UNPAID" && <div className={dlRow}><dt className={dlTerm}>Próxima cobrança</dt><dd className={dlValue}>{next ? `${date(next.at)} · ${billingMoney(next.amountCents)}${next.afterAuthorization ? ", após sua autorização" : ""}` : "Sem novas cobranças"}</dd></div>}
+      {sub && <div className={dlRow}><dt className={dlTerm}>Periodicidade</dt><dd className={dlValue}>{next && next.cycle !== sub.cycle ? `${cycleName(sub.cycle)} · ${cycleName(next.cycle).toLocaleLowerCase("pt-BR")} a partir de ${date(next.at)}` : cycleName(sub.cycle)}</dd></div>}
+      <div className={cn(dlRow, "min-w-0 sm:col-span-2")}><dt className={dlTerm}>E-mail da contratação</dt><dd className={cn(dlValue, "break-all")}>{email}</dd></div>
     </dl>
   </section>;
 }

@@ -83,7 +83,7 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
-          <Button size="lg" className="admin-directory-create" aria-label="Novo produto"><Plus className="h-5 w-5" /> <span className="hidden md:inline">Novo produto</span></Button>
+          <Button><Plus aria-hidden="true" className="h-4 w-4" /> Novo produto</Button>
         ))}
       </DialogTrigger>
       <DialogContent className="admin-form-dialog admin-guided-dialog">

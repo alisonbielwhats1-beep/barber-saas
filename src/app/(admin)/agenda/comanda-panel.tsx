@@ -80,7 +80,7 @@ export function ComandaPanel({
 
   if (loadError)
     return (
-      <p className="py-8 text-center text-[13px] text-danger">{loadError}</p>
+      <p role="alert" className="py-8 text-center text-sm text-danger">{loadError}</p>
     );
 
   if (!data)
@@ -222,8 +222,8 @@ export function ComandaPanel({
           <div className="flex justify-between gap-3 text-xs text-muted-foreground print:text-neutral-700"><span>Pagamento</span><span className="break-all text-right">{payment.id}</span></div>
         </div>
         <div className="grid grid-cols-2 gap-2 print:hidden">
-          <button onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-[13px]"><Printer className="h-4 w-4" /> Imprimir</button>
-          <button onClick={onClose} className="rounded-xl bg-primary px-4 py-3 text-[13px] font-semibold text-primary-foreground">Concluir</button>
+          <button onClick={() => window.print()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-border-strong px-4 text-sm font-semibold transition-colors hover:bg-card-hover lg:min-h-10"><Printer className="h-4 w-4" /> Imprimir</button>
+          <button onClick={onClose} className="min-h-11 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 lg:min-h-10">Concluir</button>
         </div>
       </div>
     );
@@ -236,22 +236,22 @@ export function ComandaPanel({
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Serviço
         </p>
-        <div className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2.5">
-          <span className="flex items-center gap-2 text-[13px]">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
+          <span className="flex min-w-0 items-center gap-2 text-sm">
             <Scissors className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             {serviceName}
           </span>
-          <span className="text-[13px] font-medium">
+          <span className="whitespace-nowrap text-sm font-medium tabular-nums">
             {formatMoney(data.priceCents, displayCurrency)}
           </span>
         </div>
         {data.serviceItems.filter(service => service.priceType === "FROM").map(service => (
-          <div key={service.position} className="space-y-2 rounded-xl border border-violet-400/35 bg-violet-500/5 p-3">
+          <div key={service.position} className="space-y-2 rounded-xl border border-border-strong p-3">
             <p className="text-sm font-semibold">{service.serviceName} · a partir de {formatMoney(service.priceCents, displayCurrency)}</p>
             <label className="grid gap-1 text-sm">Valor final combinado (R$)
               <input inputMode="decimal" value={finalValues[service.position] ?? ""}
                 disabled={!data.canDiscount} onChange={event => { idempotencyKeyRef.current = null; setFinalValues(values => ({ ...values, [service.position]: event.target.value })); }}
-                className="min-h-11 rounded-lg border border-border bg-background px-3" />
+                className="min-h-11 rounded-[10px] border border-border-strong bg-background px-3 lg:min-h-10" />
             </label>
             {Number.isFinite(finalServicePrices.find(item => item.position === service.position)?.finalPriceCents)
               && (finalServicePrices.find(item => item.position === service.position)?.finalPriceCents ?? 0) > service.priceCents
@@ -259,14 +259,14 @@ export function ComandaPanel({
                 <input value={finalReasons[service.position] ?? ""} maxLength={240}
                   disabled={!data.canDiscount} onChange={event => { idempotencyKeyRef.current = null; setFinalReasons(reasons => ({ ...reasons, [service.position]: event.target.value })); }}
                   placeholder="Ex.: comprimento e volume do cabelo"
-                  className="min-h-11 rounded-lg border border-border bg-background px-3" />
+                  className="min-h-11 rounded-[10px] border border-border-strong bg-background px-3 lg:min-h-10" />
               </label>}
             {!data.canDiscount && <p className="text-xs text-muted-foreground">Só proprietário ou gerente pode reajustar este valor.</p>}
           </div>
         ))}
       </div>
 
-      {data.canDiscount && <fieldset disabled={pending} className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-semibold">Revisar recebimento</legend><label className="grid gap-1 text-sm">Data do recebimento<input type="date" max={data.today} value={receivedDate} onChange={e => { idempotencyKeyRef.current = null; setReceivedDate(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label><p className="text-xs text-muted-foreground">Começa em ontem. Altere se recebeu em outro dia.</p><label className="grid gap-1 text-sm">Adicionar serviço realizado<select value="" disabled={extraServiceIds.length >= 30} onChange={e => { if (e.target.value) { idempotencyKeyRef.current = null; setExtraServiceIds(ids => [...ids, e.target.value]); } }} className="min-h-11 rounded-lg border border-border bg-background px-3"><option value="">Escolher serviço…</option>{data.availableServices.map(s => <option key={s.id} value={s.id}>{s.name} · {formatMoney(s.priceCents, displayCurrency)}</option>)}</select></label>{extraServiceIds.map((id, i) => <div key={`${id}-${i}`} className="flex items-center justify-between text-sm"><span>{data.availableServices.find(s => s.id === id)?.name}</span><button type="button" className="min-h-11 px-3" onClick={() => { idempotencyKeyRef.current = null; setExtraServiceIds(ids => ids.filter((_, index) => index !== i)); }}>Remover extra</button></div>)}<label className="grid gap-1 text-sm">Acréscimo (R$)<input inputMode="decimal" placeholder="0,00" value={surcharge} onChange={e => { idempotencyKeyRef.current = null; setSurcharge(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label>{surchargeCents > 0 && <label className="grid gap-1 text-sm">Motivo do acréscimo<input value={reason} maxLength={300} onChange={e => { idempotencyKeyRef.current = null; setReason(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label>}</fieldset>}
+      {data.canDiscount && <fieldset disabled={pending} className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-semibold">Revisar recebimento</legend><label className="grid gap-1 text-sm">Data do recebimento<input type="date" max={data.today} value={receivedDate} onChange={e => { idempotencyKeyRef.current = null; setReceivedDate(e.target.value); }} className="min-h-11 rounded-[10px] border border-border-strong bg-background px-3 lg:min-h-10" /></label><p className="text-xs text-muted-foreground">Começa em ontem. Altere se recebeu em outro dia.</p><label className="grid gap-1 text-sm">Adicionar serviço realizado<select value="" disabled={extraServiceIds.length >= 30} onChange={e => { if (e.target.value) { idempotencyKeyRef.current = null; setExtraServiceIds(ids => [...ids, e.target.value]); } }} className="min-h-11 rounded-[10px] border border-border-strong bg-background px-3 lg:min-h-10"><option value="">Escolher serviço…</option>{data.availableServices.map(s => <option key={s.id} value={s.id}>{s.name} · {formatMoney(s.priceCents, displayCurrency)}</option>)}</select></label>{extraServiceIds.map((id, i) => <div key={`${id}-${i}`} className="flex items-center justify-between text-sm"><span>{data.availableServices.find(s => s.id === id)?.name}</span><button type="button" className="min-h-11 rounded-[10px] px-3 text-sm font-medium text-danger hover:bg-danger/10 lg:min-h-9" onClick={() => { idempotencyKeyRef.current = null; setExtraServiceIds(ids => ids.filter((_, index) => index !== i)); }}>Remover extra</button></div>)}<label className="grid gap-1 text-sm">Acréscimo (R$)<input inputMode="decimal" placeholder="0,00" value={surcharge} onChange={e => { idempotencyKeyRef.current = null; setSurcharge(e.target.value); }} className="min-h-11 rounded-[10px] border border-border-strong bg-background px-3 lg:min-h-10" /></label>{surchargeCents > 0 && <label className="grid gap-1 text-sm">Motivo do acréscimo<input value={reason} maxLength={300} onChange={e => { idempotencyKeyRef.current = null; setReason(e.target.value); }} className="min-h-11 rounded-[10px] border border-border-strong bg-background px-3 lg:min-h-10" /></label>}</fieldset>}
       {/* Produtos */}
       {data.availableProducts.length > 0 && (
         <div className="space-y-1.5">
@@ -280,16 +280,16 @@ export function ComandaPanel({
               return (
               <div
                 key={product.id}
-                className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2.5"
+                className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5"
               >
-                <span className="flex items-center gap-2 text-[13px]">
+                <span className="flex min-w-0 items-center gap-2 text-sm">
                   <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span><span className="font-medium">{product.name}</span><span className="block text-xs text-muted-foreground">{product.reservedQuantity > 0 ? `${product.reservedQuantity} reservado(s) por ${formatMoney(product.reservedValueCents, displayCurrency)}` : formatMoney(product.priceCents, displayCurrency)} · {product.active ? `${product.stock} disponíveis além da reserva` : "inativo · apenas reserva existente"}</span></span>
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <button type="button" onClick={() => changeProduct(product.id, -1, maxQuantity)} disabled={quantity === 0} aria-label={`Remover ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
-                  <span className="w-6 text-center text-[13px] font-semibold">{quantity}</span>
-                  <button type="button" onClick={() => changeProduct(product.id, 1, maxQuantity)} disabled={quantity >= maxQuantity} aria-label={`Adicionar ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Plus className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => changeProduct(product.id, -1, maxQuantity)} disabled={quantity === 0} aria-label={`Remover ${product.name}`} className="grid h-11 w-11 place-items-center rounded-[10px] border border-border-strong transition-colors hover:bg-card-hover disabled:opacity-30 lg:h-9 lg:w-9"><Minus className="h-3.5 w-3.5" /></button>
+                  <span className="w-6 text-center text-sm font-semibold tabular-nums">{quantity}</span>
+                  <button type="button" onClick={() => changeProduct(product.id, 1, maxQuantity)} disabled={quantity >= maxQuantity} aria-label={`Adicionar ${product.name}`} className="grid h-11 w-11 place-items-center rounded-[10px] border border-border-strong transition-colors hover:bg-card-hover disabled:opacity-30 lg:h-9 lg:w-9"><Plus className="h-3.5 w-3.5" /></button>
                 </span>
               </div>
             );})}
@@ -300,13 +300,13 @@ export function ComandaPanel({
       {/* Totais */}
       <div className="space-y-2 rounded-xl border border-border bg-card/50 px-3.5 py-3">
         {selectedProducts.length > 0 && (
-          <div className="flex justify-between text-[13px] text-muted-foreground">
+          <div className="flex justify-between text-sm text-muted-foreground">
             <span>Subtotal</span>
             <span>{formatMoney(subtotal, displayCurrency)}</span>
           </div>
         )}
         <div className="flex items-center justify-between gap-3">
-          <label className="shrink-0 text-[13px] text-muted-foreground">
+          <label className="shrink-0 text-sm text-muted-foreground">
             Desconto (R$)
           </label>
           <input
@@ -317,7 +317,7 @@ export function ComandaPanel({
             disabled={!data.canDiscount}
             placeholder="0,00"
             title={!data.canDiscount ? "Somente proprietário ou gerente pode aplicar desconto" : undefined}
-            className="w-24 rounded-lg border border-border bg-surface-1 px-2 py-1.5 text-right text-[13px] focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 w-28 rounded-[10px] border border-border-strong bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-10"
           />
         </div>
         {!data.canDiscount && (
@@ -325,9 +325,9 @@ export function ComandaPanel({
             Descontos exigem proprietário ou gerente.
           </p>
         )}
-        <div className="flex justify-between border-t border-border pt-2 text-[15px] font-bold">
+        <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
           <span>Total</span>
-          <span className="text-primary">{formatMoney(total, displayCurrency)}</span>
+          <span className="whitespace-nowrap tabular-nums">{formatMoney(total, displayCurrency)}</span>
         </div>
       </div>
 
@@ -340,14 +340,16 @@ export function ComandaPanel({
           {METHODS.map((m) => (
             <button
               key={m.value}
+              type="button"
+              aria-pressed={method === m.value}
               onClick={() => {
                 idempotencyKeyRef.current = null;
                 setMethod(m.value);
               }}
-              className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-xs font-medium transition ${
+              className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-[10px] border px-1 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 method === m.value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-surface-1 text-muted-foreground hover:border-primary/40"
+                  ? "border-primary bg-primary font-semibold text-primary-foreground"
+                  : "border-border-strong text-muted-foreground hover:bg-card-hover hover:text-foreground"
               }`}
             >
               <span className="text-base leading-none">{m.emoji}</span>
@@ -366,11 +368,11 @@ export function ComandaPanel({
         }}
         rows={2}
         placeholder="Observação opcional…"
-        className="w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-full resize-none rounded-[10px] border border-border-strong bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
 
       {error && (
-        <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -378,7 +380,7 @@ export function ComandaPanel({
       <button
         disabled={pending}
         onClick={submit}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[14px] font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 lg:min-h-10"
       >
         {pending ? (
           <Loader2 className="h-4 w-4 animate-spin" />

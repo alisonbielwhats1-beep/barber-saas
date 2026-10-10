@@ -201,11 +201,12 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
         await expect(shortcut).toBeVisible();
         await expect(shortcut).toHaveAttribute("href", "/configuracoes#plano");
         const bounds = await shortcut.boundingBox();
-        expect(bounds!.height).toBeGreaterThanOrEqual(44);
+        // Celular: alvo de 44px; computador (barra de topo do protótipo): 36px.
+        expect(bounds!.height).toBeGreaterThanOrEqual(width < 1024 ? 44 : 36);
         expect(bounds!.y).toBeLessThan(180);
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
         const mobileHeader = page.getByRole("region", {
-          name: "Marca e aparência",
+          name: "Marca, busca e notificações",
           includeHidden: true,
         });
         if (width < 1024) {
@@ -217,7 +218,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
         }
         await expect(page.locator(".admin-shell")).toHaveCSS(
           "color",
-          theme === "light" ? "rgb(34, 37, 42)" : "rgb(244, 244, 246)",
+          theme === "light" ? "rgb(23, 23, 23)" : "rgb(237, 237, 237)",
         );
         await audit(`planos-${theme}-${width}`);
         if (width < 1024) await page.getByRole("dialog").getByRole("button", {name:"Fechar janela",exact:true}).click();

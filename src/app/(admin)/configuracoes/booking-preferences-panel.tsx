@@ -4,9 +4,11 @@ import {
   loadBookingPreferences,
   saveBookingPreferences,
 } from "./booking-preference-actions";
+import { buttonVariants } from "@/components/ui/button";
+import { checkboxClass, checkRowClass, controlClass, labelClass, noteClass, selectClass } from "./settings-ui";
 type Data = Awaited<ReturnType<typeof loadBookingPreferences>>;
-const field =
-  "min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm";
+const fieldLabel = "grid gap-1.5";
+const fieldText = labelClass;
 export function BookingPreferencesPanel() {
   const [data, setData] = useState<Data | null>(null);
   const [service, setService] = useState("");
@@ -26,17 +28,18 @@ export function BookingPreferencesPanel() {
     };
   }, []);
   if (!data)
-    return <p role="status">{message || "Carregando preferências…"}</p>;
+    return <p role="status" className="rounded-[14px] border border-border bg-card p-4 text-sm text-muted-foreground">{message || "Carregando preferências…"}</p>;
   const preferences = data.preferences;
   return (
     <fieldset
       disabled={pending}
-      className="space-y-5 rounded-xl border border-border bg-card p-4"
+      aria-label="Preferências de agendamento"
+      className="flex min-w-0 flex-col gap-3.5 rounded-[14px] border border-border bg-card p-4"
     >
-      <label className="grid gap-2 text-sm font-medium">
-        Sugestões de horários
+      <label className={fieldLabel}>
+        <span className={fieldText}>Sugestões de horários</span>
         <select
-          className={field}
+          className={selectClass}
           value={preferences.slotMode}
           onChange={(e) =>
             setData({
@@ -54,10 +57,10 @@ export function BookingPreferencesPanel() {
           </option>
         </select>
       </label>
-      <label className="grid gap-2 text-sm font-medium">
-        Intervalo de retorno padrão (dias)
+      <label className={fieldLabel}>
+        <span className={fieldText}>Intervalo de retorno padrão (dias)</span>
         <input
-          className={field}
+          className={`${controlClass} tabular-nums`}
           type="number"
           min={1}
           max={365}
@@ -73,14 +76,14 @@ export function BookingPreferencesPanel() {
           }
         />
       </label>
-      <p className="text-xs text-muted-foreground">
+      <p className={`${noteClass} -mt-2`}>
         O histórico de visitas concluídas orienta o retorno. Este intervalo é
         usado quando ainda não há histórico suficiente.
       </p>
-      <label className="grid gap-2 text-sm font-medium">
-        Configurar um serviço
+      <label className={fieldLabel}>
+        <span className={fieldText}>Configurar um serviço</span>
         <select
-          className={field}
+          className={selectClass}
           value={service}
           onChange={(e) => setService(e.target.value)}
         >
@@ -94,10 +97,10 @@ export function BookingPreferencesPanel() {
       </label>
       {service && (
         <>
-          <label className="grid gap-2 text-sm">
-            Intervalo de retorno deste serviço (dias)
+          <label className={fieldLabel}>
+            <span className={fieldText}>Intervalo de retorno deste serviço (dias)</span>
             <input
-              className={field}
+              className={`${controlClass} tabular-nums`}
               type="number"
               min={1}
               max={365}
@@ -118,8 +121,8 @@ export function BookingPreferencesPanel() {
               }
             />
           </label>
-          <fieldset className="max-h-64 overflow-y-auto rounded-lg border border-border p-3">
-            <legend className="px-2 text-sm font-semibold">
+          <fieldset className="max-h-64 overflow-y-auto rounded-xl border border-border-strong px-3 py-2">
+            <legend className="px-1.5 text-sm font-medium text-muted-foreground">
               Complementos oferecidos junto deste serviço
             </legend>
             {data.services
@@ -127,10 +130,11 @@ export function BookingPreferencesPanel() {
               .map((s) => (
                 <label
                   key={s.id}
-                  className="flex min-h-11 items-center gap-2 text-sm"
+                  className={checkRowClass}
                 >
                   <input
                     type="checkbox"
+                    className={checkboxClass}
                     checked={(preferences.addons[service] ?? []).includes(s.id)}
                     onChange={(e) => {
                       const old = preferences.addons[service] ?? [];
@@ -152,14 +156,14 @@ export function BookingPreferencesPanel() {
                 </label>
               ))}
           </fieldset>
-          <p className="text-xs text-muted-foreground">
+          <p className={`${noteClass} -mt-2`}>
             Complementos usam os preços e durações cadastrados e são escolhidos
             pelo cliente.
           </p>
-          <fieldset className="max-h-64 overflow-y-auto rounded-lg border border-border p-3">
-            <legend className="px-2 text-sm font-semibold">Pode ser feito ao mesmo tempo com</legend>
-            <p className="mb-2 text-xs text-muted-foreground">Autoriza o cliente a combinar estes serviços simultaneamente, com profissionais diferentes e disponíveis.</p>
-            {data.services.filter(s => s.id !== service).map(s => <label key={s.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={(preferences.simultaneousPairs ?? []).some(pair => pair.includes(service) && pair.includes(s.id))} onChange={e => {
+          <fieldset className="max-h-64 overflow-y-auto rounded-xl border border-border-strong px-3 py-2">
+            <legend className="px-1.5 text-sm font-medium text-muted-foreground">Pode ser feito ao mesmo tempo com</legend>
+            <p className={`${noteClass} mb-1`}>Autoriza o cliente a combinar estes serviços simultaneamente, com profissionais diferentes e disponíveis.</p>
+            {data.services.filter(s => s.id !== service).map(s => <label key={s.id} className={checkRowClass}><input type="checkbox" className={checkboxClass} checked={(preferences.simultaneousPairs ?? []).some(pair => pair.includes(service) && pair.includes(s.id))} onChange={e => {
               const remaining = (preferences.simultaneousPairs ?? []).filter(pair => !(pair.includes(service) && pair.includes(s.id)));
               setData({ ...data, preferences: { ...preferences, simultaneousPairs: e.target.checked ? [...remaining, [service, s.id]] : remaining } });
             }} />{s.name}</label>)}
@@ -167,13 +171,13 @@ export function BookingPreferencesPanel() {
         </>
       )}
       {message && (
-        <p role="status" className="text-sm">
+        <p role="status" className="text-sm text-muted-foreground">
           {message}
         </p>
       )}
       <button
         disabled={pending}
-        className="min-h-11 rounded-lg bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-50"
+        className={`${buttonVariants()} self-start`}
         onClick={() =>
           startTransition(async () => {
             try {

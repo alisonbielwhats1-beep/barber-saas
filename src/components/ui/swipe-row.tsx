@@ -64,7 +64,7 @@ export function SwipeRow({
             onClick={() => { settle(false); action.onSelect(); }}
             className={cn(
               "flex flex-1 flex-col items-center justify-center gap-1 text-xs font-semibold",
-              action.tone === "danger" ? "bg-danger text-white" : action.tone === "neutral" ? "bg-muted text-foreground" : "bg-primary text-primary-foreground",
+              action.tone === "danger" ? "bg-destructive text-destructive-foreground" : action.tone === "neutral" ? "bg-muted text-foreground" : "bg-primary text-primary-foreground",
             )}
           >
             <action.icon aria-hidden="true" className="h-5 w-5" />

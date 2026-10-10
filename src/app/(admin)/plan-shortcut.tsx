@@ -51,11 +51,11 @@ export function PlanShortcut({
       href={href}
       aria-label={label}
       title={status ? `${plan} · ${status}` : `${plan} · Alterar plano`}
-      className={`group inline-flex min-h-11 max-w-full items-center rounded-full border bg-card text-left text-foreground shadow-sm transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${attention[tone] ?? "border-border"} ${compact ? "min-w-0 gap-1.5 py-1 pl-1.5 pr-2.5" : "gap-2.5 py-1 pl-1.5 pr-3"}`}
+      className={`group inline-flex min-h-11 max-w-full items-center rounded-full border bg-card text-left text-foreground transition-colors lg:min-h-9 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${attention[tone] ?? "border-border"} ${compact ? "min-w-0 gap-1.5 py-1 pl-1.5 pr-2.5" : "gap-2.5 py-1 pl-1.5 pr-3"}`}
     >
       <span
         aria-hidden="true"
-        className={`grid shrink-0 place-items-center rounded-full bg-warning/15 text-warning ${compact ? "h-7 w-7" : "h-8 w-8"}`}
+        className={`grid shrink-0 place-items-center rounded-full bg-muted text-foreground ${compact ? "h-7 w-7" : "h-8 w-8"}`}
       >
         <Crown className="h-4 w-4" />
       </span>

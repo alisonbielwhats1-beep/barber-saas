@@ -58,7 +58,7 @@ for (const mode of ["desktop-light", "mobile-dark"]) {
             const action = page.getByRole("button", { name: "Abrir ações rápidas da agenda" });
             await expect(action).toBeInViewport();
             const box = await action.boundingBox();
-            expect(box!.width).toBe(44);
+            expect(box!.width).toBe(56);
             expect(box!.y).toBeGreaterThan(viewport.height - 150);
             expect(box!.y + box!.height).toBeLessThan(viewport.height - 60);
           }

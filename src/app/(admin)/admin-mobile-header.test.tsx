@@ -3,26 +3,24 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { AdminMobileHeader } from "./admin-mobile-header";
 
-vi.mock("./theme-toggle", () => ({
-  ThemeToggle: () => <button>Mudar tema</button>,
-}));
+vi.mock("./command-palette", () => ({ requestCommandPaletteOpen: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/hoje" }));
 afterEach(cleanup);
 const legacy = { plan: "Essencial", status: null, tone: "neutral" as const };
 it("mostra Essencial e acesso à assinatura no topo do proprietário", () => {
   render(
-    <AdminMobileHeader role="OWNER" plan={legacy} planHref="/assinatura" />,
+    <AdminMobileHeader role="OWNER" plan={legacy} planHref="/assinatura" unreadNotifications={3} />,
   );
-  expect(
-    screen.getByRole("region", { name: "Marca e aparência" }),
-  ).toContainElement(
+  const header = screen.getByRole("region", { name: "Marca, busca e notificações" });
+  expect(header).toContainElement(
     screen.getByRole("link", { name: "Plano atual: Essencial. Alterar plano" }),
   );
-  expect(screen.getByRole("link")).toHaveAttribute("href", "/assinatura");
+  expect(screen.getByRole("link", { name: "Plano atual: Essencial. Alterar plano" })).toHaveAttribute("href", "/assinatura");
   expect(screen.getByText("Essencial")).toBeVisible();
   expect(screen.getByText("Alterar plano")).toBeVisible();
   expect(screen.getByRole("img", { name: "Everflair" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Mudar tema" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Buscar" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "Notificações, 3 não lidas" })).toHaveAttribute("href", "/notificacoes");
 });
 it("mostra a situação real da contratação em vez de um plano ativo", () => {
   render(
@@ -58,7 +56,8 @@ it.each(["MANAGER", "RECEPTIONIST", "PROFESSIONAL"])(
     render(
       <AdminMobileHeader role={role} plan={legacy} planHref="/assinatura" />,
     );
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mudar tema" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: /plano/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Notificações" })).toHaveAttribute("href", "/notificacoes");
+    expect(screen.getByRole("button", { name: "Buscar" })).toBeVisible();
   },
 );

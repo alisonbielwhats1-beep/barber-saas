@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, Search } from "lucide-react";
+import { Bell, ChevronLeft, Search } from "lucide-react";
+import { UnreadBadge } from "@/components/unread-badge";
 import { OPEN_MORE_EVENT, mobileScreenFor } from "./mobile-navigation";
-import { ThemeToggle } from "./theme-toggle";
 import { requestCommandPaletteOpen } from "./command-palette";
 
 /** Screens with their own top area on phones: Hoje (brand header) and Agenda (date toolbar). */
@@ -20,7 +20,7 @@ const PARENTS: Array<[path: string, parent: string, label: string]> = [
  * Compact app bar of the panel below 1024px. It stays pinned while the page
  * scrolls; the screen title fades in once the page's large title leaves the view.
  */
-export function MobileTopBar() {
+export function MobileTopBar({ unreadNotifications = 0 }: { unreadNotifications?: number } = {}) {
   const pathname = usePathname();
   const bar = useRef<HTMLDivElement>(null);
   const [condensed, setCondensed] = useState(false);
@@ -65,7 +65,7 @@ export function MobileTopBar() {
     >
       <div className="flex min-w-[5.5rem] items-center">
         {parent ? (
-          <Link href={parent[1]} className="press inline-flex min-h-11 items-center gap-0.5 rounded-xl pl-1 pr-2.5 text-[15px] font-medium text-primary">
+          <Link href={parent[1]} className="press inline-flex min-h-11 items-center gap-0.5 rounded-xl pl-1 pr-2.5 text-base font-medium text-foreground">
             <ChevronLeft aria-hidden="true" className="h-6 w-6" />
             {parent[2]}
           </Link>
@@ -74,14 +74,14 @@ export function MobileTopBar() {
             type="button"
             aria-label="Voltar ao menu Mais"
             onClick={() => window.dispatchEvent(new Event(OPEN_MORE_EVENT))}
-            className="press inline-flex min-h-11 items-center gap-0.5 rounded-xl pl-1 pr-2.5 text-[15px] font-medium text-primary"
+            className="press inline-flex min-h-11 items-center gap-0.5 rounded-xl pl-1 pr-2.5 text-base font-medium text-foreground"
           >
             <ChevronLeft aria-hidden="true" className="h-6 w-6" />
             Mais
           </button>
         ) : null}
       </div>
-      <p aria-hidden="true" className="app-topbar-title min-w-0 flex-1 truncate text-center text-[15px] font-semibold">{screen.title}</p>
+      <p aria-hidden="true" className="app-topbar-title min-w-0 flex-1 truncate text-center text-base font-semibold">{screen.title}</p>
       <div className="flex min-w-[5.5rem] items-center justify-end gap-1">
         <button
           type="button"
@@ -93,8 +93,25 @@ export function MobileTopBar() {
         >
           <Search aria-hidden="true" className="h-5 w-5" />
         </button>
-        <ThemeToggle className="h-11 w-11 rounded-full border-0 bg-transparent hover:bg-card-hover" />
+        <NotificationsBell count={unreadNotifications} />
       </div>
     </div>
+  );
+}
+
+/** Sino das notificações no topo do celular (a aba "Avisos" dá lugar à Secretária quando ela existe). */
+export function NotificationsBell({ count }: { count: number }) {
+  const label = count > 0 ? `Notificações, ${count} não lidas` : "Notificações";
+  return (
+    <Link
+      href="/notificacoes"
+      prefetch={false}
+      aria-label={label}
+      title={label}
+      className="press relative grid h-11 w-11 place-items-center rounded-full text-foreground hover:bg-card-hover"
+    >
+      <Bell aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
+      {count > 0 && <UnreadBadge count={count} className="absolute right-0.5 top-0.5" />}
+    </Link>
   );
 }

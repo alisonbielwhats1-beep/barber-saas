@@ -39,7 +39,7 @@ export function SegmentedControl<T extends string>({
       role="group"
       aria-label={ariaLabel}
       className={cn(
-        "segmented-control scrollbar-none flex max-w-full gap-1 overflow-x-auto rounded-2xl bg-surface-1 p-1 ring-1 ring-inset ring-border",
+        "segmented-control scrollbar-none flex max-w-full gap-[3px] overflow-x-auto rounded-[11px] border border-border-strong bg-card p-[3px]",
         className,
       )}
     >
@@ -53,9 +53,9 @@ export function SegmentedControl<T extends string>({
             aria-label={option.ariaLabel}
             onClick={() => onChange(option.value)}
             className={cn(
-              "press relative isolate inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+              "press relative isolate inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm transition-colors lg:min-h-[34px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
               stretch && "flex-1",
-              active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              active ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
             )}
           >
             {active && (
@@ -63,7 +63,7 @@ export function SegmentedControl<T extends string>({
                 aria-hidden="true"
                 layoutId={thumbId}
                 transition={reduce ? { duration: 0 } : { type: "spring", bounce: 0.18, duration: 0.38 }}
-                className="absolute inset-0 -z-10 rounded-xl bg-primary shadow-sm"
+                className="absolute inset-0 -z-10 rounded-lg bg-[hsl(var(--border))] ring-1 ring-inset ring-border-strong"
               />
             )}
             {option.label}

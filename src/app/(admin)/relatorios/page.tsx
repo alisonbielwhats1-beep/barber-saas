@@ -2,11 +2,13 @@ import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { getFinanceMetrics } from "@/lib/finance";
-import { formatMoney, formatDuration } from "@/lib/utils";
+import { cn, formatMoney, formatDuration } from "@/lib/utils";
 import { formatPeriodLabel } from "@/lib/time";
-import { TrendingUp, TrendingDown, FileBarChart } from "lucide-react";
+import { CalendarDays, Receipt, UserPlus, Wallet } from "lucide-react";
 import { RangeFilter } from "../dashboard/range-filter";
+import { formatMoneyHero, formatMoneyWhole, KpiCard, PeriodBadge } from "../dashboard/results-ui";
 import { ReportActions, type ReportSection } from "./report-actions";
+import { FoldSection } from "./report-section";
 import { calculateRetentionMetrics } from "@/lib/operational-flows";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { Opportunities } from "../dashboard/opportunities";
@@ -91,134 +93,144 @@ export default async function RelatoriosPage({
     },
   ];
 
+  const financeMinis: [string, string][] = [
+    ["Receita serviços", formatMoneyWhole(fin.serviceRevenue)],
+    ["Receita produtos", formatMoneyWhole(fin.productRevenue)],
+    ["Despesas", formatMoneyWhole(fin.expenseTotal)],
+    ["Comissões", formatMoneyWhole(fin.commissions)],
+    ["Ocupação", `${Math.round(m.occupancy.rate * 100)}%`],
+    ["Tempo médio", formatDuration(m.avgDuration || 0)],
+  ];
+  const retentionMinis: [string, string][] = [
+    ["Clientes que retornaram", `${retention.returningClientRatePct}%`],
+    ["Intervalo médio entre visitas", `${retention.averageDaysBetweenVisits} dias`],
+    [`Clientes inativos há ${marketingSettings.lapsedClientDays}+ dias`, retention.lapsedClients.toString()],
+  ];
+
   return (
-    <div className="admin-summary-page mx-auto w-full max-w-7xl space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="mb-1 flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary">
-              <FileBarChart className="h-3 w-3" /> {RANGE_LABELS[range]}
-            </span>
-            <span className="text-xs text-muted-foreground">{periodLabel}</span>
-          </div>
-          <h1 className="text-[26px] font-semibold tracking-tight">Relatórios</h1>
+    <div className="admin-summary-page mx-auto flex w-full max-w-7xl flex-col gap-4 lg:gap-5">
+      {/* Cabeçalho: título, período, exportação e trilho de períodos */}
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0 max-lg:w-full">
+          <h1 className="text-lg font-semibold leading-tight tracking-tight lg:text-2xl">Relatórios</h1>
+          <p className="mt-1.5 flex flex-wrap items-center gap-2">
+            <PeriodBadge>{RANGE_LABELS[range]}</PeriodBadge>
+            <span className="text-sm text-muted-foreground tabular-nums" aria-label="Período do relatório">{periodLabel}</span>
+          </p>
+          <div className="mt-3"><ReportActions sections={sections} filename={`relatorio-${range}`} /></div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <RangeFilter current={range} compact />
+        <RangeFilter current={range} />
+      </div>
 
-        </div>
-      </header>
-
-
-      <p className="text-sm text-muted-foreground" aria-label="Período do relatório">{periodLabel}</p>
       {/* Comparativo com período anterior */}
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Compare label="Faturamento" value={formatMoney(m.revenue.value)} change={m.revenue.change} />
-        <Compare label="Agendamentos" value={m.appointments.value.toString()} change={m.appointments.change} />
-        <Compare label="Ticket médio" value={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} />
-        <Compare label="Novos clientes" value={m.clients.new.toString()} />
+      <section aria-label="Comparativo com o período anterior" className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+          <KpiCard icon={Wallet} label="Faturamento" value={formatMoneyHero(m.revenue.value)} full={formatMoney(m.revenue.value)} change={m.revenue.change} hint={m.revenue.change != null ? "vs período anterior" : "no período"} />
+          <KpiCard icon={CalendarDays} label="Agendamentos" value={m.appointments.value.toString()} change={m.appointments.change} hint={m.appointments.change != null ? "vs período anterior" : "no período"} />
+          <KpiCard icon={Receipt} label="Ticket médio" value={formatMoneyHero(m.avgTicket.value)} full={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} hint={m.avgTicket.change != null ? "vs período anterior" : "no período"} />
+          <KpiCard icon={UserPlus} tone="neutral" label="Novos clientes" value={m.clients.new.toString()} hint="no período" />
+        </div>
+        <p className="text-xs text-muted-foreground">O comparativo usa o período anterior de mesmo tamanho.</p>
       </section>
 
       {/* Tabelas */}
-      <div className="grid gap-0 lg:grid-cols-2 lg:gap-4">
-        <Table title="Serviços mais vendidos" headers={["Serviço", "Qtd", "Receita"]}
-          rows={m.topServices.map((s) => [s.name, s.count.toString(), formatMoney(s.revenueCents)])}
-          empty="Sem dados no período" />
-        <Table title="Desempenho por profissional" headers={["Profissional", "Atend.", "Receita", "Comissão"]}
-          rows={m.proPerf.map((p) => [p.name, p.appointments.toString(), formatMoney(p.revenueCents), formatMoney(p.commissionCents)])}
-          empty="Sem atendimentos concluídos" />
-
+      <div className="grid gap-4 lg:grid-cols-2">
+        <FoldSection id="report-services-title" title="Serviços mais vendidos" defaultOpen>
+          <Table title="Serviços mais vendidos" headers={["Serviço", "Qtd", "Receita"]}
+            rows={m.topServices.map((s) => [s.name, s.count.toString(), formatMoney(s.revenueCents)])}
+            empty="Sem dados no período" />
+        </FoldSection>
+        <FoldSection id="report-team-title" title="Desempenho por profissional" sub="Comissão estimada pelo percentual de cada profissional" defaultOpen>
+          <Table title="Desempenho por profissional" headers={["Profissional", "Atend.", "Receita", "Comissão"]} stack
+            rows={m.proPerf.map((p) => [p.name, p.appointments.toString(), formatMoney(p.revenueCents), formatMoney(p.commissionCents)])}
+            empty="Sem atendimentos concluídos" />
+        </FoldSection>
       </div>
-      <details className="admin-detail-section"><summary>Resultado financeiro e operação</summary><div className="space-y-4 pt-4">
 
-      {/* Resumo financeiro */}
-      <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
-        <Mini label="Receita serviços" value={formatMoney(fin.serviceRevenue)} />
-        <Mini label="Receita produtos" value={formatMoney(fin.productRevenue)} />
-        <Mini label="Despesas" value={formatMoney(fin.expenseTotal)} />
-        <Mini label="Comissões" value={formatMoney(fin.commissions)} />
-        <Mini label="Ocupação" value={`${Math.round(m.occupancy.rate * 100)}%`} />
-        <Mini label="Tempo médio" value={formatDuration(m.avgDuration || 0)} />
-      </section>
-
+      <FoldSection id="report-finance-title" title="Resultado financeiro e operação" sub="Receitas, despesas, comissões, formas de pagamento e gênero" openOnDesktop>
+        {/* Resumo financeiro */}
+        <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-3 sm:px-5 xl:grid-cols-6">
+          {financeMinis.map(([label, value]) => <Mini key={label} label={label} value={value} />)}
+        </div>
+        <SubTitle>Receita por forma de pagamento</SubTitle>
         <Table title="Receita por forma de pagamento" headers={["Forma", "Valor"]}
           rows={fin.byMethod.map((x) => [x.label, formatMoney(x.value)])}
           empty="Sem pagamentos registrados" />
+        <SubTitle>Receita por gênero</SubTitle>
         <Table title="Receita por gênero" headers={["Público", "Atend.", "Receita"]}
           rows={[
             ["Masculino", m.gender.male.count.toString(), formatMoney(m.gender.male.revenue)],
             ["Feminino", m.gender.female.count.toString(), formatMoney(m.gender.female.revenue)],
           ]}
-          empty="Sem dados" /></div></details>
-      <details className="admin-detail-section"><summary>Retenção de clientes</summary><div className="space-y-4 pt-4">
-      <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3">
-        <Mini label="Clientes que retornaram" value={`${retention.returningClientRatePct}%`} />
-        <Mini label="Intervalo médio entre visitas" value={`${retention.averageDaysBetweenVisits} dias`} />
-        <Mini label={`Clientes inativos há ${marketingSettings.lapsedClientDays}+ dias`} value={retention.lapsedClients.toString()} />
-      </section>
+          empty="Sem dados" />
+      </FoldSection>
 
-      {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
-      </div></details>
-      <details className="admin-detail-section"><summary>Exportar relatório</summary><div className="py-3"><ReportActions sections={sections} filename={`relatorio-${range}`} /></div></details>
-
-    </div>
-  );
-}
-
-function Compare({ label, value, change }: { label: string; value: string; change?: number | null }) {
-  return (
-    <div className="min-w-0 rounded-lg bg-card p-3">
-      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-2 break-words text-lg font-semibold tracking-tight">{value}</p>
-      {change != null ? (
-        <span className={`mt-1.5 hidden sm:inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${change >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
-          {change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-          {Math.abs(change * 100).toFixed(0)}% vs período anterior
-        </span>
-      ) : (
-        <span className="mt-1.5 hidden sm:block text-xs text-muted-foreground">no período</span>
-      )}
+      <FoldSection id="report-retention-title" title="Retenção de clientes" sub="Quem volta, em quanto tempo e quem sumiu" openOnDesktop>
+        <div className="flex flex-col gap-4 px-4 pb-4 sm:px-5 sm:pb-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {retentionMinis.map(([label, value]) => <Mini key={label} label={label} value={value} />)}
+          </div>
+          {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
+        </div>
+      </FoldSection>
     </div>
   );
 }
 
 function Mini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <p className="text-lg font-semibold tracking-tight">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-xl border border-border bg-card p-3.5">
+      <p className="truncate text-lg font-semibold leading-tight tabular-nums">{value}</p>
+      <p className="text-xs font-medium leading-snug text-muted-foreground">{label}</p>
     </div>
   );
 }
 
-function Table({ title, headers, rows, empty }: { title: string; headers: string[]; rows: string[][]; empty: string }) {
+function SubTitle({ children }: { children: React.ReactNode }) {
+  return <p className="px-4 pb-2 pt-3 text-xs font-semibold uppercase tracking-[0.04em] text-muted-foreground sm:px-5">{children}</p>;
+}
+
+/**
+ * Tabela do relatório. Com `stack`, no celular cada linha vira um bloco (nome em cima e as colunas
+ * numéricas embaixo, com o rótulo), para a última coluna não ficar escondida.
+ */
+function Table({ title, headers, rows, empty, stack = false }: { title: string; headers: string[]; rows: string[][]; empty: string; stack?: boolean }) {
+  if (rows.length === 0) return <p className="px-4 py-7 text-center text-sm text-muted-foreground">{empty}</p>;
+  const last = headers.length - 1;
+  const edge = (i: number) => cn(i === 0 && "pl-4 sm:pl-5", i === last && "pr-4 sm:pr-5");
   return (
-    <details className="admin-detail-section">
-      <summary>{title}</summary>
-      {rows.length === 0 ? (
-        <p className="p-8 text-center text-[13px] text-muted-foreground">{empty}</p>
-      ) : (
-        <div role="region" aria-label={title} tabIndex={0} className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="border-b border-border">
-                {headers.map((h, i) => (
-                  <th key={h} className={`px-5 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, ri) => (
-                <tr key={ri} className="border-b border-border/50 last:border-0">
-                  {r.map((cell, ci) => (
-                    <td key={ci} className={`px-5 py-2.5 ${ci === 0 ? "font-medium" : "text-right"}`}>{cell}</td>
-                  ))}
-                </tr>
+    <div role="region" aria-label={title} tabIndex={0} className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+      <table className={cn("w-full border-collapse text-sm", stack && "max-sm:block")}>
+        <thead className={cn(stack && "max-sm:sr-only")}>
+          <tr>
+            {headers.map((h, i) => (
+              <th key={h} scope="col" className={cn("whitespace-nowrap border-y border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground", i === 0 ? "text-left" : "text-right", edge(i))}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className={cn(stack && "max-sm:block")}>
+          {rows.map((r, ri) => (
+            <tr key={ri} className={cn("border-b border-border last:border-0", stack && "max-sm:grid max-sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] max-sm:gap-x-4 max-sm:gap-y-1 max-sm:px-4 max-sm:py-2.5")}>
+              {r.map((cell, ci) => (
+                <td
+                  key={ci}
+                  data-label={headers[ci]}
+                  className={cn(
+                    "px-3 py-3 leading-snug",
+                    ci === 0 ? "font-medium" : "whitespace-nowrap text-right tabular-nums",
+                    edge(ci),
+                    stack && "max-sm:block max-sm:p-0 max-sm:text-left",
+                    stack && ci === 0 && "max-sm:col-span-full",
+                    stack && ci > 0 && "max-sm:before:block max-sm:before:text-xs max-sm:before:font-normal max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]",
+                  )}
+                >
+                  {cell}
+                </td>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </details>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

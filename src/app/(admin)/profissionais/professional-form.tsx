@@ -44,6 +44,9 @@ type Props = {
   invitesEnabled: boolean;
   professional?: EditablePro;
   trigger?: React.ReactNode;
+  /** Texto e classes do botão padrão "Adicionar" (o topo do computador usa "Adicionar profissional"). */
+  triggerLabel?: string;
+  triggerClassName?: string;
 };
 
 export function ProfessionalForm({
@@ -51,6 +54,8 @@ export function ProfessionalForm({
   invitesEnabled,
   professional,
   trigger,
+  triggerLabel = "Adicionar",
+  triggerClassName,
 }: Props) {
   const [serviceSearch, setServiceSearch] = useState("");
   const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -143,7 +148,7 @@ export function ProfessionalForm({
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
           <Button
-            className="admin-directory-create" aria-label="Adicionar"
+            className={triggerClassName}
             disabled={!invitesEnabled}
             title={
               invitesEnabled
@@ -151,7 +156,7 @@ export function ProfessionalForm({
                 : "Convites por e-mail temporariamente indisponíveis"
             }
           >
-            <Plus className="h-5 w-5" /> <span className="hidden md:inline">Adicionar</span>
+            <Plus aria-hidden="true" className="h-4 w-4" /> {triggerLabel}
           </Button>
         ))}
       </DialogTrigger>

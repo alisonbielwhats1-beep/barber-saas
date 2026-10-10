@@ -1,6 +1,4 @@
 "use client";
-import { MobileListTools } from "@/components/mobile-list-tools";
-import { servicePriceLabel } from "@/lib/service-price";
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -11,15 +9,11 @@ import {
   Power,
   Trash2,
   Pencil,
-  Clock,
   Users,
   LayoutGrid,
   List,
   Loader2,
-  Scissors,
-  Paintbrush,
-  Hand,
-  Sparkles,
+  Plus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -28,7 +22,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { formatMoney, formatDuration } from "@/lib/utils";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { formatMoney } from "@/lib/utils";
 import { bannerForCategory, normalizeImageUrl } from "@/lib/images";
 import { toast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -62,12 +57,28 @@ export type ServiceCard = {
 type Sort = "popular" | "price" | "margin" | "name";
 type View = "grid" | "list";
 
+const WHOLE_BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+/** Preço do catálogo: sem centavos quando o valor é inteiro ("R$ 120"), com centavos quando não é ("R$ 49,90"). */
+export function catalogMoney(cents: number) {
+  return cents % 100 === 0 ? WHOLE_BRL.format(cents / 100) : formatMoney(cents);
+}
+
+/** Grade da tabela do computador: as colunas vêm das variáveis --cols-lg e --cols-xl de cada tela. */
+const GRID_COLS = "lg:[grid-template-columns:var(--cols-lg)] xl:[grid-template-columns:var(--cols-xl)]";
+
 function margin(s: ServiceCard) {
   return s.priceCents > 0 && s.costCents > 0 ? (s.priceCents - s.costCents) / s.priceCents : null;
 }
 
-function marginColor(m: number) {
-  return m >= 0.5 ? "#2ECC8B" : m >= 0.3 ? "#F59E0B" : "#EF4444";
+/** Margem do serviço: 50% ou mais = boa (lilás), 30% ou mais = atenção (âmbar), abaixo = baixa (vermelho). */
+function marginDot(m: number) {
+  return m >= 0.5 ? "bg-info" : m >= 0.3 ? "bg-warning" : "bg-danger";
+}
+
+function prosLabel(count: number) {
+  if (count === 0) return "Sem profissional";
+  return `${count} ${count === 1 ? "profissional" : "profissionais"}`;
 }
 
 export function ServicesCatalog({
@@ -83,7 +94,7 @@ export function ServicesCatalog({
   const [activeCategory, setCategory] = useState("all");
   const [sort, setSort]               = useState<Sort>(canSeeFinancial ? "popular" : "name");
   // A lista é a leitura mais rápida para quem está administrando o catálogo.
-  // A grade continua disponível quando a imagem ajuda na decisão.
+  // A grade (com a foto da categoria) continua disponível no computador.
   const [view, setView]               = useState<View>("list");
 
   const categories = useMemo(
@@ -119,218 +130,242 @@ export function ServicesCatalog({
     return order.map((cat) => ({ cat, items: map.get(cat)! }));
   }, [filtered, sort]);
 
+  // Colunas do computador: Serviço · Duração · Quem faz · (Margem e vendas) · Preço · (⋮).
+  // Entre 1024 e 1279 px a coluna Duração some e a duração desce para baixo do nome.
+  const tail = (canSeeFinancial ? ["124px"] : []).concat(["112px"], canManage ? ["36px"] : []);
+  const columns = {
+    "--cols-lg": ["minmax(0,2fr)", "minmax(120px,1fr)"].concat(tail).join(" "),
+    "--cols-xl": ["minmax(200px,2fr)", "76px", "minmax(140px,1fr)"].concat(tail).join(" "),
+  } as React.CSSProperties;
+
   return (
-    <div className="space-y-2">
-      {/* Barra de ferramentas */}
-      <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-0">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="search" inputMode="search" enterKeyHint="search" autoComplete="off"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar serviço…"
-            aria-label="Buscar serviço"
-            className="h-11 w-full min-w-0 md:w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
-          />
+    <div className="flex min-w-0 flex-col gap-3.5 lg:gap-4">
+      {/* Ferramentas: no celular busca + "+" numa linha, categorias roláveis e a linha de contagem/ordem;
+          no computador tudo numa barra só. */}
+      <div className="flex min-w-0 flex-col gap-3.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-2.5">
+        <div className="flex min-w-0 items-center gap-2 lg:contents">
+          <label className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] border border-border-strong bg-card px-3 text-muted-foreground focus-within:border-ring lg:h-9 lg:w-60 lg:flex-none">
+            <Search aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <input
+              type="search" inputMode="search" enterKeyHint="search" autoComplete="off"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar serviço"
+              aria-label="Buscar serviço"
+              className="h-full w-full min-w-0 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none lg:text-sm"
+            />
+          </label>
+          {canManage && (
+            <ServiceForm
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Novo serviço"
+                  title="Novo serviço"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-primary text-primary-foreground transition-transform active:scale-95 lg:hidden"
+                >
+                  <Plus aria-hidden="true" className="h-[22px] w-[22px]" strokeWidth={2.2} />
+                </button>
+              }
+            />
+          )}
         </div>
 
-        <div className="service-category-filters order-last flex w-full items-center gap-1.5 overflow-x-auto" role="group" aria-label="Categorias de serviços">
+        <div
+          role="group"
+          aria-label="Categorias de serviços"
+          className="scrollbar-none -mx-4 flex min-w-0 gap-2 overflow-x-auto px-4 sm:-mx-5 sm:px-5 md:-mx-6 md:px-6 lg:mx-0 lg:flex-wrap lg:gap-1.5 lg:overflow-visible lg:px-0"
+        >
           {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              aria-pressed={activeCategory === c}
-              className="min-h-11 shrink-0 rounded-full px-0 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              <span className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors ${activeCategory === c ? "border-transparent bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>{c === "all" ? "Todas" : c}</span>
-            </button>
+            <FilterChip key={c} active={activeCategory === c} onClick={() => setCategory(c)}>
+              {c === "all" ? "Todas" : c}
+            </FilterChip>
           ))}
         </div>
 
-        <MobileListTools label="Mais opções">
-        <div className="ml-auto flex items-center gap-2">
-          <select
-            value={sort}
-            aria-label="Ordenar serviços"
-            onChange={(e) => setSort(e.target.value as Sort)}
-            className="h-11 rounded-lg border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none"
-          >
-            {canSeeFinancial && <option value="popular">Mais vendidos</option>}
-            <option value="price">Maior preço</option>
-            {canSeeFinancial && <option value="margin">Maior margem</option>}
-            <option value="name">Nome (A-Z)</option>
-          </select>
-
-          {/* Toggle grade / lista */}
-          <div className="hidden md:flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
-            <button
-              onClick={() => setView("grid")}
-              title="Vista em grade (com imagens)"
-              aria-pressed={view === "grid"}
-              className={`grid h-11 w-11 place-items-center rounded-lg transition-colors ${
-                view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
+        <div className="flex min-w-0 items-center justify-between gap-3 lg:ml-auto lg:justify-end">
+          <span className="shrink-0 text-sm text-muted-foreground lg:hidden">
+            {filtered.length} {filtered.length === 1 ? "serviço" : "serviços"}
+          </span>
+          <label className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+            <span className="shrink-0">Ordenar</span>
+            <select
+              value={sort}
+              aria-label="Ordenar serviços"
+              onChange={(e) => setSort(e.target.value as Sort)}
+              className="h-11 min-w-0 rounded-[10px] border border-border-strong bg-card px-2.5 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-9 lg:rounded-lg lg:text-sm"
             >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setView("list")}
-              title="Vista em lista (compacta)"
-              aria-pressed={view === "list"}
-              className={`grid h-11 w-11 place-items-center rounded-lg transition-colors ${
-                view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-          </div>
+              {canSeeFinancial && <option value="popular">Mais vendidos</option>}
+              <option value="price">Maior preço</option>
+              {canSeeFinancial && <option value="margin">Maior margem</option>}
+              <option value="name">Nome (A-Z)</option>
+            </select>
+          </label>
+          <SegmentedControl
+            className="hidden lg:flex"
+            stretch={false}
+            ariaLabel="Visualização do catálogo"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "list", ariaLabel: "Vista em lista (compacta)", label: <List aria-hidden="true" className="h-4 w-4" /> },
+              { value: "grid", ariaLabel: "Vista em grade (com imagens)", label: <LayoutGrid aria-hidden="true" className="h-4 w-4" /> },
+            ]}
+          />
         </div>
-        </MobileListTools>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
+        <div className="rounded-[14px] border border-border bg-card p-10 text-center text-sm text-muted-foreground">
           Nenhum serviço encontrado.
         </div>
       ) : (
-        <div aria-label="Lista de serviços" className="overflow-hidden">
-          {groups.map(({ cat, items }) =>
-            view === "grid" ? (
-              <CategoryGroupGrid
-                key={cat}
-                cat={cat}
-                items={items}
-                canManage={canManage}
-                canSeeFinancial={canSeeFinancial}
-              />
-            ) : (
-              <CategoryGroupList
-                key={cat}
-                cat={cat}
-                items={items}
-                canManage={canManage}
-                canSeeFinancial={canSeeFinancial}
-              />
-            )
-          )}
+        <div
+          aria-label="Lista de serviços"
+          className="flex min-w-0 flex-col gap-3.5 lg:gap-0 lg:overflow-hidden lg:rounded-[14px] lg:border lg:border-border lg:bg-card"
+        >
+          <div
+            aria-hidden="true"
+            className={`hidden min-h-9 items-center gap-3 border-b border-border px-4 text-xs font-medium text-muted-foreground lg:grid ${GRID_COLS}`}
+            style={columns}
+          >
+            <span>Serviço</span>
+            <span className="hidden xl:block">Duração</span>
+            <span>Quem faz</span>
+            {canSeeFinancial && <span className="text-right">Margem e vendas</span>}
+            <span className="text-right">Preço</span>
+            {canManage && <span />}
+          </div>
+          {groups.map(({ cat, items }) => (
+            <CategoryGroup
+              key={cat}
+              cat={cat}
+              items={items}
+              view={view}
+              columns={columns}
+              canManage={canManage}
+              canSeeFinancial={canSeeFinancial}
+            />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-/* ── Vista GRADE — banner full-width por categoria ─────────────────────── */
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-[10px] border px-[13px] text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-8 lg:rounded-lg lg:px-3 ${
+        active
+          ? "border-primary bg-primary font-semibold text-primary-foreground lg:border-input lg:bg-elevated lg:text-foreground"
+          : "border-border-strong font-medium text-foreground hover:bg-card-hover lg:text-muted-foreground lg:hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
 
-function CategoryGroupGrid({
+/* ── Grupo da categoria: no celular um título e um cartão; no computador uma faixa dentro da tabela ── */
+
+function CategoryGroup({
   cat,
   items,
+  view,
+  columns,
   canManage,
   canSeeFinancial,
 }: {
   cat: string;
   items: ServiceCard[];
+  view: View;
+  columns: React.CSSProperties;
   canManage: boolean;
   canSeeFinancial: boolean;
 }) {
+  const totalSold = items.reduce((s, i) => s + i.sold, 0);
   const totalRevenue = items.reduce((s, i) => s + i.revenueCents, 0);
-  const totalSold    = items.reduce((s, i) => s + i.sold, 0);
   const categoryImage = normalizeImageUrl(items.find((item) => item.imageUrl)?.imageUrl) ?? bannerForCategory(cat);
+  const count = `${items.length}${canSeeFinancial ? ` · ${totalSold} ${totalSold === 1 ? "venda" : "vendas"}` : ""}`;
 
   return (
-    <div className="overflow-hidden border-b border-border/50 last:border-b-0">
-      {/* Banner discreto: identifica a categoria sem dominar a operação. */}
-      <div className="relative hidden h-36 w-full overflow-hidden md:block">
-        <ImageWithFallback
-          src={categoryImage}
-          fallbackSrc={bannerForCategory(cat)}
-          alt={cat}
-          fill
-          sizes="(max-width: 768px) 100vw, 900px"
-          className="object-cover object-center"
-          priority={false}
-        />
-        {/* Gradiente vertical — escurece a base onde fica o texto */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 px-5 pb-4">
-          <p className="text-[17px] font-semibold text-white drop-shadow">{cat}</p>
-          <p className="mt-0.5 text-[12px] text-white/70">
+    <section aria-label={cat} className="min-w-0 lg:border-b lg:border-border lg:last:border-b-0">
+      {view === "grid" && (
+        <div className="relative hidden h-28 w-full overflow-hidden border-b border-border lg:block">
+          <ImageWithFallback
+            src={categoryImage}
+            fallbackSrc={bannerForCategory(cat)}
+            alt=""
+            fill
+            sizes="900px"
+            className="object-cover object-center"
+            priority={false}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+          <p className="absolute inset-x-0 bottom-0 px-4 pb-3 text-xs text-white/80">
             {items.length} {items.length === 1 ? "serviço" : "serviços"}
             {canSeeFinancial && totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
           </p>
         </div>
-      </div>
-
-      {/* Serviços — linhas sem imagem */}
-      {items.map((s) => (
-        <ServiceRow
-          key={s.id}
-          s={s}
-          canManage={canManage}
-          canSeeFinancial={canSeeFinancial}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ── Vista LISTA — sem imagens, apenas separador de categoria ───────────── */
-
-function CategoryGroupList({
-  cat,
-  items,
-  canManage,
-  canSeeFinancial,
-}: {
-  cat: string;
-  items: ServiceCard[];
-  canManage: boolean;
-  canSeeFinancial: boolean;
-}) {
-  return (
-    <div className="overflow-hidden border-b border-border/50 last:border-b-0">
-      {/* Cabeçalho de texto simples */}
-      <div className="hidden border-b border-border bg-surface-1 px-4 py-2 md:block">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      )}
+      <div className="mx-0.5 mb-2 flex items-baseline justify-between gap-3 lg:m-0 lg:border-b lg:border-border lg:px-4 lg:py-2">
+        <h2 className="min-w-0 break-words text-xs font-semibold uppercase tracking-[0.04em] text-muted-foreground lg:normal-case lg:tracking-normal">
           {cat}
-        </p>
+        </h2>
+        <span className="hidden shrink-0 text-xs text-muted-foreground lg:inline">{count}</span>
       </div>
-      {items.map((s) => (
-        <ServiceRow
-          key={s.id}
-          s={s}
-          canManage={canManage}
-          canSeeFinancial={canSeeFinancial}
-        />
-      ))}
-    </div>
+      <div className="overflow-hidden rounded-[14px] border border-border bg-card lg:rounded-none lg:border-0 lg:bg-transparent">
+        {items.map((s) => (
+          <ServiceRow
+            key={s.id}
+            s={s}
+            columns={columns}
+            canManage={canManage}
+            canSeeFinancial={canSeeFinancial}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
-/* ── Linha de serviço (compartilhada entre as duas vistas) ─────────────── */
+/* ── Linha do serviço: lista no celular, linha de tabela no computador (mesmo DOM) ── */
 
-function ServiceIcon({ service }: { service: ServiceCard }) {
-  const label = `${service.category ?? ""} ${service.name}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const [Icon, background, color] = /unha|manicure|pedicure/.test(label)
-    ? [Hand, "#C9E0FA", "#275685"] as const
-    : /color|quim|tint/.test(label)
-      ? [Paintbrush, "#DDD0F0", "#644183"] as const
-      : /corte|barba|cabelo/.test(label)
-        ? [Scissors, "#BFEBDD", "#195E4A"] as const
-        : [Sparkles, "#DDD0F0", "#644183"] as const;
-  return <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background, color }}><Icon className="h-[18px] w-[18px]" strokeWidth={1.8} /></span>;
+function MarginValue({ m, verbose }: { m: number | null; verbose?: boolean }) {
+  if (m === null) {
+    return (
+      <span className="text-xs font-medium text-muted-foreground" title="Custo não informado">
+        {verbose ? "custo não informado" : <><span aria-hidden="true">—</span><span className="sr-only">Custo não informado</span></>}
+      </span>
+    );
+  }
+  const pct = `${Math.round(m * 100)}%`;
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold tabular-nums text-foreground" title={`Margem ${pct}`}>
+      <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${marginDot(m)}`} />
+      <span className="sr-only">Margem </span>{pct}
+    </span>
+  );
 }
 
 function ServiceRow({
   s,
+  columns,
   canManage,
   canSeeFinancial,
 }: {
   s: ServiceCard;
+  columns: React.CSSProperties;
   canManage: boolean;
   canSeeFinancial: boolean;
 }) {
   const m = margin(s);
+  const off = !s.active;
+  const color = s.colorHex ?? "hsl(var(--muted-foreground))";
   // O mesmo estado abre a edição pela linha e pelo menu ⋮ > Editar.
   const [editOpen, setEditOpen] = useState(false);
   const rowButton = useRef<HTMLButtonElement>(null);
@@ -340,64 +375,75 @@ function ServiceRow({
     opener.current = from;
     setEditOpen(true);
   }
+  const nameClass = `block break-words text-sm font-medium leading-snug lg:line-clamp-2 ${off ? "text-muted-foreground" : "text-foreground"}`;
   return (
     <div
-      className={`relative flex items-center gap-2.5 border-b border-border py-3 sm:px-4 last:border-0 ${
+      className={`relative flex min-h-[54px] items-center gap-3 border-b border-border px-3.5 py-2 last:border-b-0 lg:grid lg:min-h-[52px] lg:px-4 ${GRID_COLS} ${
         canManage ? "transition-colors hover:bg-card-hover" : ""
-      } ${
-        !s.active ? "opacity-50" : ""
       }`}
+      style={columns}
     >
-      <ServiceIcon service={s} />
-      <div className="min-w-0 flex-1">
-        {canManage ? (
-          // Botão "esticado": só o nome recebe o foco, mas o ::after cobre a linha toda e o ⋮ fica acima (z-10).
-          <button
-            ref={rowButton}
-            type="button"
-            aria-label={`Editar ${s.name}`}
-            onClick={() => openEdit(rowButton.current)}
-            className="block w-full cursor-pointer text-left focus-visible:outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
-          >
-            <span className="block break-words text-sm font-medium leading-snug md:truncate">{s.name}</span>
-          </button>
-        ) : (
-          <p className="break-words text-sm font-medium leading-snug md:truncate">{s.name}</p>
-        )}
-        <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5" />
-            {formatDuration(s.durationMin)}
-          </span>
-          {s.proCount > 0 && (
-            <span className="flex items-center gap-1" title="Profissionais que fazem este serviço">
-              <Users className="h-3.5 w-3.5" aria-hidden="true" />
-              {s.proCount}<span className="sr-only"> profissionais</span>
-            </span>
+      {/* Serviço */}
+      <div className="flex min-w-0 flex-1 items-center gap-3 self-stretch lg:gap-2.5 lg:self-auto">
+        <span aria-hidden="true" className={`w-1 shrink-0 self-stretch rounded lg:hidden ${off ? "opacity-50" : ""}`} style={{ background: color }} />
+        <span aria-hidden="true" className={`hidden h-2 w-2 shrink-0 rounded-full lg:block ${off ? "opacity-50" : ""}`} style={{ background: color }} />
+        <div className="min-w-0 flex-1 py-0.5">
+          {canManage ? (
+            // Botão "esticado": só o nome recebe o foco, mas o ::after cobre a linha toda e o ⋮ fica acima (z-10).
+            <button
+              ref={rowButton}
+              type="button"
+              aria-label={`Editar ${s.name}`}
+              title={s.name}
+              onClick={() => openEdit(rowButton.current)}
+              className="block w-full cursor-pointer text-left focus-visible:outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+            >
+              <span className={nameClass}>{s.name}</span>
+            </button>
+          ) : (
+            <p className={nameClass} title={s.name}>{s.name}</p>
           )}
-          {!s.active && (
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
+          <p className="mt-0.5 break-words text-sm text-muted-foreground lg:hidden">
+            <span className="tabular-nums">{s.durationMin} min</span> · {prosLabel(s.proCount)}
+          </p>
+          <p className="mt-0.5 hidden text-xs tabular-nums text-muted-foreground lg:block xl:hidden">{s.durationMin} min</p>
+          {off && (
+            <span className="mt-1.5 inline-flex min-h-[22px] items-center rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground">
               Pausado
             </span>
           )}
-        </p>
+        </div>
       </div>
 
-      {canSeeFinancial && <div className="hidden w-14 shrink-0 text-right sm:block">
-        <p className={`text-[13px] font-semibold ${m === null ? "text-muted-foreground" : ""}`} style={m === null ? undefined : { color: marginColor(m) }}>
-          {m === null ? "—" : `${(m * 100).toFixed(0)}%`}
-        </p>
-        <p className="text-xs text-muted-foreground">{m === null ? "custo não informado" : "margem"}</p>
-      </div>}
+      {/* Duração */}
+      <span className="hidden text-sm tabular-nums text-muted-foreground xl:block">{s.durationMin} min</span>
 
-      {canSeeFinancial && <div className="hidden w-10 shrink-0 text-right sm:block">
-        <p className="text-[13px] font-semibold">{s.sold}</p>
-        <p className="text-xs text-muted-foreground">vendas</p>
-      </div>}
+      {/* Quem faz */}
+      <span className="hidden min-w-0 items-center gap-2 text-sm text-muted-foreground lg:flex" title="Profissionais que fazem este serviço">
+        <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-muted">
+          <Users className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 truncate">{prosLabel(s.proCount)}</span>
+      </span>
 
-      <p className="w-[4.5rem] md:w-20 shrink-0 text-right text-[13px] font-semibold">
-        {servicePriceLabel(s)}
-      </p>
+      {/* Margem e vendas */}
+      {canSeeFinancial && (
+        <span className="hidden flex-col items-end gap-0.5 text-right lg:flex">
+          <MarginValue m={m} verbose />
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
+            {s.sold} {s.sold === 1 ? "venda" : "vendas"}
+          </span>
+        </span>
+      )}
+
+      {/* Preço (no celular, com a margem embaixo) */}
+      <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">
+        <span className={`text-sm font-semibold tabular-nums ${off ? "text-muted-foreground" : "text-foreground"}`}>
+          {s.priceType === "FROM" && <span className="lg:block lg:text-xs lg:font-normal lg:text-muted-foreground">A partir de </span>}
+          <span className="whitespace-nowrap">{catalogMoney(s.priceCents)}</span>
+        </span>
+        {canSeeFinancial && <span className="lg:hidden"><MarginValue m={m} /></span>}
+      </span>
 
       {canManage && <ActionsMenu s={s} triggerRef={menuButton} onEdit={() => openEdit(menuButton.current)} />}
       {canManage && (
@@ -436,7 +482,12 @@ function ActionsMenu({ s, triggerRef, onEdit }: { s: ServiceCard; triggerRef: Re
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button ref={triggerRef} aria-label={`Mais opções para ${s.name}`} className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+          <button
+            ref={triggerRef}
+            type="button"
+            aria-label={`Mais opções para ${s.name}`}
+            className="relative z-10 -mr-1.5 grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:mr-0 lg:h-9 lg:w-9 lg:rounded-[9px]"
+          >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
           </button>
         </DropdownMenuTrigger>

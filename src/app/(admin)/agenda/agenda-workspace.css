@@ -23,44 +23,117 @@
   transform: none;
 }
 .agenda-workspace { display: flex; flex: 1; min-height: 0; min-width: 0; flex-direction: column; gap: 8px; }
-.agenda-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; flex-shrink: 0; }
-.agenda-date-controls { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.agenda-date-controls h1 { font-size: 14px; }
-.agenda-date-controls > div > p { display: none; }
-.agenda-view-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.agenda-body { display: flex; flex: 1; min-height: 0; min-width: 0; gap: 12px; }
-.agenda-body > aside { overflow-y: auto; }
+
+/* ── Toolbar ── phone: [‹ period ›] … [?] [filter]; computer: calendar, arrows, period, "Hoje" | tools, views, "Novo". */
+.agenda-toolbar { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 4px; flex-shrink: 0; }
+.agenda-phone-nav { display: flex; flex: 1; min-width: 0; align-items: center; gap: 2px; }
+.agenda-phone-nav h1 { container-type: inline-size; }
+.agenda-phone-title { display: flex; min-height: 44px; max-width: 100%; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; padding: 0 4px; border-radius: 10px; text-align: left; line-height: 1.25; }
+.agenda-phone-title:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.agenda-period { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agenda-period-short { display: none; }
+@container (max-width: 150px) {
+  .agenda-period-full { display: none; }
+  .agenda-period-short { display: inline; }
+}
+.agenda-date-controls { display: none; align-items: center; gap: 4px; min-width: 0; }
+.agenda-date-title { display: flex; min-width: 150px; flex-direction: column; padding: 0 4px; line-height: 1.15; white-space: nowrap; }
+.agenda-date-title > p { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.agenda-date-title > h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.agenda-view-controls { display: flex; align-items: center; gap: 4px; }
+.agenda-icon-btn {
+  place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px;
+  color: inherit; transition: background-color .15s;
+}
+.agenda-icon-btn:hover { background: hsl(var(--card-hover)); }
+.agenda-icon-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+.agenda-icon-btn:disabled { opacity: .5; }
+.agenda-view-rail { gap: 3px; padding: 3px; border: 1px solid hsl(var(--border-strong)); border-radius: 11px; background: hsl(var(--card)); flex-shrink: 0; }
+.agenda-mobile-views { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* ── Notices, active filters, interval selection ── */
+.agenda-banner {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 44px; padding: 4px 4px 4px 12px;
+  border: 1px solid hsl(var(--border-strong)); border-radius: 10px; background: hsl(var(--card));
+  font-size: 12px; line-height: 1.35; color: hsl(var(--muted-foreground));
+}
+
+/* ── Body: side calendar + professionals (wide screens) and the canvas ── */
+.agenda-body { display: flex; flex: 1; min-height: 0; min-width: 0; gap: 10px; }
+.agenda-side { display: none; width: 196px; flex-shrink: 0; flex-direction: column; gap: 12px; overflow-y: auto; scrollbar-width: none; }
+.agenda-side::-webkit-scrollbar { display: none; }
 .agenda-content { display: flex; flex: 1; min-height: 0; min-width: 0; flex-direction: column; gap: 6px; }
 .agenda-canvas { flex: 1; min-height: 0; min-width: 0; overflow: auto; }
-.agenda-grid { height: 100%; overscroll-behavior: contain; }
+.agenda-footer { display: none; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; flex-shrink: 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
+
+/* ── Time grid: a line every 15 minutes (solid on the hour), hatched off hours, pauses as cards ── */
+.agenda-grid { height: 100%; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: hsl(var(--border-strong)) transparent; }
 .agenda-grid > div { padding-bottom: 72px; }
 .agenda-grid [data-pro-col] { scroll-margin-top: 64px; }
 .agenda-half-hour { position: relative; }
-.agenda-grid [data-colorful-appointment] { color: #111827; }
-.agenda-grid [data-colorful-appointment] p { color: #111827; }
-.agenda-half-hour::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed hsl(var(--border) / .6); pointer-events: none; }
+.agenda-half-hour.agenda-quarter-line { border-top-style: dashed; border-top-color: hsl(var(--foreground) / .08); }
+.agenda-half-hour::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed hsl(var(--foreground) / .08); pointer-events: none; }
+.agenda-off-hours { background: repeating-linear-gradient(135deg, hsl(var(--foreground) / .04) 0 6px, transparent 6px 12px); }
+.agenda-pause {
+  padding: 5px 8px; border: 1px solid hsl(var(--border-strong)); border-radius: 7px;
+  background: repeating-linear-gradient(135deg, hsl(var(--foreground) / .05) 0 6px, transparent 6px 12px);
+  font-size: 12px; line-height: 1.35; color: hsl(var(--muted-foreground));
+}
+.agenda-now-line { position: absolute; right: 0; z-index: 5; height: 0; border-top: 1.5px solid hsl(var(--selection-solid)); pointer-events: none; }
+.agenda-now-line::before { content: ""; position: absolute; left: -4px; top: -4.5px; width: 7px; height: 7px; border-radius: 50%; background: hsl(var(--selection-solid)); }
+
+/* Booking cards: dark tint of the colour, the colour on the left edge, situation as coloured text. */
+.agenda-ev {
+  display: flex; flex-direction: column; gap: 1px; overflow: hidden; padding: 4px 7px 4px 8px;
+  border: 1px solid; border-left-width: 3px; border-radius: 7px; text-align: left;
+  font-size: 12px; line-height: 1.3; color: hsl(var(--foreground)); transition: filter .12s;
+}
+.agenda-ev:hover { filter: brightness(1.12); }
+.agenda-ev-l1 { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 6px; }
+.agenda-ev-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.agenda-ev-time { flex-shrink: 0; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.agenda-ev-l2, .agenda-ev-l3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agenda-ev-l2 { color: hsl(var(--muted-foreground)); }
+.agenda-ev-time-inline { display: none; color: hsl(var(--foreground)); font-variant-numeric: tabular-nums; }
+.agenda-ev[data-narrow] .agenda-ev-time { display: none; }
+.agenda-ev[data-narrow] .agenda-ev-time-inline { display: inline; }
+.agenda-ev-tight { padding-top: 2px; padding-bottom: 2px; gap: 0; line-height: 1.2; }
+.agenda-ev-cancelled { opacity: .9; }
+.agenda-ev-cancelled :is(.agenda-ev-name, .agenda-ev-l2) { text-decoration: line-through; }
+.agenda-ev-week { padding: 2px 4px 2px 5px; border-left-width: 2px; border-radius: 5px; }
+/* On the dark tinted cards the red of "Não compareceu" needs a lighter tone to keep 4.5:1 at 12px. */
+[data-theme="admin-dark"] .agenda-ev .text-danger { color: color-mix(in srgb, hsl(var(--danger)) 78%, white); }
+
 @media (max-width: 639px) {
   .agenda-workspace { --agenda-column-min: clamp(112px, calc((100vw - 74px) / 2), 148px); }
-  .agenda-toolbar { flex-wrap: nowrap; gap: 4px; }
-  .agenda-view-controls { gap: 8px; }
-  .agenda-date-controls { display: none; }
+  .agenda-ev .agenda-ev-time { display: none; }
+  .agenda-ev .agenda-ev-time-inline { display: inline; }
+  /* Week on the phone: the seven days fit the screen; a booking shows its start (hour over minutes), the rest is in its name. */
+  .agenda-workspace { --agenda-week-col: 0px; --agenda-week-lane: 0px; --agenda-week-gap: 1px; }
+  .agenda-ev-week { padding: 2px 0 0 2px; letter-spacing: -0.03em; }
+  .agenda-ev-week :is(.agenda-wk-name, .agenda-ev-l2, .agenda-ev-l3) { display: none; }
+  .agenda-ev-week .agenda-wk-time { display: flex; flex-direction: column; line-height: 1.15; }
+  .agenda-ev-week .agenda-wk-colon { display: none; }
+}
+@media (min-width: 640px) {
+  .agenda-toolbar { flex-wrap: wrap; gap: 6px 10px; }
+  .agenda-phone-nav, .agenda-mobile-views { display: none; }
+  .agenda-date-controls { display: flex; }
+  .agenda-view-controls { gap: 6px; margin-left: auto; }
 }
 @media (min-width: 1024px) {
-  .admin-main > div:has(.agenda-workspace) { padding: 12px; }
-  .agenda-toolbar { gap: 8px; }
-  .agenda-date-controls h1 { font-size: 18px; }
+  .admin-main > div:has(.agenda-workspace) { padding: 12px 16px 0; }
+  .agenda-workspace { gap: 10px; }
+  .agenda-icon-btn { width: 36px; height: 36px; border-radius: 9px; }
+  .agenda-view-rail { padding: 2px; border-radius: 9px; }
+  .agenda-banner { min-height: 40px; }
   .agenda-grid > div { padding-bottom: 8px; }
+  /* Below 1024px the floating "+" sits over this corner; the count, full day and colour live in the filter sheet there. */
+  .agenda-footer { display: flex; }
 }
-
-.agenda-mobile-views > button { border: 1px solid hsl(var(--border)); }
-.agenda-mobile-views > button[aria-pressed=true] { background: hsl(var(--primary)); border-color: transparent; color: hsl(var(--primary-foreground)); }
-@media (max-width: 639px) {
-  .agenda-toolbar h1 button { text-transform: capitalize; }
-  .agenda-toolbar :is(button[aria-label="Buscar e filtrar agenda"], button[aria-label="Como usar a agenda"]) { border: 0; }
-  .agenda-mobile-views { padding-bottom: 8px; border-bottom: 1px solid hsl(var(--border)); }
+@media (min-width: 1280px) {
+  .agenda-side { display: flex; }
 }
-/* Appointment backgrounds are deliberately light; pending labels need dark ink too. */
-.agenda-grid [data-colorful-appointment] .text-warning { color: #111827; }
 
 /* Phones in landscape: the day strip repeats the date arrows and the bar is slimmer, so the grid keeps most of the 375px. */
 @media (max-height: 500px) and (max-width: 1023px) {

@@ -1,5 +1,37 @@
 # Decisões de produto para as próximas fases
 
+## 10/10/2026 — novo visual do painel do dono (protótipo v6, paleta Everflair)
+
+Pedido do dono no chat: "implemente o novo visual do dono, coloque em
+production". Vale o protótipo navegável v6 aprovado de 07 a 09/10 (paridade de
+funções com produção, auditoria visual de 257 itens). Substitui, no painel, a
+"Aparência administrativa" de 07/09 e o "Verde de volta" de 06/10.
+
+1. **Paleta Everflair:** neutros puros no estilo Vercel (fundo preto, cartões
+   `#0A0A0A` separados por contorno fino, sem sombra; claro `#FAFAFA` e branco).
+   Botão principal branco no escuro e grafite no claro. Lilás do símbolo Flair
+   (`#B29CF0` / `#7C5CD6`) só no que está ativo: menu, aba, dia, contadores,
+   em atendimento e a Secretária.
+2. **Situação:** verde = concluído/pago; âmbar = a confirmar/a receber;
+   vermelho = falta/despesa/erro; neutro = confirmado/cancelado; lilás = em
+   atendimento. Todo status tem texto e ponto ou ícone, nunca só cor. Nada de
+   botão de ação verde ou vermelho sólido ("Marcar falta" em contorno vermelho).
+3. **Tipografia e alturas:** 12/14/16/18/24 px, pesos até 600. Celular com
+   alvos de 44 px; computador com botões de 36, campos de 40 e ícones de 36.
+4. **Moldura do computador:** menu lateral aberto por padrão (salão e papel no
+   topo, áreas com submenu, Configurações e Plano e assinatura separados,
+   pessoa com tema, instalar e sair no rodapé), recolhe em ícones pelo botão do
+   topo ou Ctrl/⌘+B e lembra a escolha. Barra de topo com título da tela,
+   plano (dono), busca (Ctrl K), notificações e a pessoa.
+5. **Celular:** barra Hoje · Agenda · Secretária · Clientes · Mais quando a
+   Secretária existe para o acesso (as notificações vão para o sino do topo);
+   sem ela, Hoje · Agenda · Clientes · Avisos · Mais. A Secretária sai do botão
+   flutuante e abre pelo menu e pela aba.
+6. **Financeiro e Visão geral:** menos números juntos e sem centavos nos
+   resumos e indicadores; lançamentos, exportações e impressão inalterados.
+7. **Fora deste passo:** funções que o protótipo mostra e o app ainda não tem
+   (ex.: lista "Sua equipe" no menu) ficam para decisão separada.
+
 ## 09/10/2026 — Stripe ao lado do Mercado Pago, autorizada para implementação
 
 Depois da avaliação de 09/10 (veredito técnico "não agora": conta Stripe no

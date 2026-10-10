@@ -376,16 +376,16 @@ export function AppointmentDialog({
               : <p className="text-xs text-muted-foreground">Escolha os serviços para ver os horários livres.</p>}
             <p className="text-xs text-muted-foreground">Qualquer minuto, como 09:15 ou 11:50. Horário do estabelecimento ({timezone}).</p>
             <label className="grid gap-1 text-sm">Profissional
-              <input aria-label="Buscar profissional" type="search" placeholder="Buscar profissional" className="min-h-11 rounded-lg border border-border bg-background px-3 text-base" onChange={e => { e.stopPropagation(); setServiceQuery(e.target.value); }} value={serviceQuery} />
+              <input aria-label="Buscar profissional" type="search" placeholder="Buscar profissional" className="min-h-11 rounded-[10px] border border-border-strong bg-background px-3 text-base lg:min-h-10 lg:text-sm" onChange={e => { e.stopPropagation(); setServiceQuery(e.target.value); }} value={serviceQuery} />
             </label>
             <div className="max-h-64 overflow-y-auto rounded-xl border border-border">
-              {professionals.filter(pro => normalizeSearch(pro.name).includes(normalizeSearch(serviceQuery))).map(pro => <button type="button" key={pro.id} aria-pressed={selectedProId === pro.id} className="min-h-12 w-full border-b border-border px-3 text-left text-sm last:border-0 aria-pressed:bg-primary/10" onClick={() => { setSelectedProId(pro.id); lastRequest.current++; setLoadingLast(false); setLastMessage(null); resetAttempt(); }}>{pro.name}{selectedProId === pro.id ? " ✓" : ""}</button>)}
+              {professionals.filter(pro => normalizeSearch(pro.name).includes(normalizeSearch(serviceQuery))).map(pro => <button type="button" key={pro.id} aria-pressed={selectedProId === pro.id} className="min-h-12 w-full border-b border-border px-3 text-left text-sm transition-colors last:border-0 hover:bg-card-hover aria-pressed:bg-muted aria-pressed:font-semibold" onClick={() => { setSelectedProId(pro.id); lastRequest.current++; setLoadingLast(false); setLastMessage(null); resetAttempt(); }}>{pro.name}{selectedProId === pro.id ? " ✓" : ""}</button>)}
             </div>
             {selectedServices.some(id => !proNow?.serviceIds.includes(id)) && <p role="alert" className="text-sm text-warning">Este profissional não realiza todos os serviços selecionados. Suas escolhas foram mantidas; ajuste-as antes de confirmar.</p>}
           </> : <>
-            {step < 2 && <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface-1 px-3 py-1 text-sm"><span className="min-w-0 break-words">{startLabel}<span className="block text-xs text-muted-foreground">{proNow?.name || "Escolha o profissional"}</span></span><button type="button" onClick={() => { setServiceQuery(""); editContext(); }} className="min-h-11 shrink-0 px-2 text-primary" aria-label="Alterar data, horário e profissional">Alterar</button></div>}
+            {step < 2 && <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface-1 px-3 py-1 text-sm"><span className="min-w-0 break-words">{startLabel}<span className="block text-xs text-muted-foreground">{proNow?.name || "Escolha o profissional"}</span></span><button type="button" onClick={() => { setServiceQuery(""); editContext(); }} className="min-h-11 shrink-0 rounded-[10px] px-2 text-sm font-semibold text-foreground underline-offset-4 hover:underline" aria-label="Alterar data, horário e profissional">Alterar</button></div>}
             {step === 0 && <>
-              <h2 className="text-xl font-semibold">Quem é o cliente?</h2>
+              <h2 className="text-lg font-semibold">Quem é o cliente?</h2>
               {mode === "existing" ? <>
                 <ClientChoice query={clientQuery} onQuery={setClientQuery} options={clientOptions} selected={clientId} searching={searchingClients} error={clientSearchError} onSelect={client => { setClientId(client.id); setChosenClient(client); lastRequest.current++; setLoadingLast(false); setLastMessage(null); resetAttempt(); }} />
                 <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => { setMode("new"); lastRequest.current++; setLoadingLast(false); resetAttempt(); }} aria-label="Novo cliente">+ Novo cliente</Button>
@@ -397,8 +397,8 @@ export function AppointmentDialog({
               </>}
             </>}
             {step === 1 && <>
-              <div className="flex items-center justify-between gap-3 text-sm"><p className="min-w-0 break-words"><span className="text-muted-foreground">Cliente · </span>{clientLabel}</p><button type="button" onClick={() => setStep(0)} aria-label="Alterar cliente" className="min-h-11 shrink-0 px-2 text-primary">Alterar</button></div>
-              <h2 className="text-xl font-semibold">Escolha os serviços</h2>
+              <div className="flex items-center justify-between gap-3 text-sm"><p className="min-w-0 break-words"><span className="text-muted-foreground">Cliente · </span>{clientLabel}</p><button type="button" onClick={() => setStep(0)} aria-label="Alterar cliente" className="min-h-11 shrink-0 rounded-[10px] px-2 text-sm font-semibold text-foreground underline-offset-4 hover:underline">Alterar</button></div>
+              <h2 className="text-lg font-semibold">Escolha os serviços</h2>
               <Input aria-label="Buscar serviço" type="search" value={serviceQuery} onChange={e => { e.stopPropagation(); setServiceQuery(e.target.value); }} placeholder="Buscar serviço" />
               <div className="appointment-service-list rounded-xl border border-border">
                 {availableServices.filter(service => normalizeSearch(service.name).includes(normalizeSearch(serviceQuery))).map(service => <label key={service.id} data-selected={selectedServices.includes(service.id)} className="appointment-service-option flex min-h-14 cursor-pointer items-center gap-3 border-b border-border px-3 py-3 last:border-0">
@@ -421,7 +421,7 @@ export function AppointmentDialog({
               </details>}
             </>}
             {step === 2 && <>
-              <h2 className="text-xl font-semibold">Revise o agendamento</h2>
+              <h2 className="text-lg font-semibold">Revise o agendamento</h2>
               {waitlist && <WaitlistNotice waitlist={waitlist} />}
               <div><AppointmentSummaryRow label="Cliente" onEdit={() => setStep(0)}>{clientLabel}<span className="block text-muted-foreground">{mode === "new" ? clientPhone : chosenClient?.phone}</span></AppointmentSummaryRow>
               <AppointmentSummaryRow label="Data e horário" onEdit={() => { setServiceQuery(""); editContext(); }}>{startLabel}–{endLabel} · {formatDuration(duration)}</AppointmentSummaryRow>
@@ -433,7 +433,7 @@ export function AppointmentDialog({
             </>}
           </>}
           {overrideConflict && !repeat && step === 2 && !contextOpen && !discarding && (
-            <div className="rounded-md border border-danger/40 bg-danger/5 p-3">
+            <div className="rounded-xl border border-danger/40 bg-danger/5 p-3">
               <p className="flex items-center gap-1.5 text-sm font-medium text-danger">
                 <AlertTriangle className="h-4 w-4" />
                 {["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS"].includes(overrideConflict ?? "") ? "Fora do expediente / folga"
@@ -483,14 +483,14 @@ export function AppointmentDialog({
             </div>
           )}
 
-          {error && <p ref={errorRef} role="alert" className="rounded-lg bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+          {error && <p ref={errorRef} role="alert" className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{error}</p>}
           </fieldset>
         </div>
         <div className="appointment-flow-footer space-y-3">
           {!discarding && !contextOpen && step > 0 && <div className="flex flex-wrap justify-between gap-1 text-sm"><span>{selectedServices.length} serviço(s) · {formatDuration(duration)}</span><span>Estimativa: <strong>{formatMoney(total)}</strong></span></div>}
           {discarding ? <div className="grid grid-cols-2 gap-3"><Button type="button" variant="outline" className="h-auto min-h-12 whitespace-normal" onClick={() => setDiscarding(false)}>Continuar editando</Button><Button type="button" variant="destructive" onClick={() => onOpenChange(false)}>Descartar</Button></div> : <div className="flex gap-3">
-            <Button type="button" variant="outline" className="min-h-12" disabled={pending} onClick={() => { if (contextOpen) { setContextOpen(false); setServiceQuery(""); } else if (step > 0) { setStep(step - 1); setError(null); } else requestClose(false); }}>Voltar</Button>
-            <Button type="submit" className="h-auto min-h-12 flex-1 whitespace-normal" disabled={pending || loadingLast || (step > 0 && !contextOpen && !selectedServices.length) || Boolean(overrideConflict && !contextOpen && step === 2)}>{pending ? "Agendando…" : contextOpen ? "Aplicar" : step === 0 ? "Continuar" : step === 1 ? "Revisar" : repeat ? "Criar série" : "Confirmar agendamento"}</Button>
+            <Button type="button" variant="outline" className="min-h-11 lg:min-h-10" disabled={pending} onClick={() => { if (contextOpen) { setContextOpen(false); setServiceQuery(""); } else if (step > 0) { setStep(step - 1); setError(null); } else requestClose(false); }}>Voltar</Button>
+            <Button type="submit" className="h-auto min-h-11 flex-1 whitespace-normal lg:min-h-10" disabled={pending || loadingLast || (step > 0 && !contextOpen && !selectedServices.length) || Boolean(overrideConflict && !contextOpen && step === 2)}>{pending ? "Agendando…" : contextOpen ? "Aplicar" : step === 0 ? "Continuar" : step === 1 ? "Revisar" : repeat ? "Criar série" : "Confirmar agendamento"}</Button>
           </div>}
         </div>
       </form>
@@ -499,7 +499,7 @@ export function AppointmentDialog({
 }
 
 function WaitlistNotice({ waitlist }: { waitlist: WaitlistPrefill }) {
-  return <p className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+  return <p className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
     Da fila de espera das {waitlist.sourceTime}. Ao confirmar, {waitlist.name} sai da fila.
   </p>;
 }
@@ -536,7 +536,7 @@ function FreeSlotSuggestions({ professionalId, professionalName, serviceIds, dat
       : current.slots.length === 0 ? <p className="text-xs text-muted-foreground">Sem horários livres neste dia. Escolha outra data ou digite um horário para encaixe.</p>
       : <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto">
         {current.slots.map(slot => <button key={slot} type="button" aria-pressed={selected === slot} onClick={() => onPick(slot)}
-          className="min-h-11 min-w-[4.5rem] rounded-lg border border-border px-3 text-sm tabular-nums aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground">
+          className="min-h-11 min-w-[4.5rem] rounded-[10px] border border-border-strong px-3 text-sm tabular-nums hover:bg-card-hover lg:min-h-9 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground">
           {current.bestFit.includes(slot) ? <span aria-hidden className="mr-1">★</span> : null}{slot}{current.bestFit.includes(slot) ? <span className="sr-only"> (melhor encaixe)</span> : null}
         </button>)}
       </div>}

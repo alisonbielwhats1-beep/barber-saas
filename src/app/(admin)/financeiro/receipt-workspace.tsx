@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
+import { Check, Clock, Minus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ReceiptButton } from "./receipt-button";
 import { getReceiptDay, getReceiptDays, receiveBatch } from "./receipt-actions";
 import { addCalendarDays } from "@/lib/time";
@@ -34,7 +36,7 @@ const METHODS = [
   { id: "TRANSFER", name: "Transferência" },
 ] as const;
 const field =
-  "min-h-11 rounded-lg border border-border bg-background px-3 text-sm";
+  "min-h-11 min-w-0 rounded-[10px] border border-border-strong bg-background px-3 text-base font-normal text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:min-h-10 lg:text-sm";
 const money = (v: string) =>
   /^\d+(?:[,.]\d{0,2})?$/.test(v)
     ? Math.round(Number(v.replace(",", ".")) * 100)
@@ -42,6 +44,8 @@ const money = (v: string) =>
       ? 0
       : NaN;
 const dateLabel = (v: string) => v.split("-").reverse().join("/");
+const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const weekday = (v: string) => WEEKDAYS[new Date(`${v}T12:00:00Z`).getUTCDay()];
 
 export function ReceiptWorkspace({
   date,
@@ -239,133 +243,131 @@ export function ReceiptWorkspace({
     });
   }
   return (
-    <section id="recebimentos" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold">
-            {history ? "Recebimentos por dia" : "Receber atendimentos"}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {history
-              ? "Selecione um ou mais dias e confira cada atendimento antes de dar baixa. O caixa considera a data do recebimento."
-              : "Selecione atendimentos e registre os pagamentos de uma vez."}
-          </p>
+    <section id="recebimentos" className="scroll-mt-24 overflow-hidden rounded-[14px] border border-border bg-card">
+      <div className="flex flex-col gap-3 p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-[1_1_240px]">
+            <h2 className="text-sm font-semibold leading-snug">
+              {history ? "Recebimentos por dia" : "Receber atendimentos"}
+            </h2>
+            <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+              {history
+                ? "Selecione um ou mais dias e confira cada atendimento antes de dar baixa. O caixa considera a data do recebimento."
+                : "Selecione atendimentos e registre os pagamentos de uma vez."}
+            </p>
+          </div>
+          {date && (
+            <Button size="sm" className="max-sm:w-full" onClick={() => open(date)}>
+              Registrar recebimentos
+            </Button>
+          )}
         </div>
-        {date && (
-          <button
-            className={`${field} bg-primary text-primary-foreground`}
-            onClick={() => open(date)}
-          >
-            Registrar recebimentos
-          </button>
-        )}
-      </div>
-      {history && (
-        <>
-          <div className="my-4 flex flex-wrap gap-2">
-            <button type="button" className={`${field} bg-primary text-primary-foreground`}
-              disabled={pending || !selectedDays.length} onClick={() => open(selectedDays)}>
-              Conferir {selectedDays.length} dia(s) selecionado(s)
-            </button>
-            {selectedDays.length > 0 && <button type="button" className={field} disabled={pending}
-              onClick={() => setSelectedDays([])}>Limpar dias</button>}
-            <button
-              className={field}
-              disabled={pending || !days}
-              onClick={() =>
-                setEndDate(addCalendarDays(days!.days[days!.days.length - 1]!.date, -1))
-              }
-            >
-              Dias anteriores
-            </button>
-            <button
-              className={field}
-              onClick={() => {
-                setEndDate(undefined);
-                setRefresh((v) => v + 1);
-              }}
-            >
-              Atualizar / dias recentes
-            </button>
-            {endDate && days && (
-              <button
-                className={field}
+        {history && (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" className="max-sm:flex-1"
+                disabled={pending || !selectedDays.length} onClick={() => open(selectedDays)}>
+                Conferir {selectedDays.length} dia(s) selecionado(s)
+              </Button>
+              {selectedDays.length > 0 && <Button type="button" variant="outline" size="sm" disabled={pending}
+                onClick={() => setSelectedDays([])}>Limpar dias</Button>}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending || !days}
                 onClick={() =>
-                  setEndDate(
-                    addCalendarDays(endDate, 31) > days.today
-                      ? undefined
-                      : addCalendarDays(endDate, 31),
-                  )
+                  setEndDate(addCalendarDays(days!.days[days!.days.length - 1]!.date, -1))
                 }
               >
-                Próximos dias
-              </button>
-            )}
-          </div>
-          <p className="mb-2 text-xs text-muted-foreground">Até 31 dias e 100 atendimentos por baixa. Selecionar um dia não registra pagamentos.</p>
-          {!days ? (
-            <p role="status">Carregando dias…</p>
-          ) : (
-            <div className="max-h-[28rem] overflow-y-auto divide-y divide-border">
-              {days.days.map((day) => (
-                <div key={day.date} className="flex items-center gap-2">
-                  <label className="flex min-h-11 min-w-11 items-center justify-center">
-                    <input type="checkbox" className="h-5 w-5 accent-primary"
-                      aria-label={`Selecionar dia ${dateLabel(day.date)}`}
-                      checked={selectedDays.includes(day.date)}
-                      disabled={pending || (!selectedDays.includes(day.date) && (!day.pendingCount || selectedDays.length >= 31))}
-                      onChange={(event) => setSelectedDays(current => event.target.checked
-                        ? [...current, day.date] : current.filter(value => value !== day.date))} />
-                  </label>
-                <button
-                  className="flex min-h-16 w-full items-center justify-between gap-3 px-2 py-3 text-left hover:bg-card-hover"
-                  onClick={() => open(day.date)}
-                  disabled={pending}
-                  aria-label={`Abrir recebimentos de ${dateLabel(day.date)}`}
+                Dias anteriores
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEndDate(undefined);
+                  setRefresh((v) => v + 1);
+                }}
+              >
+                Atualizar / dias recentes
+              </Button>
+              {endDate && days && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setEndDate(
+                      addCalendarDays(endDate, 31) > days.today
+                        ? undefined
+                        : addCalendarDays(endDate, 31),
+                    )
+                  }
                 >
-                  <span>
-                    <span
-                      aria-hidden="true"
-                      className={
-                        day.pendingCount ? "text-warning" : "text-success"
-                      }
-                    >
-                      {!day.count
-                        ? "—"
-                        : !day.pendingCount
-                          ? "☑"
-                          : day.pendingCount < day.count
-                            ? "◐"
-                            : "☐"}
-                    </span>{" "}
-                    <strong>{dateLabel(day.date)}</strong>
-                    <span className="block text-xs text-muted-foreground">
-                      {!day.count
-                        ? "Sem movimento"
-                        : !day.pendingCount
-                          ? "Recebimentos completos"
-                          : `${day.pendingCount} pendente(s)`}
-                    </span>
-                  </span>
-                  <span className="text-right text-sm">
-                    <span className="block">
-                      {formatMoney(day.received)} recebido
-                    </span>
-                    {day.pendingCount > 0 && (
-                      <span className="text-warning">
-                        {formatMoney(day.pending)} pendente
-                      </span>
-                    )}
-                  </span>
-                </button>
-                </div>
-              ))}
+                  Próximos dias
+                </Button>
+              )}
             </div>
-          )}
-        </>
-      )}
+            <p className="text-xs text-muted-foreground">Até 31 dias e 100 atendimentos por baixa. Selecionar um dia não registra pagamentos.</p>
+          </>
+        )}
+      </div>
+      {history && (!days ? (
+        <p role="status" className="border-t border-border px-4 py-3 text-sm text-muted-foreground sm:px-5">Carregando dias…</p>
+      ) : (
+        <div className="max-h-[28rem] overflow-y-auto overscroll-contain border-t border-border">
+          {days.days.map((day) => (
+            <div key={day.date} className="flex items-stretch border-b border-border last:border-b-0">
+              <label className="grid min-h-11 min-w-11 shrink-0 cursor-pointer place-items-center sm:min-w-14">
+                <input type="checkbox" className="h-5 w-5 accent-[hsl(var(--selection-solid))]"
+                  aria-label={`Selecionar dia ${dateLabel(day.date)}`}
+                  checked={selectedDays.includes(day.date)}
+                  disabled={pending || (!selectedDays.includes(day.date) && (!day.pendingCount || selectedDays.length >= 31))}
+                  onChange={(event) => setSelectedDays(current => event.target.checked
+                    ? [...current, day.date] : current.filter(value => value !== day.date))} />
+              </label>
+              <button
+                type="button"
+                className="grid min-h-14 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-2 pr-4 text-left transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:hover:bg-transparent md:grid-cols-[170px_minmax(0,1fr)_minmax(0,170px)_minmax(0,180px)] sm:pr-5"
+                onClick={() => open(day.date)}
+                disabled={pending}
+                aria-label={`Abrir recebimentos de ${dateLabel(day.date)}`}
+              >
+                <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 text-sm font-semibold">
+                  <span aria-hidden="true" className={`shrink-0 ${!day.count ? "text-muted-foreground" : day.pendingCount ? "text-warning" : "text-success"}`}>
+                    {!day.count ? <Minus className="h-3.5 w-3.5" /> : !day.pendingCount ? <Check className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                  </span>
+                  <span className="whitespace-nowrap tabular-nums">{dateLabel(day.date)}</span>
+                  <span className="whitespace-nowrap text-xs font-normal text-muted-foreground">{weekday(day.date)}</span>
+                </span>
+                <span className="col-start-1 row-start-2 min-w-0 text-xs text-muted-foreground md:col-start-2 md:row-start-1">
+                  {!day.count
+                    ? "Sem movimento"
+                    : !day.pendingCount
+                      ? "Recebimentos completos"
+                      : `${day.pendingCount} pendente(s)`}
+                </span>
+                <span className={`col-start-2 row-span-2 row-start-1 whitespace-nowrap text-right text-sm tabular-nums md:col-start-3 md:row-span-1 ${day.received ? "font-medium" : "text-muted-foreground"}`}>
+                  {formatMoney(day.received)} recebido
+                </span>
+                {day.pendingCount > 0 ? (
+                  <span className="col-span-2 col-start-1 row-start-3 mt-1 md:col-span-1 md:col-start-4 md:row-start-1 md:mt-0 md:text-right">
+                    <span className="inline-flex min-h-[22px] max-w-full items-center rounded-full bg-warning/15 px-2.5 text-xs font-medium text-warning">
+                      <span className="whitespace-nowrap tabular-nums">{formatMoney(day.pending)} pendente</span>
+                    </span>
+                  </span>
+                ) : <span aria-hidden="true" className="hidden md:col-start-4 md:row-start-1 md:block" />}
+              </button>
+            </div>
+          ))}
+        </div>
+      ))}
       {!openDate && error && (
-        <p role="alert" className="mt-3 text-danger">
+        <p role="alert" className="border-t border-border px-4 py-3 text-sm text-danger sm:px-5">
           {error}
         </p>
       )}
@@ -389,25 +391,25 @@ export function ReceiptWorkspace({
             </DialogDescription>
           </DialogHeader>
           {error && (
-            <p role="alert" className="text-sm text-danger">
+            <p role="alert" className="rounded-[10px] border border-danger/35 bg-danger/10 px-3 py-2 text-sm text-danger">
               {error}
             </p>
           )}
           {summary && (
-            <p role="status" className="text-sm text-success">
+            <p role="status" className="rounded-[10px] border border-success/35 bg-success/10 px-3 py-2 text-sm text-success">
               {summary}
             </p>
           )}
           {!data ? (
-            error ? <button type="button" className={field} disabled={pending} onClick={() => open(openedDays)}>Tentar novamente</button>
-              : <p role="status">Carregando…</p>
+            error ? <Button type="button" variant="outline" disabled={pending} onClick={() => open(openedDays)}>Tentar novamente</Button>
+              : <p role="status" className="text-sm text-muted-foreground">Carregando…</p>
           ) : (
             <fieldset
               disabled={pending}
               className="min-w-0 space-y-4 disabled:opacity-70"
             >
               <div className="flex flex-wrap items-end gap-3">
-                <label className="grid gap-1 text-sm">
+                <label className="grid gap-1.5 text-sm font-medium">
                   Data do recebimento
                   <input
                     aria-label="Data do recebimento"
@@ -428,7 +430,7 @@ export function ReceiptWorkspace({
                     className={field}
                   />
                 </label>
-                <label className="grid gap-1 text-sm">
+                <label className="grid min-w-0 gap-1.5 text-sm font-medium">
                   Aplicar a mesma forma aos selecionados (opcional)
                   <select
                     value=""
@@ -455,10 +457,11 @@ export function ReceiptWorkspace({
                 A data começa em ontem. Altere se o dinheiro foi recebido em
                 outro dia. Essa data será usada para todos os recebimentos selecionados.
               </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
                   type="button"
-                  className={field}
+                  variant="outline"
+                  size="sm"
                   onClick={() =>
                     data.rows.forEach((r) => {
                       if (r.eligible) edit(r.id, { selected: true });
@@ -466,20 +469,22 @@ export function ReceiptWorkspace({
                   }
                 >
                   Selecionar todos
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className={field}
+                  variant="outline"
+                  size="sm"
                   onClick={() =>
                     data.rows.forEach((r) => edit(r.id, { selected: false }))
                   }
                 >
                   Limpar seleção
-                </button>
+                </Button>
                 {selected.some((r) => r.status !== "COMPLETED") && (
                   <label className="flex min-h-11 items-center gap-2 text-sm">
                     <input
                       type="checkbox"
+                      className="h-5 w-5 shrink-0 accent-[hsl(var(--selection-solid))]"
                       checked={finalize}
                       onChange={(e) => setFinalize(e.target.checked)}
                     />
@@ -490,7 +495,7 @@ export function ReceiptWorkspace({
               </div>
               <div className="space-y-3 pr-1 sm:max-h-[45vh] sm:overflow-y-auto">
                 {data.rows.length === 0 && (
-                  <p>Nenhum recebimento pendente nos dias escolhidos.</p>
+                  <p className="text-sm text-muted-foreground">Nenhum recebimento pendente nos dias escolhidos.</p>
                 )}
                 {data.rows.map((row) => {
                   const e = edits[row.id]!;
@@ -505,12 +510,12 @@ export function ReceiptWorkspace({
                   return (
                     <article
                       key={row.id}
-                      className={`rounded-xl border p-3 ${e.selected ? "border-primary" : "border-border"}`}
+                      className={`rounded-xl border p-3 transition-colors ${e.selected ? "border-[hsl(var(--selection-solid)/0.7)] bg-[hsl(var(--selection)/0.35)]" : "border-border"}`}
                     >
-                      <div className="flex items-start gap-3">
-                        <label className="flex min-h-11 min-w-11 items-center justify-center">
+                      <div className="flex items-start gap-2">
+                        <label className="flex min-h-11 min-w-11 shrink-0 items-center justify-center">
                         <input
-                          className="h-5 w-5 accent-primary"
+                          className="h-5 w-5 accent-[hsl(var(--selection-solid))]"
                           aria-label={`Selecionar ${row.name}`}
                           type="checkbox"
                           disabled={!row.eligible}
@@ -520,13 +525,13 @@ export function ReceiptWorkspace({
                           }
                         />
                         </label>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold">
-                            {formatInTimeZone(
+                        <div className="min-w-0 flex-1 pt-2">
+                          <p className="break-words text-sm font-semibold">
+                            <span className="tabular-nums">{formatInTimeZone(
                               row.startAt,
                               data.timezone,
                               "dd/MM/yyyy · HH:mm",
-                            )}{" "}
+                            )}</span>{" "}
                             · {row.name}
                           </p>
                           <p className="text-sm text-muted-foreground">
@@ -543,11 +548,11 @@ export function ReceiptWorkspace({
                         </div>
                       </div>
                       <div className="mt-3 flex flex-wrap items-end gap-2">
-                        <label className="grid gap-1 text-xs">
+                        <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                           Forma de pagamento deste atendimento
                           <select
                             aria-label={`Forma de pagamento de ${row.name} · ${formatInTimeZone(row.startAt, data.timezone, "dd/MM/yyyy HH:mm")}`}
-                            className={field}
+                            className={`${field} text-foreground`}
                             value={e.method}
                             onChange={(event) =>
                               edit(row.id, {
@@ -562,10 +567,10 @@ export function ReceiptWorkspace({
                             ))}
                           </select>
                         </label>
-                        <label className="grid gap-1 text-xs">
+                        <label className="grid gap-1 text-xs text-muted-foreground">
                           Acréscimo (R$)
                           <input
-                            className={`${field} w-28`}
+                            className={`${field} w-28 text-foreground tabular-nums`}
                             inputMode="decimal"
                             placeholder="0,00"
                             value={e.surcharge}
@@ -574,10 +579,10 @@ export function ReceiptWorkspace({
                             }
                           />
                         </label>
-                        <label className="grid gap-1 text-xs">
+                        <label className="grid gap-1 text-xs text-muted-foreground">
                           Desconto (R$)
                           <input
-                            className={`${field} w-28`}
+                            className={`${field} w-28 text-foreground tabular-nums`}
                             inputMode="decimal"
                             placeholder="0,00"
                             value={e.discount}
@@ -586,7 +591,7 @@ export function ReceiptWorkspace({
                             }
                           />
                         </label>
-                        <strong className="pb-3">
+                        <strong className="ml-auto pb-3 text-sm font-semibold tabular-nums lg:pb-2.5">
                           Total{" "}
                           {Number.isFinite(total(row))
                             ? formatMoney(total(row), data.currency)
@@ -605,8 +610,8 @@ export function ReceiptWorkspace({
                           }
                         />
                       )}
-                      <details className="mt-3">
-                        <summary className="cursor-pointer py-2 text-sm">
+                      <details className="mt-2">
+                        <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">
                           Adicionar serviços realizados (
                           {e.extraServiceIds.length})
                         </summary>
@@ -640,12 +645,13 @@ export function ReceiptWorkspace({
                             key={`${id}-${i}`}
                             className="flex items-center justify-between gap-2 text-sm"
                           >
-                            <span>
+                            <span className="min-w-0">
                               {data.services.find((s) => s.id === id)?.name}
                             </span>
-                            <button
+                            <Button
                               type="button"
-                              className="min-h-11 px-3"
+                              variant="ghost"
+                              size="sm"
                               onClick={() =>
                                 edit(row.id, {
                                   extraServiceIds: e.extraServiceIds.filter(
@@ -655,7 +661,7 @@ export function ReceiptWorkspace({
                               }
                             >
                               Remover extra
-                            </button>
+                            </Button>
                           </div>
                         ))}
                       </details>
@@ -663,7 +669,7 @@ export function ReceiptWorkspace({
                         <p role="alert" className="mt-2 text-sm text-danger">
                           {messages[row.id]}{" "}
                           <button
-                            className="underline"
+                            className="min-h-11 underline underline-offset-2 lg:min-h-0"
                             type="button"
                             onClick={() => open(openedDays)}
                           >
@@ -676,19 +682,20 @@ export function ReceiptWorkspace({
                 })}
               </div>
               {selected.length > 100 && <p role="alert" className="text-sm text-danger">Selecione no máximo 100 atendimentos por baixa. Desmarque os demais para continuar.</p>}
-              <button
+              <Button
                 type="button"
+                size="lg"
                 onClick={submit}
                 disabled={!selected.length || selected.length > 100 || !Number.isFinite(totalCents) || (selected.some(row => row.status !== "COMPLETED") && !finalize)}
-                className="min-h-12 w-full rounded-xl bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-50"
+                className="h-auto min-h-12 w-full whitespace-normal py-2 text-center lg:min-h-10"
               >
                 {pending
                   ? "Registrando…"
                   : `Dar baixa em ${selected.length} atendimento(s) · ${Number.isFinite(totalCents) ? formatMoney(totalCents, data.currency) : "valor inválido"}`}
-              </button>
+              </Button>
               {data.paid.length > 0 && (
                 <details>
-                  <summary className="min-h-11 cursor-pointer text-sm font-semibold">
+                  <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">
                     {openedDays.length > 1 ? "Já recebidos nos dias escolhidos" : "Já recebidos neste dia de atendimento"} ({data.paid.length})
                   </summary>
                   {data.paid.map((p) => (

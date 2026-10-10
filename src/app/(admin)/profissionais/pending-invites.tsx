@@ -54,20 +54,20 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
   if (invites.length === 0) return null;
 
   return (
-    <section className="space-y-3">
+    <section aria-label="Convites pendentes" className="flex min-w-0 flex-col gap-3">
       <div>
-        <h2 className="text-[15px] font-semibold">Convites pendentes</h2>
-        <p className="text-xs text-muted-foreground">
+        <h2 className="text-sm font-semibold">Convites pendentes</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
           Esses profissionais ainda não aparecem na agenda nem podem receber
           agendamentos.
         </p>
       </div>
       {feedback && (
-        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p role="status" className="rounded-xl border border-border-strong bg-card px-3.5 py-2.5 text-sm text-foreground">
           {feedback}
         </p>
       )}
-      <div className="grid gap-3 xl:grid-cols-2">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2 lg:gap-4">
         {invites.map((invite) => {
           const expired = new Date(invite.expiresAt).getTime() <= now;
           const cancelled = Boolean(invite.revokedAt);
@@ -75,53 +75,55 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
           return (
             <article
               key={invite.id}
-              className="rounded-2xl border border-border bg-card p-4"
+              aria-label={`Convite de ${invite.name}`}
+              className="flex min-w-0 flex-col gap-3 rounded-[14px] border border-border bg-card p-4"
             >
               <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-muted text-foreground">
                   <Mail className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{invite.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="break-words text-sm font-semibold">{invite.name}</p>
+                  <p className="break-all text-sm text-muted-foreground">
                     {invite.email}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Profissional · criado em {dateTime(invite.createdAt)}
                   </p>
                 </div>
-                <div className="flex flex-wrap justify-end gap-1">
-                  {cancelled ? (
-                    <Badge tone="muted">Cancelado</Badge>
-                  ) : expired ? (
-                    <Badge tone="warning">Expirado</Badge>
-                  ) : (
-                    <Badge tone="warning">Pendente</Badge>
-                  )}
-                  {!cancelled && invite.deliveryStatus === "SENDING" && (
-                    <Badge tone="info">Enviando</Badge>
-                  )}
-                  {!cancelled && invite.deliveryStatus === "SENT" && (
-                    <Badge tone="success">Enviado</Badge>
-                  )}
-                  {!cancelled && invite.deliveryStatus === "FAILED" && (
-                    <Badge tone="danger">Falha no envio</Badge>
-                  )}
-                </div>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-surface-1 p-3 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Enviado em</span>
-                  <p className="font-medium">{dateTime(invite.sentAt)}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Expira em</span>
-                  <p className="font-medium">{dateTime(invite.expiresAt)}</p>
-                </div>
+              <div className="flex flex-wrap gap-1.5">
+                {cancelled ? (
+                  <Badge tone="muted">Cancelado</Badge>
+                ) : expired ? (
+                  <Badge tone="warning">Expirado</Badge>
+                ) : (
+                  <Badge tone="warning">Pendente</Badge>
+                )}
+                {!cancelled && invite.deliveryStatus === "SENDING" && (
+                  <Badge tone="info">Enviando</Badge>
+                )}
+                {!cancelled && invite.deliveryStatus === "SENT" && (
+                  <Badge tone="muted">Enviado</Badge>
+                )}
+                {!cancelled && invite.deliveryStatus === "FAILED" && (
+                  <Badge tone="danger">Falha no envio</Badge>
+                )}
               </div>
+              <dl className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-background p-3 text-sm">
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">Enviado em</dt>
+                  <dd className="font-medium tabular-nums">{dateTime(invite.sentAt)}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">Expira em</dt>
+                  <dd className="font-medium tabular-nums">{dateTime(invite.expiresAt)}</dd>
+                </div>
+              </dl>
               {!cancelled && (
-                <div className="mt-3 flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
+                    type="button"
                     size="sm"
                     variant="outline"
                     disabled={pending}
@@ -137,16 +139,17 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
                       })
                     }
                   >
-                    <RotateCw className="h-3.5 w-3.5" />
+                    <RotateCw aria-hidden="true" className="h-4 w-4" />
                     {actionable ? "Reenviar convite" : "Enviar novo convite"}
                   </Button>
                   <Button
+                    type="button"
                     size="sm"
-                    variant="ghost"
+                    variant="outline"
                     disabled={pending || !actionable}
                     onClick={() => setInviteToCancel(invite)}
                   >
-                    <XCircle className="h-3.5 w-3.5" />
+                    <XCircle aria-hidden="true" className="h-4 w-4" />
                     Cancelar
                   </Button>
                 </div>
@@ -184,13 +187,13 @@ function Badge({
 }) {
   const classes = {
     muted: "bg-muted text-muted-foreground",
-    warning: "bg-amber-500/10 text-amber-600",
-    info: "bg-blue-500/10 text-blue-600",
-    success: "bg-success/10 text-success",
-    danger: "bg-destructive/10 text-destructive",
+    warning: "bg-warning/15 text-warning",
+    info: "bg-info/15 text-info",
+    success: "bg-success/15 text-success",
+    danger: "bg-danger/10 text-danger",
   };
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${classes[tone]}`}>
+    <span className={`inline-flex min-h-[22px] items-center whitespace-nowrap rounded-full px-2.5 text-xs font-medium ${classes[tone]}`}>
       {children}
     </span>
   );

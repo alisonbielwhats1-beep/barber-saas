@@ -87,7 +87,7 @@ export function PackageForm({
           </div>
           <div>
             <label htmlFor="package-form-serviceId" className="mb-1 block text-sm font-medium">Serviço (opcional)</label>
-            <select id="package-form-serviceId" name="serviceId" defaultValue={pkg?.serviceId ?? ""} className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <select id="package-form-serviceId" name="serviceId" defaultValue={pkg?.serviceId ?? ""} className="flex min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:min-h-10 lg:text-sm">
               <option value="">Genérico (qualquer serviço)</option>
               {services.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
@@ -108,7 +108,7 @@ export function PackageForm({
               <Input id="package-form-validityDays" name="validityDays" type="number" min={1} defaultValue={pkg?.validityDays ?? 120} required />
             </div>
           </div>
-          {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-[10px] bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
           <DialogFooter>
             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
             <Button type="submit" disabled={pending}>{pending ? "Salvando…" : editing ? "Salvar" : "Criar"}</Button>

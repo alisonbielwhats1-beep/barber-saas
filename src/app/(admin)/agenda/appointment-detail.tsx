@@ -342,8 +342,6 @@ export function AppointmentDetail({
   return (
     <Dialog open={!!appt} onOpenChange={(o) => !o && !submitting.current && onClose()}>
       <DialogContent onEscapeKeyDown={(event) => { if (submitting.current) event.preventDefault(); }} onPointerDownOutside={(event) => { if (submitting.current) event.preventDefault(); }} className="appointment-detail-dialog max-h-[calc(100dvh-1rem)] max-w-md gap-0 overflow-y-auto overscroll-contain p-0 pb-[env(safe-area-inset-bottom)]">
-        <div className="h-1.5 w-full" style={{ background: cfg.color }} />
-
         <div className="p-5">
           <DialogHeader className="mb-4 pr-8 flex-row items-center justify-between space-y-0">
             <div className="flex min-w-0 items-center gap-2">
@@ -352,20 +350,21 @@ export function AppointmentDetail({
                   disabled={pending}
                   onClick={() => { setView("detail"); setError(null); }}
                   aria-label="Voltar aos detalhes do agendamento"
-                  className="grid min-h-11 min-w-11 place-items-center text-muted-foreground hover:text-foreground"
+                  className="grid min-h-11 min-w-11 place-items-center rounded-[10px] text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground lg:min-h-9 lg:min-w-9"
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
               )}
-              <DialogTitle className="min-w-0 break-words text-lg">
+              <DialogTitle className="min-w-0 break-words text-lg font-semibold">
                 {view === "comanda"
                   ? isCompletedAwaitingPayment ? "Registrar recebimento" : "Fechar comanda"
                   : appt.clientName}
               </DialogTitle>
             </div>
             <span
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cfg.badgeClass}`}
+              className={`inline-flex h-[22px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-medium ${cfg.badgeClass}`}
             >
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
               {cfg.label}
             </span>
           </DialogHeader>
@@ -379,10 +378,10 @@ export function AppointmentDetail({
           )}
 
           {/* ── EDIT MODE ─────────────────────────────────────── */}
-          {savedMessage && <div className="space-y-3"><p role="status" className="rounded-lg bg-success/10 p-3 text-sm">{savedMessage}</p><button className="min-h-11 rounded-lg bg-primary px-4 text-primary-foreground" onClick={onClose}>Concluir</button></div>}
+          {savedMessage && <div className="space-y-3"><p role="status" className="rounded-xl border border-success/30 bg-success/10 p-3 text-sm">{savedMessage}</p><button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]" onClick={onClose}>Concluir</button></div>}
           {view === "edit" && !savedMessage && (
             <div className="space-y-3">
-              <p className="text-[12px] font-medium text-muted-foreground">
+              <p className="text-xs font-medium text-muted-foreground">
                 Editando agendamento de{" "}
                 <span className="font-semibold text-foreground">{appt.clientName}</span>
               </p>
@@ -402,7 +401,7 @@ export function AppointmentDetail({
                       setEditDate(e.target.value);
                       setError(null);
                     }}
-                    className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring lg:min-h-10"
                   />
                 </div>
                 <div>
@@ -419,19 +418,19 @@ export function AppointmentDetail({
                       setEditTime(e.target.value);
                       setError(null);
                     }}
-                    className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring lg:min-h-10"
                   />
                 </div>
               </div>
 
               <fieldset disabled={pending} className="min-w-0 space-y-2">
                 <legend className="text-sm font-semibold">Serviços do agendamento</legend>
-                <input aria-label="Buscar serviços para editar" type="search" value={serviceSearch} onChange={event => setServiceSearch(event.target.value)} placeholder="Buscar serviço" className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm" />
+                <input aria-label="Buscar serviços para editar" type="search" value={serviceSearch} onChange={event => setServiceSearch(event.target.value)} placeholder="Buscar serviço" className="min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring lg:min-h-10" />
                 <p className="text-xs text-muted-foreground">Desmarque para substituir ou marque outros para adicionar. Até 10 serviços.</p>
-                <div className="max-h-52 overflow-y-auto rounded-lg border border-border">
+                <div className="max-h-52 overflow-y-auto rounded-xl border border-border">
                   {services.filter(service => service.name.toLocaleLowerCase("pt-BR").includes(serviceSearch.toLocaleLowerCase("pt-BR"))).map(service => (
-                    <label key={service.id} className="flex min-h-11 cursor-pointer items-start gap-2 border-b border-border p-3 text-sm last:border-0">
-                      <input type="checkbox" className="mt-1" checked={editServices.includes(service.id)} disabled={!editServices.includes(service.id) && editServices.length >= 10} onChange={event => {
+                    <label key={service.id} className="flex min-h-11 cursor-pointer items-start gap-2.5 border-b border-border p-3 text-sm transition-colors last:border-0 hover:bg-card-hover">
+                      <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[hsl(var(--foreground))]" checked={editServices.includes(service.id)} disabled={!editServices.includes(service.id) && editServices.length >= 10} onChange={event => {
                         invalidateEdit();
                         setEditServices(event.target.checked ? [...editServices, service.id] : editServices.filter(id => id !== service.id));
                       }} />
@@ -444,7 +443,7 @@ export function AppointmentDetail({
                 <p className="text-xs">{editServices.length} serviço(s) selecionado(s).</p>
               </fieldset>
 
-              <p role="status" className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+              <p role="status" className="rounded-xl border border-border bg-card p-3 text-sm">
                 Duração {servicesChanged ? "prevista" : "atual"}: <strong>{formatDuration(previewDuration)}</strong>.
                 {editEndLabel ? <> Término previsto: <strong>{editEndLabel}</strong>.</> : " Informe uma data e um horário válidos."}
                 <span className="mt-1 block text-xs text-muted-foreground">Valor {servicesChanged ? "base dos serviços" : "atual"}: {formatMoney(previewPrice)}. {servicesChanged ? "O total final considera as regras do dia; serviços com preço a partir de podem variar. " : ""}Ao salvar, os serviços e o horário serão atualizados imediatamente. O novo horário ficará reservado enquanto o cliente aceita ou recusa.</span>
@@ -464,30 +463,30 @@ export function AppointmentDetail({
                   }}
                   rows={3}
                   placeholder="Preferências, alergias, observações…"
-                  className="w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full resize-none rounded-[10px] border border-border-strong bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
               {error && (
-                <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">
+                <p role="alert" className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
                   {error}
                 </p>
               )}
 
-              {afterHours && <div className="space-y-2 rounded-lg border border-warning/50 p-3">
+              {afterHours && <div className="space-y-2 rounded-xl border border-warning/40 bg-warning/10 p-3">
                 <p className="text-sm">Confirmar este atendimento na folga, pausa ou fora do expediente? A exceção vale somente para esta reserva.</p>
-                <label htmlFor="edit-after-hours-reason" className="block text-xs">Motivo da exceção</label>
-                <input id="edit-after-hours-reason" maxLength={200} disabled={pending} value={afterHoursReason} onChange={event => { mutationKeys.current.delete("edit"); setAfterHoursReason(event.target.value); }} className="w-full rounded-lg border border-border bg-surface-1 p-2 text-sm" />
-                <button disabled={pending || afterHoursReason.trim().length < 3} onClick={() => saveEdit(true)} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Confirmar exceção de jornada</button>
+                <label htmlFor="edit-after-hours-reason" className="block text-xs font-medium text-muted-foreground">Motivo da exceção</label>
+                <input id="edit-after-hours-reason" maxLength={200} disabled={pending} value={afterHoursReason} onChange={event => { mutationKeys.current.delete("edit"); setAfterHoursReason(event.target.value); }} className="min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring lg:min-h-10" />
+                <button disabled={pending || afterHoursReason.trim().length < 3} onClick={() => saveEdit(true)} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]">Confirmar exceção de jornada</button>
               </div>}
-              {overbook && <div className="space-y-2 rounded-lg border border-warning/50 p-3">
+              {overbook && <div className="space-y-2 rounded-xl border border-warning/40 bg-warning/10 p-3">
                 <p className="text-sm font-medium">Encaixar neste horário ocupado?</p>
                 <p className="text-xs text-muted-foreground">Os dois atendimentos serão mantidos. Confirme o encaixe e informe o motivo; para cliente com conta, o horário já fica reservado enquanto aguarda a resposta.</p>
-                <label htmlFor="edit-overbook-reason" className="block text-xs">Motivo do encaixe</label>
-                <input id="edit-overbook-reason" maxLength={200} disabled={pending} value={overbookReason} onChange={event => { mutationKeys.current.delete("edit"); setOverbookReason(event.target.value); }} className="w-full rounded-lg border border-border bg-surface-1 p-2 text-sm" />
-                <button disabled={pending || overbookReason.trim().length < 3} onClick={() => saveEdit(false, true)} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Confirmar encaixe</button>
+                <label htmlFor="edit-overbook-reason" className="block text-xs font-medium text-muted-foreground">Motivo do encaixe</label>
+                <input id="edit-overbook-reason" maxLength={200} disabled={pending} value={overbookReason} onChange={event => { mutationKeys.current.delete("edit"); setOverbookReason(event.target.value); }} className="min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring lg:min-h-10" />
+                <button disabled={pending || overbookReason.trim().length < 3} onClick={() => saveEdit(false, true)} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]">Confirmar encaixe</button>
               </div>}
-              {editReview && <section aria-label="Revisão das alterações" className="rounded-xl border border-border bg-surface-1 p-3 text-sm" hidden={!editReview}>
+              {editReview && <section aria-label="Revisão das alterações" className="rounded-xl border border-border bg-card p-3 text-sm" hidden={!editReview}>
                 <h3 className="font-semibold">Confira antes de salvar</h3>
                 <p className="mt-2 text-muted-foreground">Antes: {formatInTimeZone(new Date(baseline.startAt), timezone, "dd/MM/yyyy · HH:mm")} · {baseline.serviceName} · {formatMoney(baseline.priceCents)}</p>
                 <p className="mt-2">Depois: {editDate.split("-").reverse().join("/")} · {editTime} — {editEndLabel}</p>
@@ -499,7 +498,7 @@ export function AppointmentDetail({
                 <button
                   disabled={pending || afterHours || overbook || !editEndLabel || !editServices.length || (servicesChanged && unknownService)}
                   onClick={() => { if (editReview) saveEdit(); else setEditReview(true); }}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] flex-1"
                 >
                   {pending ? (
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
@@ -511,7 +510,7 @@ export function AppointmentDetail({
                 <button
                   disabled={pending}
                   onClick={() => { setView("detail"); setError(null); }}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-4 py-2.5 text-[13px] text-muted-foreground transition hover:text-foreground"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] px-4"
                 >
                   <X className="h-3.5 w-3.5" />
                   Cancelar
@@ -529,14 +528,14 @@ export function AppointmentDetail({
               <div className="space-y-2.5 text-sm">
                 {professionalName && <Row icon={User} label={professionalName} />}
                 <Row icon={Scissors} label={appt.serviceName} />
-                {appt.stages?.filter(s => s.processingMin || s.finishingMin).map((s, i) => <div key={i} className="rounded-lg border border-border p-3 text-xs"><strong>{s.name}</strong><div className="mt-2 flex overflow-hidden rounded-md" aria-label="Etapas do atendimento"><span className="bg-success/20 p-2" style={{ flex: s.durationMin - s.processingMin - s.finishingMin }}>Execução {s.durationMin - s.processingMin - s.finishingMin} min</span>{s.processingMin > 0 && <span className="bg-warning/20 p-2" style={{ flex: s.processingMin }}>Processamento {s.processingMin} min</span>}{s.finishingMin > 0 && <span className="bg-info/20 p-2" style={{ flex: s.finishingMin }}>Finalização {s.finishingMin} min</span>}</div></div>)}
+                {appt.stages?.filter(s => s.processingMin || s.finishingMin).map((s, i) => <div key={i} className="rounded-xl border border-border p-3 text-xs"><strong className="text-sm font-semibold">{s.name}</strong><div className="mt-2 flex gap-0.5 overflow-hidden rounded-md" aria-label="Etapas do atendimento"><span className="bg-muted p-2" style={{ flex: s.durationMin - s.processingMin - s.finishingMin }}>Execução {s.durationMin - s.processingMin - s.finishingMin} min</span>{s.processingMin > 0 && <span className="bg-muted/60 p-2 text-muted-foreground" style={{ flex: s.processingMin, backgroundImage: "repeating-linear-gradient(135deg, hsl(var(--foreground) / .06) 0 4px, transparent 4px 8px)" }}>Processamento {s.processingMin} min</span>}{s.finishingMin > 0 && <span className="bg-muted p-2 text-muted-foreground" style={{ flex: s.finishingMin }}>Finalização {s.finishingMin} min</span>}</div></div>)}
                 <Row
                   icon={Clock}
                   label={`${formatInTimeZone(start, timezone, "HH:mm")} – ${formatInTimeZone(end, timezone, "HH:mm")} · ${formatInTimeZone(start, timezone, "EEEE, d MMM", { locale: ptBR })}`}
                 />
                 {appt.pendingReschedule && (
-                  <div className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2.5 text-warning">
-                    <p className="text-[12px] font-semibold">{appt.pendingReschedule.status === "REJECTED" ? "Cliente recusou a alteração · entre em contato" : "Aguardando aceite do cliente"}</p>
+                  <div className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-warning">
+                    <p className="text-sm font-semibold">{appt.pendingReschedule.status === "REJECTED" ? "Cliente recusou a alteração · entre em contato" : "Aguardando aceite do cliente"}</p>
                     <p className="mt-1 text-xs leading-relaxed">
                       Novo horário: {formatInTimeZone(new Date(appt.pendingReschedule.targetStartAt), timezone, "dd/MM/yyyy 'às' HH:mm")} · {appt.pendingReschedule.targetProfessionalName}.
                     </p>
@@ -545,7 +544,7 @@ export function AppointmentDetail({
                   </div>
                 )}
                 {clientPhoneHref ? (
-                  <a href={clientPhoneHref} className="flex min-h-11 items-center gap-2.5 text-primary">
+                  <a href={clientPhoneHref} className="flex min-h-11 items-center gap-2.5 font-medium text-foreground underline-offset-4 hover:underline">
                     <Phone className="h-4 w-4 shrink-0" />
                     {appt.clientPhone} · Ligar
                   </a>
@@ -557,22 +556,22 @@ export function AppointmentDetail({
                   label={appt.notes || "Sem observações"}
                   muted={!appt.notes}
                 />
-                <div className="flex items-center justify-between rounded-lg bg-surface-1 px-3 py-2">
+                <div className="flex min-h-11 items-center justify-between rounded-xl border border-border px-3 py-2">
                   <span className="text-muted-foreground">Valor</span>
-                  <span className="font-semibold">{formatMoney(appt.priceCents)}</span>
+                  <span className="whitespace-nowrap font-semibold tabular-nums">{formatMoney(appt.priceCents)}</span>
                 </div>
                 {appt.isOverbooked && (
-                  <div className="flex items-center gap-1.5 rounded-lg bg-danger/10 px-3 py-2 text-danger">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="text-[12px] font-medium">
+                  <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-danger">
+                    <AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0" />
+                    <span className="text-xs font-medium">
                       Overbooking deliberado — registrado na trilha de auditoria.
                     </span>
                   </div>
                 )}
                 {appt.waitlistCount > 0 && (
-                  <div className="rounded-lg border border-amber-500/20 bg-warning/10 p-3 text-warning">
-                    <p className="flex items-center gap-1.5 font-semibold">
-                      <Users className="h-4 w-4" />
+                  <div className="rounded-xl border border-border p-3">
+                    <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.04em] text-muted-foreground">
+                      <Users aria-hidden="true" className="h-4 w-4" />
                       Fila de espera · {appt.waitlistCount}
                     </p>
                     <ol className="mt-2 space-y-2">
@@ -581,10 +580,10 @@ export function AppointmentDetail({
                         return (
                           <li
                             key={entry.id}
-                            className="space-y-2 rounded-lg bg-background/70 px-3 py-2"
+                            className="space-y-2 rounded-xl border border-border bg-card px-3 py-2.5"
                           >
                             <div className="min-w-0">
-                              <p className="truncate text-[12px] font-semibold">
+                              <p className="truncate text-sm font-semibold">
                                 #{entry.position} · {entry.name}
                               </p>
                               {entry.phone && (entryTel ? (
@@ -605,7 +604,7 @@ export function AppointmentDetail({
                                     type="button"
                                     disabled={pending}
                                     onClick={() => onScheduleWaitlist(entry)}
-                                    className="inline-flex min-h-11 flex-1 basis-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] flex-1 basis-full px-3"
                                   >
                                     <CalendarClock className="h-4 w-4" />
                                     Agendar em outro horário
@@ -616,7 +615,7 @@ export function AppointmentDetail({
                                     type="button"
                                     disabled={pending}
                                     onClick={() => run(() => promoteWaitlist(appt.id, entry.id))}
-                                    className="min-h-11 flex-1 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] flex-1"
                                   >
                                     Promover
                                   </button>
@@ -626,7 +625,7 @@ export function AppointmentDetail({
                                     href={waitlistWaLink(entry.phone, entry.name, salonName)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 text-xs font-medium text-success hover:bg-success/15"
+                                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] flex-1"
                                   >
                                     <MessageCircle className="h-4 w-4" />
                                     WhatsApp
@@ -640,7 +639,7 @@ export function AppointmentDetail({
                                       setRemoveWaitlistId(entry.id);
                                       setRemoveWaitlistReason("");
                                     }}
-                                    className="min-h-11 flex-1 rounded-lg px-3 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] flex-1 border-danger/40 text-danger hover:bg-danger/10"
                                     aria-label={`Remover ${entry.name} da fila`}
                                   >
                                     Remover da fila
@@ -653,8 +652,8 @@ export function AppointmentDetail({
                       })}
                     </ol>
                     {removeWaitlistId && (
-                      <div className="mt-3 rounded-lg border border-border bg-background p-3">
-                        <p className="text-[12px] font-semibold text-foreground">
+                      <div className="mt-3 rounded-xl border border-border bg-card p-3">
+                        <p className="text-sm font-semibold text-foreground">
                           Remover somente esta pessoa da fila?
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -665,13 +664,13 @@ export function AppointmentDetail({
                           onChange={(event) => setRemoveWaitlistReason(event.target.value)}
                           placeholder="Motivo da remoção"
                           maxLength={500}
-                          className="mt-2 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground"
+                          className="mt-2 min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring lg:min-h-10"
                         />
                         <div className="mt-2 flex gap-2">
                           <button
                             type="button"
                             onClick={() => setRemoveWaitlistId(null)}
-                            className="min-h-11 flex-1 rounded-lg border border-border px-3 text-xs text-foreground"
+                            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] flex-1"
                           >
                             Voltar
                           </button>
@@ -682,7 +681,7 @@ export function AppointmentDetail({
                               removeWaitlistId,
                               removeWaitlistReason.trim(),
                             ))}
-                            className="min-h-11 flex-1 rounded-lg bg-danger px-3 text-xs font-semibold text-white disabled:opacity-40"
+                            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-destructive px-3 text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 lg:min-h-9 lg:rounded-[9px] flex-1"
                           >
                             Remover da fila
                           </button>
@@ -692,17 +691,17 @@ export function AppointmentDetail({
                   </div>
                 )}
                 {appt.events.length > 0 && (
-                  <div className="rounded-lg border border-border bg-surface-1 p-3">
+                  <div className="rounded-xl border border-border p-3">
                     <div className="mb-2 flex items-center justify-between">
-                      <p className="flex items-center gap-1.5 text-[12px] font-semibold">
-                        <History className="h-4 w-4 text-muted-foreground" />
+                      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.04em] text-muted-foreground">
+                        <History aria-hidden="true" className="h-4 w-4" />
                         Histórico imutável
                       </p>
                       {appt.events.length > HISTORY_PREVIEW_COUNT && (
                         <button
                           type="button"
                           onClick={() => setHistoryExpanded((open) => !open)}
-                          className="inline-flex min-h-11 items-center text-xs font-medium text-primary hover:underline"
+                          className="inline-flex min-h-11 items-center px-1 text-xs font-semibold text-foreground underline-offset-4 hover:underline"
                         >
                           {historyExpanded ? "Ver menos" : `Ver tudo (${appt.events.length})`}
                         </button>
@@ -734,7 +733,7 @@ export function AppointmentDetail({
               </div>
 
               {error && (
-                <p className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">
+                <p role="alert" className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
                   {error}
                 </p>
               )}
@@ -756,7 +755,7 @@ export function AppointmentDetail({
                           }),
                         )
                       }
-                      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium transition disabled:opacity-50 ${statusActionClasses(s)}`}
+                      className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] ${statusActionClasses(s)}`}
                     >
                       <Icon className="h-4 w-4" />
                       {ACTION_LABELS[s] ?? target.label}
@@ -770,17 +769,17 @@ export function AppointmentDetail({
                 {isMutable && (
                   <><button
                     onClick={openEdit}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-[13px] font-medium text-primary transition hover:bg-primary/20"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]"
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil aria-hidden="true" className="h-4 w-4" />
                     Editar
-                  </button><button onClick={openEdit} className="min-h-11 rounded-lg border border-border px-3 text-sm">Reagendar</button></>
+                  </button><button onClick={openEdit} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]"><CalendarClock aria-hidden="true" className="h-4 w-4" />Reagendar</button></>
                 )}
                 {clientPhoneHref && <a
                   href={waLink(appt.clientPhone, appt.clientName, salonName, whenLabel)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 py-2 text-[13px] font-medium text-success transition hover:bg-success/15"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]"
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
@@ -788,7 +787,7 @@ export function AppointmentDetail({
                 {telLink(appt.clientPhone) && (
                   <a
                     href={telLink(appt.clientPhone)!}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-[13px] font-medium text-primary transition hover:bg-primary/20"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]"
                   >
                     <Phone className="h-4 w-4" />
                     Ligar
@@ -800,7 +799,7 @@ export function AppointmentDetail({
                     onClick={() =>
                       run(() => duplicateAppointment(appt.id, mutationKey("duplicate")))
                     }
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]"
                     title="Criar nova visita na semana seguinte"
                   >
                     <Copy className="h-4 w-4" />
@@ -810,7 +809,7 @@ export function AppointmentDetail({
                 {canOpenComanda ? (
                   <button
                     onClick={() => { setError(null); setView("comanda"); }}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]"
                     title={isCompletedAwaitingPayment
                       ? "Registrar o pagamento pendente"
                       : "Fechar comanda e registrar pagamento"}
@@ -830,7 +829,7 @@ export function AppointmentDetail({
                           : "Não foi possível carregar o recibo");
                       }
                     })}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px]"
                     title="Imprimir recibo"
                   >
                     <Receipt className="h-4 w-4" />
@@ -842,9 +841,9 @@ export function AppointmentDetail({
               </div>
               {/* Cancel */}
               {isMutable && canCancel && (cancelMode ? (
-                <div className="mt-3 space-y-2 rounded-lg border border-danger/40 bg-danger/5 p-3">
+                <div className="mt-3 space-y-2 rounded-xl border border-danger/40 bg-danger/5 p-3">
                   <h3 ref={focusOnMount} tabIndex={-1} className="text-base font-semibold focus:outline-none">Cancelar este agendamento?</h3><p className="text-sm">{appt.clientName} · {whenLabel}<br />{professionalName} · {appt.serviceName}</p>{error && <p role="alert" className="text-sm text-danger">{error}</p>}
-                  <label className="block text-[12px] font-medium text-danger" htmlFor="cancel-reason">
+                  <label className="block text-xs font-medium text-muted-foreground" htmlFor="cancel-reason">
                     Motivo do cancelamento (opcional)
                   </label>
                   <textarea
@@ -856,18 +855,18 @@ export function AppointmentDetail({
                     }}
                     rows={3}
                     maxLength={500}
-                    className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full resize-none rounded-[10px] border border-border-strong bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder="Opcional: fica no histórico e aparece para o cliente"
                   />
                   <p className="text-xs text-muted-foreground">
                     O registro será preservado, o horário liberado e o cliente do agendamento notificado.
                   </p>
                   {appt.waitlist[0] && (
-                    <div className="space-y-1 rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2 text-[12px] text-warning">
-                      <label className="flex min-h-11 items-center gap-2 font-medium">
+                    <div className="space-y-1 rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+                      <label className="flex min-h-11 items-center gap-2.5 text-sm font-medium text-foreground">
                         <input
                           type="checkbox"
-                          className="h-5 w-5 shrink-0 accent-primary"
+                          className="h-5 w-5 shrink-0 accent-[hsl(var(--foreground))]"
                           checked={promoteOnCancel}
                           disabled={pending}
                           onChange={(event) => {
@@ -888,7 +887,7 @@ export function AppointmentDetail({
                     <button
                       type="button"
                       disabled={pending} onClick={() => { setCancelMode(false); setCancelReason(""); setPromoteOnCancel(false); }}
-                      className="min-h-11 flex-1 rounded-lg border border-border px-3 text-sm"
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] flex-1"
                     >
                       Voltar
                     </button>
@@ -913,7 +912,7 @@ export function AppointmentDetail({
                               ),
                         )
                       }
-                      className="min-h-11 flex-1 rounded-lg bg-danger px-3 text-sm font-medium text-white disabled:opacity-40"
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-destructive px-3 text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 lg:min-h-9 lg:rounded-[9px] flex-1"
                     >
                       {promoteOnCancel && appt.waitlist[0] ? "Cancelar e passar o horário" : "Confirmar cancelamento"}
                     </button>
@@ -928,7 +927,7 @@ export function AppointmentDetail({
                       ? "Ao cancelar, você pode passar o horário para a primeira pessoa da fila"
                       : undefined
                   }
-                  className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong px-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9 lg:rounded-[9px] mt-2 w-full border-danger/40 bg-danger/10 text-danger hover:bg-danger/15"
                 >
                   <Ban className="h-4 w-4" />
                   Cancelar agendamento

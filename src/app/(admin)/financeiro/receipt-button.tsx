@@ -8,17 +8,14 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ComandaPanel } from "../agenda/comanda-panel";
+import { Button } from "@/components/ui/button";
 export function ReceiptButton({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="min-h-11 rounded-lg border border-border px-3 text-sm"
-      >
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
         Ver recibo
-      </button>
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

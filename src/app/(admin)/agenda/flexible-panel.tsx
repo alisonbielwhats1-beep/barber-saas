@@ -90,7 +90,7 @@ export function FlexibleQueuePanel() {
                   type="datetime-local"
                   min={`${i.fromDate}T${minutesToHHMM(i.startMinutes)}`}
                   max={`${i.toDate}T23:59`}
-                  className="mt-1 block min-h-11 rounded-lg border border-border bg-background px-2 text-sm"
+                  className="mt-1 block min-h-11 rounded-[10px] border border-border-strong bg-background px-2 text-sm lg:min-h-10"
                 />
               </label>
               <label className="text-xs">
@@ -98,7 +98,7 @@ export function FlexibleQueuePanel() {
                 <select
                   name="minutes"
                   defaultValue="15"
-                  className="block min-h-11 rounded-lg border border-border bg-background px-2"
+                  className="block min-h-11 rounded-[10px] border border-border-strong bg-background px-2 text-sm lg:min-h-10"
                 >
                   <option value="5">5 minutos</option>
                   <option value="15">15 minutos</option>
@@ -108,7 +108,7 @@ export function FlexibleQueuePanel() {
               </label>
               <button
                 disabled={pending || i.offers.length > 0}
-                className="min-h-11 rounded-lg bg-[var(--action-positive)] px-3 text-sm text-white"
+                className="min-h-11 rounded-[10px] bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 lg:min-h-10"
               >
                 Oferecer vaga
               </button>

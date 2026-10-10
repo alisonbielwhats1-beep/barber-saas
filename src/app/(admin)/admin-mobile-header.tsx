@@ -3,16 +3,20 @@ import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand";
 import type { PlanBadge } from "@/lib/billing/presentation";
 import { PlanShortcut } from "./plan-shortcut";
-import { ThemeToggle } from "./theme-toggle";
+import { NotificationsBell } from "./mobile-top-bar";
+import { requestCommandPaletteOpen } from "./command-palette";
+import { Search } from "lucide-react";
 
 export function AdminMobileHeader({
   role,
   plan,
   planHref,
+  unreadNotifications = 0,
 }: {
   role: string;
   plan: PlanBadge;
   planHref: string;
+  unreadNotifications?: number;
 }) {
   const pathname = usePathname();
   const owner = role === "OWNER";
@@ -20,21 +24,31 @@ export function AdminMobileHeader({
   return (
     <header
       role="region"
-      aria-label="Marca e aparência"
-      className="app-topbar sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-2 lg:hidden print:hidden"
+      aria-label="Marca, busca e notificações"
+      className="app-topbar sticky top-0 z-30 flex items-center gap-1 border-b border-border bg-background/80 py-1.5 pl-4 pr-1.5 lg:hidden print:hidden"
     >
       <BrandLogo
-        className={`!h-9 shrink-0 text-foreground ${owner ? "!w-[100px] sm:!w-[142px]" : "!w-[142px]"}`}
+        className={`!h-8 shrink-0 text-foreground ${owner ? "!w-[96px] sm:!w-[128px]" : "!w-[128px]"}`}
       />
+      <button
+        type="button"
+        aria-label="Buscar"
+        aria-haspopup="dialog"
+        data-command-palette-trigger="true"
+        onClick={(event) => requestCommandPaletteOpen(event.currentTarget)}
+        className="press ml-auto grid h-11 w-11 shrink-0 place-items-center rounded-full text-foreground hover:bg-card-hover"
+      >
+        <Search aria-hidden="true" className="h-5 w-5" />
+      </button>
       {owner && (
         <div
           aria-label="Plano do estabelecimento"
-          className="ml-auto min-w-0 max-w-40"
+          className="min-w-0 max-w-40"
         >
           <PlanShortcut compact {...plan} href={planHref} />
         </div>
       )}
-      <ThemeToggle />
+      <NotificationsBell count={unreadNotifications} />
     </header>
   );
 }

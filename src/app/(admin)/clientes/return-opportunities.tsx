@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ChevronDown, Repeat } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { getTenantContext, assertRole } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import {
@@ -101,31 +103,41 @@ export async function ReturnOpportunities() {
       .sort((a, b) => a.estimate.date.localeCompare(b.estimate.date));
     return { rows, salon, today };
   });
+  const count = data.rows.length;
   return (
-    <details className="rounded-xl border border-border bg-card p-4">
-      <summary className="min-h-11 cursor-pointer font-semibold">
-        Retornos previstos · {data.rows.length} oportunidade(s)
+    <details className="group overflow-hidden rounded-[14px] border border-border bg-card">
+      <summary className="press-row flex min-h-[52px] cursor-pointer list-none items-center gap-3 px-3.5 py-2 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true" className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] bg-muted text-foreground">
+          <Repeat className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">
+            Retornos previstos · {count} {count === 1 ? "oportunidade" : "oportunidades"}
+          </span>
+          <span className="block truncate text-sm text-muted-foreground">Clientes sem próxima reserva</span>
+        </span>
+        <ChevronDown aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
       </summary>
-      <p className="mb-3 text-sm text-muted-foreground">
+      <p className="px-3.5 pb-3 text-sm leading-relaxed text-muted-foreground">
         Clientes sem próxima reserva. Previsões por histórico ou intervalo
         configurado; confira antes de entrar em contato.
       </p>
-      <div className="max-h-80 divide-y divide-border overflow-y-auto">
-        {data.rows.length === 0 && (
-          <p className="py-3 text-sm">
+      <div className="max-h-80 overflow-y-auto">
+        {count === 0 && (
+          <p className="border-t border-border px-3.5 py-3 text-sm">
             Nenhum retorno pendente ou previsto para os próximos sete dias.
           </p>
         )}
         {data.rows.map((row) => (
           <div
             key={`${row.clientId}:${row.serviceId}`}
-            className="flex flex-wrap items-center justify-between gap-3 py-3"
+            className="flex flex-wrap items-center justify-between gap-2.5 border-t border-border px-3.5 py-3"
           >
-            <div>
-              <p className="font-medium">
+            <div className="min-w-0 flex-[1_1_200px]">
+              <p className="break-words text-sm font-medium">
                 {row.name} · {row.service}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Retorno {row.estimate.date.split("-").reverse().join("/")} ·{" "}
                 {row.estimate.cadence} dias (
                 {row.estimate.fromHistory
@@ -134,18 +146,15 @@ export async function ReturnOpportunities() {
                 )
               </p>
             </div>
-            <div className="flex gap-2">
-              <Link
-                href="/agenda"
-                className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm"
-              >
+            <div className="flex flex-wrap gap-2">
+              <Link href="/agenda" className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Agendar retorno
               </Link>
               {row.phone && isValidPhoneBR(row.phone) && (
                 <a
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm"
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
                   href={`https://wa.me/${normalizePhone(row.phone)}?text=${encodeURIComponent(`Olá, ${row.name}! Quer agendar seu próximo ${row.service} no ${data.salon.name}?`)}`}
                 >
                   Preparar WhatsApp

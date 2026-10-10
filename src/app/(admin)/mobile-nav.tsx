@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronRight, LayoutGrid, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "@/components/unread-badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { matchesPath } from "./sidebar-nav";
+import { openSecretary } from "./secretary-open";
 import { OPEN_MORE_EVENT, mobileTabsFor, moreGroupsFor } from "./mobile-navigation";
 import {
   COMMAND_PALETTE_NAVIGATE_EVENT,
@@ -24,6 +25,8 @@ type MobileNavProps = {
   accountControls?: React.ReactNode;
   /** Perfil e "Sair": ficam no fim do "Mais". */
   accountFooter?: React.ReactNode;
+  /** Aba "Secretária" no meio da barra (os avisos passam para o sino do topo). */
+  secretary?: boolean;
 };
 
 /**
@@ -37,13 +40,14 @@ export function MobileNav({
   isPlatformAdmin = false,
   accountControls,
   accountFooter,
+  secretary = false,
 }: MobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const openRef = useRef(open);
   const paletteRequestPendingRef = useRef(false);
-  const tabs = mobileTabsFor(role);
+  const tabs = mobileTabsFor(role, secretary);
 
   useEffect(() => {
     openRef.current = open;
@@ -102,7 +106,7 @@ export function MobileNav({
         >
           <DialogTitle className="sr-only">Todos os módulos</DialogTitle>
           {/* Título visível de tela de app; o nome acessível continua "Todos os módulos". */}
-          <p aria-hidden="true" className="flex min-h-7 items-center pr-12 text-[22px] font-bold tracking-tight">Mais</p>
+          <p aria-hidden="true" className="flex min-h-7 items-center pr-12 text-2xl font-semibold tracking-tight">Mais</p>
           {accountControls}
           <OpenCommandPaletteButton />
           <MoreGroups role={role} isPlatformAdmin={isPlatformAdmin} pathname={pathname} onNavigate={() => setOpen(false)} />
@@ -120,6 +124,8 @@ export function MobileNav({
           const active = !open && matchesPath(pathname, tab.href);
           const count = tab.badge === "notifications" ? unreadNotifications : 0;
           return (
+            <Fragment key={tab.href}>
+            {secretary && tab.href === "/clientes" && <SecretaryTab />}
             <Link
               key={tab.href}
               href={tab.href}
@@ -128,16 +134,17 @@ export function MobileNav({
               aria-label={count > 0 ? `${tab.label}, ${count} não lidas` : undefined}
               onClick={() => setOpen(false)}
               className={cn(
-                "app-tabbar-item admin-mobile-bar-item flex min-h-16 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                active ? "text-primary" : "text-muted-foreground",
+                "app-tabbar-item admin-mobile-bar-item flex min-h-16 flex-1 flex-col items-center justify-center gap-[3px] px-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                active ? "text-[hsl(var(--selection-foreground))]" : "text-muted-foreground",
               )}
             >
-              <span className="app-tabbar-icon relative grid h-8 w-14 place-items-center rounded-full">
-                <tab.icon aria-hidden="true" className="h-[22px] w-[22px]" strokeWidth={active ? 2.3 : 1.9} />
-                {count > 0 && <UnreadBadge count={count} className="absolute -top-1 right-1.5" />}
+              <span className="app-tabbar-icon relative grid h-[30px] w-[54px] place-items-center rounded-full">
+                <tab.icon aria-hidden="true" className="h-[22px] w-[22px]" strokeWidth={active ? 2.1 : 1.8} />
+                {count > 0 && <UnreadBadge count={count} className="absolute -top-1 right-1" />}
               </span>
               {tab.label}
             </Link>
+            </Fragment>
           );
         })}
         <button
@@ -149,17 +156,35 @@ export function MobileNav({
           data-active={moreActive}
           onClick={() => setOpen(true)}
           className={cn(
-            "app-tabbar-item admin-mobile-bar-item flex min-h-16 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-            moreActive ? "text-primary" : "text-muted-foreground",
+            "app-tabbar-item admin-mobile-bar-item flex min-h-16 flex-1 flex-col items-center justify-center gap-[3px] px-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            moreActive ? "text-[hsl(var(--selection-foreground))]" : "text-muted-foreground",
           )}
         >
-          <span className="app-tabbar-icon relative grid h-8 w-14 place-items-center rounded-full">
-            <MoreHorizontal aria-hidden="true" className="h-[22px] w-[22px]" strokeWidth={moreActive ? 2.3 : 1.9} />
+          <span className="app-tabbar-icon relative grid h-[30px] w-[54px] place-items-center rounded-full">
+            <LayoutGrid aria-hidden="true" className="h-[22px] w-[22px]" strokeWidth={moreActive ? 2.1 : 1.8} />
+            {secretary && unreadNotifications > 0 && <UnreadBadge count={unreadNotifications} className="absolute -top-1 right-1" />}
           </span>
           Mais
         </button>
       </nav>
     </>
+  );
+}
+
+/** Aba da Secretária no meio da barra, com a marca lilás; abre o painel dela (que escuta o evento). */
+function SecretaryTab() {
+  return (
+    <button
+      type="button"
+      aria-label="Abrir Secretária"
+      onClick={openSecretary}
+      className="secretary-nav-item app-tabbar-item admin-mobile-bar-item flex min-h-16 flex-1 flex-col items-center justify-center gap-[3px] px-1 text-xs font-semibold text-[hsl(var(--selection-foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    >
+      <span className="app-tabbar-brand relative grid h-[34px] w-12 place-items-center rounded-[13px] bg-[hsl(var(--selection-solid))] text-[hsl(var(--selection-on-solid))] shadow-[0_6px_18px_rgb(0_0_0/0.35)]">
+        <Sparkles aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
+      </span>
+      Secretária
+    </button>
   );
 }
 
@@ -169,7 +194,7 @@ function MoreGroups({ role, isPlatformAdmin, pathname, onNavigate }: { role: str
     <nav id="admin-mobile-navigation" aria-label="Navegação principal" className="space-y-5">
       {groups.map((group) => (
         <section key={group.title} aria-labelledby={`mais-${group.title}`}>
-          <h2 id={`mais-${group.title}`} className="mb-2 px-1 text-[13px] font-semibold text-muted-foreground">{group.title}</h2>
+          <h2 id={`mais-${group.title}`} className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.04em] text-muted-foreground">{group.title}</h2>
           <ul className="overflow-hidden rounded-2xl bg-card ring-1 ring-inset ring-border">
             {group.links.map((link) => {
               const path = link.href.split("#")[0].split("?")[0];
@@ -184,10 +209,10 @@ function MoreGroups({ role, isPlatformAdmin, pathname, onNavigate }: { role: str
                     onClick={onNavigate}
                     className="press-row flex min-h-[3.25rem] items-center gap-3 px-3.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   >
-                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", active ? "bg-primary text-primary-foreground" : "bg-primary/15 text-primary")}>
-                      <link.icon aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2} />
+                    <span className={cn("grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px]", active ? "bg-[hsl(var(--selection))] text-[hsl(var(--selection-foreground))]" : "bg-muted text-foreground")}>
+                      <link.icon aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.8} />
                     </span>
-                    <span className={cn("min-w-0 flex-1 truncate text-[15px]", active ? "font-semibold" : "font-medium")}>{link.label}</span>
+                    <span className={cn("min-w-0 flex-1 truncate text-base", active ? "font-semibold" : "font-medium")}>{link.label}</span>
                     <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </Link>
                 </li>

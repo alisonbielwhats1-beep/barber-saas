@@ -1,4 +1,5 @@
 import { test, expect, chromium } from '@playwright/test';
+import { openSecretary } from './open-secretary';
 import { readFileSync,writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 const out=process.env.EXECUTION_E2E_OUTPUT!;
@@ -11,7 +12,7 @@ test('diagnose native capture versus recognition; never submit synthetic speech'
  const page=await context.newPage();
  await page.goto('http://127.0.0.1:3157/login');await page.getByLabel('Email',{exact:true}).fill(fixture.email);await page.getByLabel('Senha',{exact:true}).fill(fixture.password);await page.getByRole('button',{name:'Entrar',exact:true}).click();await expect(page).toHaveURL(/\/(pos-login|hoje|dashboard)/,{timeout:60000});
  const response=await page.goto('http://127.0.0.1:3157/servicos');
- await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();
+ await openSecretary(page);
  const capture=await page.evaluate(async()=>{
   const permission=await navigator.permissions.query({name:'microphone' as PermissionName});
   try{
