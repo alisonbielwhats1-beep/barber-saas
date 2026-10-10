@@ -1,3 +1,4 @@
+import { agendaQuickAction } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -17,7 +18,7 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     await page.goto(`/agenda?date=${test.info().retry ? "2032-08-06" : "2032-08-05"}`);
     await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-    await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
+    await agendaQuickAction(page, /Novo agendamento/).click();
     const form = page.getByRole("dialog");
     await form.getByRole("button", {name:"Alterar data, horário e profissional"}).click();
     await form.getByLabel("Hora de início").fill("18:30");

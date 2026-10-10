@@ -1,4 +1,4 @@
-import { changeAdminTheme } from "./admin-presentation-helpers";
+import { changeAdminTheme, agendaQuickAction } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { addDays, format, parseISO } from "date-fns";
@@ -20,7 +20,7 @@ test.describe("@database navegação compacta e calendário", () => {
       await page.goto("/agenda?date=2030-09-11");
       if (width === 390) await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-      await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
+      await agendaQuickAction(page, /Novo agendamento/).click();
       const form = page.getByRole("dialog");
       await form.getByRole("button", {name:"Alterar data, horário e profissional"}).click();
       await form.getByLabel("Data", { exact: true }).fill("2030-09-12");
@@ -37,7 +37,7 @@ test.describe("@database navegação compacta e calendário", () => {
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-    await page.getByRole("menuitem", { name: /Novo bloqueio de horário/ }).click();
+    await agendaQuickAction(page, /Novo bloqueio de horário/).click();
     const directBlock = page.getByRole("dialog", { name: "Bloquear disponibilidade" });
     await directBlock.getByLabel("Data de início", { exact: true }).fill("2030-09-12");
     await directBlock.getByLabel("Data de fim", { exact: true }).fill("2030-09-12");
@@ -54,7 +54,7 @@ test.describe("@database navegação compacta e calendário", () => {
     // Independent grid regression: the pointer retains the five-minute segment.
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-    await page.getByRole("menuitem", { name: /Selecionar intervalo/ }).click();
+    await agendaQuickAction(page, /Selecionar intervalo/).click();
     const row = page.getByRole("button", { name: /^Selecionar bloqueio 18:30 com / }).first();
     await row.scrollIntoViewIfNeeded();
     const box = await row.boundingBox();

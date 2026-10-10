@@ -1,3 +1,4 @@
+import { agendaQuickAction } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import AxeBuilder from "@axe-core/playwright";
@@ -29,7 +30,7 @@ test("@database busca completa, encaixe ao editar e bloqueio editável até meia
     await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     const openCreate = async () => {
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-      await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
+      await agendaQuickAction(page, /Novo agendamento/).click();
       return page.getByRole("dialog");
     };
     let form = await openCreate();
@@ -70,7 +71,7 @@ test("@database busca completa, encaixe ao editar e bloqueio editável até meia
     expect(before).toHaveLength(2);
     expect(before.some(a => a.isOverbooked)).toBe(true);
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-    await page.getByRole("menuitem", { name: /Novo bloqueio de horário/ }).click();
+    await agendaQuickAction(page, /Novo bloqueio de horário/).click();
     const blocking = page.getByRole("dialog", { name: "Bloquear disponibilidade" });
     await blocking.getByLabel("Hora de início").fill("08:30");
     await blocking.getByLabel("Data de fim").fill(nextDate);

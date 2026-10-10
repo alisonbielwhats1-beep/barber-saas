@@ -1,3 +1,4 @@
+import { agendaQuickAction } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
@@ -62,7 +63,7 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await week.getByRole("button").first().click();
     await expect(page).toHaveURL(/date=2026-09-06/);
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-    await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
+    await agendaQuickAction(page, /Novo agendamento/).click();
     const clients = page.getByLabel("Clientes encontrados", { exact: true });
     await expect(clients.getByRole("button", { name: new RegExp(account.name) })).toHaveCount(1);
     await expect(clients.getByRole("button", { name: new RegExp(guest.name) })).toHaveCount(0);
