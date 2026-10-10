@@ -4,7 +4,35 @@ Implementação em `codex/platform-plans-access`, ainda sem promoção: catálog
 
 # Status atual canônico — Salon SaaS
 
-## 09/10/2026 — Stripe fase 2: assinar pela Stripe (branch, desligada)
+## 09/10/2026 — Stripe em Production: 033 aplicada, fases 1 e 2 publicadas (desligada)
+
+Autorização do responsável no chat: "aplique a migration e realize o merge".
+- **Migration manual 033** (`033_stripe_billing`) aplicada uma única vez no
+  projeto produtivo às 20:07 UTC, seguindo o `AGENTS.md`: identificação do
+  projeto, preflight somente leitura, backup criptografado das tabelas afetadas
+  fora do Git (conferido por checksum), `VERIFY_OK` e impressão digital do
+  histórico de cobrança e créditos idêntica antes e depois. As evidências com
+  números ficam no registro privado do projeto (este repositório é público).
+  **Não reaplicar.**
+- **PR #168** (merge `59990e6`) e **PR #170** (merge `812dfdf`) publicados. A
+  árvore do segundo merge é idêntica à validada pelo CI. Depois de cada deploy,
+  `/api/health` 200 com banco ok, e home, login e vitrine da conta de
+  apresentação respondendo.
+- **Stripe continua desligada:** sem `STRIPE_BILLING_ENABLED=true` em Production
+  nenhum salão vê a Stripe. O webhook responde `503 STRIPE_NOT_CONFIGURED`
+  enquanto não houver credenciais.
+- **Conta Stripe de produção:** em análise pela Stripe (pagamentos suspensos até
+  a aprovação). Já configurados: Radar Lite, marca do Checkout e o destino de
+  webhook `everflair-producao`. A chave restrita foi validada no modo de teste
+  (permissões em `STRIPE_INTEGRACAO.md`).
+- **Próximo passo, depois da aprovação:** chave restrita de produção e segredos
+  na Vercel, `STRIPE_ALLOWED_SALONS` só com o salão de demonstração e uma
+  cobrança real de ponta a ponta antes de abrir para outros salões.
+- Registro paralelo: o histórico de migrations do Supabase de Production já tem
+  a `032` da cortesia (`salon_plan_grants_032`) e o PR #169 está publicado; o
+  estado da flag `PLATFORM_PLAN_GRANTS_ENABLED` não foi verificado neste trabalho.
+
+## 09/10/2026 — Stripe fase 2: assinar pela Stripe (PR #170, publicada desligada)
 
 Branch `claude/stripe-fase2-assinatura`, sobre a fase 1 (PR #168). Com
 `STRIPE_BILLING_ENABLED=true`, o dono escolhe "Pagar com cartão" (Stripe) ou
