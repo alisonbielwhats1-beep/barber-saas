@@ -17,6 +17,8 @@ const tone = { OK: "bg-success", LOW: "bg-warning", EMPTY: "bg-danger" } as cons
 /** Owner only, in Plano e assinatura (owner decisions 06/10/2026): the Secretária's credit as a bar and a percentage only, the
  * packs (Pix or card through Mercado Pago; the number of requests is an estimate, never a promise) and the latest purchases.
  * A pack adds to what is left; the credit never expires; a free allowance comes every month. */
+/** A purchase waiting for payment is checked every 5 s while the page is visible, for up to 15 min. */
+export const PENDING_POLL_MS = 5_000, PENDING_FOLLOW_MS = 15 * 60_000;
 export function SecretaryCreditsCard({ salonId, timezone, returnedFromCheckout = false }: { salonId: string; timezone: string; returnedFromCheckout?: boolean }) {
   const [data, setData] = useState<CreditsData | null>();
   const [error, setError] = useState<string | null>(null);
@@ -31,14 +33,19 @@ export function SecretaryCreditsCard({ salonId, timezone, returnedFromCheckout =
       setData(body); setError(null);
     } catch { setError("Não foi possível consultar os pedidos da Secretária agora."); }
   }, [endpoint]);
-  // Back from the checkout, the payment is followed closely for a short while (Pix can take a few seconds).
+  useEffect(() => { void load(returnedFromCheckout); }, [load, returnedFromCheckout]);
+  // Owner 06/10: while a purchase waits for payment the card keeps asking (every read re-checks it with Mercado Pago), and asks
+  // again as soon as the page is seen (Pix is usually paid in the bank's app), so the credit shows the moment the payment lands.
+  const waiting = Boolean(data?.purchases.some(p => p.state === "AWAITING_PAYMENT"));
   useEffect(() => {
-    void load(returnedFromCheckout);
-    if (!returnedFromCheckout) return;
-    let tries = 0;
-    const timer = setInterval(() => { tries += 1; void load(true); if (tries >= 6) clearInterval(timer); }, 5000);
-    return () => clearInterval(timer);
-  }, [load, returnedFromCheckout]);
+    if (!waiting) return;
+    const started = Date.now();
+    const visible = () => document.visibilityState !== "hidden";
+    const timer = setInterval(() => { if (Date.now() - started > PENDING_FOLLOW_MS) clearInterval(timer); else if (visible()) void load(true); }, PENDING_POLL_MS);
+    const seen = () => { if (visible()) void load(true); };
+    document.addEventListener("visibilitychange", seen); window.addEventListener("focus", seen);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", seen); window.removeEventListener("focus", seen); };
+  }, [load, waiting]);
   // Back from the checkout through the browser's back button (page restored from its cache): the buttons work again.
   useEffect(() => {
     const restored = (event: PageTransitionEvent) => { if (event.persisted) setBuying(null); };

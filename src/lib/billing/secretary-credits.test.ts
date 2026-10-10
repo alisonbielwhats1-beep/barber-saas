@@ -63,7 +63,7 @@ vi.mock("./provider", async original => {
 });
 
 import * as mp from "./provider";
-import { applyCreditPayment, createCreditPurchase, creditReference, receiveCreditPayment, reconcileCreditPurchase, validateCreditPayment } from "./credits-provider";
+import { applyCreditPayment, createCreditPurchase, CREDIT_SYNC_INTERVAL_MS, creditReference, receiveCreditPayment, reconcileCreditPurchase, syncPendingCreditPurchases, validateCreditPayment } from "./credits-provider";
 import { assertCanStartRequest, CHARGE_BATCH, CHARGE_MAX_ROUNDS, chargePendingCalls, chargeRecording, CHARGING_STARTS_AT, grantCredits, secretaryCreditView } from "../secretary-credits";
 import { FREE_MONTHLY_UNITS } from "../secretary-credits-rules";
 
@@ -297,6 +297,34 @@ describe("payments credit the pack, sum with what is left, and never twice", () 
 });
 
 describe("reconciliation", () => {
+  it("in production every preference carries its own notification address (the credit never waits for the webhook panel)", async () => {
+    process.env.NEXTAUTH_URL = "https://everflair.com.br";
+    await buy("P15");
+    const body = vi.mocked(mp.mpRequest).mock.calls[0][2] as Record<string, unknown>;
+    expect(body).toMatchObject({ auto_return: "approved", notification_url: "https://everflair.com.br/api/webhooks/mercadopago?source_news=webhooks" });
+  });
+  it("a paid purchase is credited the moment the salon looks: re-read like the webhook, at most once every few seconds, never past its window", async () => {
+    const purchase = await buy("P15"), now = new Date((purchase.createdAt as Date).getTime() + 60_000);
+    vi.mocked(mp.mpRequest).mockReset().mockImplementation(async () => ({ results: [], paging: { total: 0 } }));
+    expect(await syncPendingCreditPurchases(actor.salonId, now)).toEqual({ pending: 1, checked: 1 });
+    expect(paidBalance()).toBe(0);
+    // Asked again a moment later: Mercado Pago is not asked again yet.
+    expect(await syncPendingCreditPurchases(actor.salonId, new Date(now.getTime() + 1_000))).toEqual({ pending: 1, checked: 0 });
+    expect(vi.mocked(mp.mpRequest)).toHaveBeenCalledTimes(1);
+    // Paid in the bank's app: the next look credits it, once, and the purchase is no longer pending.
+    vi.mocked(mp.mpRequest).mockImplementation(async () => ({ results: [payment(purchase)], paging: { total: 1 } }));
+    const later = new Date(now.getTime() + CREDIT_SYNC_INTERVAL_MS);
+    expect(await syncPendingCreditPurchases(actor.salonId, later)).toEqual({ pending: 1, checked: 1 });
+    expect(paidBalance()).toBe(150_000);
+    expect(db.purchases.find(p => p.id === purchase.id)?.state).toBe("PAID");
+    expect(await syncPendingCreditPurchases(actor.salonId, new Date(later.getTime() + CREDIT_SYNC_INTERVAL_MS))).toEqual({ pending: 0, checked: 0 });
+    expect(db.ledger.filter(r => r.kind === "PURCHASE")).toHaveLength(1);
+    // A purchase long past its checkout window is left to the scheduled job.
+    const old = await buy("P25");
+    vi.mocked(mp.mpRequest).mockReset();
+    expect(await syncPendingCreditPurchases(actor.salonId, new Date((old.expiresAt as Date).getTime() + 2 * 3600_000))).toEqual({ pending: 1, checked: 0 });
+    expect(vi.mocked(mp.mpRequest)).not.toHaveBeenCalled();
+  });
   it("back from the checkout, the payments found by reference are applied; an unpaid purchase expires after the grace hour", async () => {
     const purchase = await buy("P15");
     vi.mocked(mp.mpRequest).mockImplementation(async () => ({ results: [payment(purchase)], paging: { total: 1 } }));

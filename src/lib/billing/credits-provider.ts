@@ -17,6 +17,9 @@ import * as mp from "./provider";
 export const CREDIT_PURCHASE_TTL_MS = 24 * 3600_000;
 /** An unpaid purchase is closed this long after its checkout expired (a late approval still credits: money is never kept). */
 export const CREDIT_EXPIRY_GRACE_MS = 3600_000;
+/** Owner, 06/10/2026 ("a pessoa pagou, o crédito cai na hora"): every preference carries its own notification address, so
+ * Mercado Pago announces the payment to the webhook even when the application's webhook panel lacks the payment topic. */
+export const creditNotificationUrl = (baseUrl: string) => `${baseUrl}/api/webhooks/mercadopago?source_news=webhooks`;
 export const creditReference = (purchase: { salonId: string; id: string }) => `efc:${purchase.salonId}:${purchase.id}`;
 export function parseCreditReference(value: string) {
   const match = /^efc:([a-zA-Z0-9_-]{1,100}):([a-f0-9-]{36})$/.exec(value);
@@ -69,7 +72,8 @@ export async function prepareCreditCheckout(purchase: SecretaryCreditPurchase) {
       items: [{ id: purchase.id, title: "Everflair — Crédito da Secretária", quantity: 1, currency_id: "BRL", unit_price: purchase.amountCents / 100 }],
       external_reference: reference, binary_mode: true, payment_methods: { installments: 1, excluded_payment_types: [{ id: "ticket" }, { id: "atm" }] },
       expires: true, expiration_date_from: purchase.createdAt.toISOString(), expiration_date_to: purchase.expiresAt.toISOString(),
-      back_urls: { success: back, failure: back, pending: back }, ...(config.baseUrl.startsWith("https:") ? { auto_return: "approved" } : {}),
+      back_urls: { success: back, failure: back, pending: back },
+      ...(config.baseUrl.startsWith("https:") ? { auto_return: "approved", notification_url: creditNotificationUrl(config.baseUrl) } : {}),
     });
   } else {
     const results = mp.parseProvider(z.object({ elements: z.array(z.object({ id: z.string(), external_reference: z.string() })), total: z.number().int() }),
@@ -192,4 +196,22 @@ export async function reconcilePendingCreditPurchases(limit = 20) {
     try { await reconcileCreditPurchase(purchase.salonId, purchase.id); } catch { console.error("SECRETARY_CREDIT_RECONCILE_FAILED"); }
   }
   return { checked: pending.length };
+}
+/** Owner, 06/10/2026: a paid purchase is credited as soon as anyone of the salon looks (the credit card on Plano e assinatura,
+ * the Secretária's balance, a request refused for lack of credit), without waiting for the webhook or the scheduled job. Reads
+ * only this salon's purchases still waiting for payment and still inside their checkout window; each one is re-read from
+ * Mercado Pago and checked exactly as the webhook does (reconcileCreditPurchase), at most once every few seconds per purchase. */
+export const CREDIT_SYNC_INTERVAL_MS = 5_000;
+const lastSync = new Map<string, number>();
+export async function syncPendingCreditPurchases(salonId: string, now = new Date()) {
+  const pending = await withSalon(salonId, tx => tx.secretaryCreditPurchase.findMany({ where: { salonId, state: "AWAITING_PAYMENT" }, select: { id: true, expiresAt: true },
+    orderBy: { createdAt: "desc" }, take: 5 }));
+  let checked = 0;
+  for (const purchase of pending) {
+    if (now.getTime() > purchase.expiresAt.getTime() + CREDIT_EXPIRY_GRACE_MS || now.getTime() - (lastSync.get(purchase.id) ?? 0) < CREDIT_SYNC_INTERVAL_MS) continue;
+    lastSync.set(purchase.id, now.getTime()); checked += 1;
+    try { await reconcileCreditPurchase(salonId, purchase.id, now); } catch { console.error("SECRETARY_CREDIT_SYNC_FAILED"); }
+  }
+  if (lastSync.size > 500) lastSync.clear();
+  return { pending: pending.length, checked };
 }

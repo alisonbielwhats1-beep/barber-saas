@@ -43,7 +43,23 @@ export async function startSecretary() { return safely(async () => salonSecretar
 export async function currentSecretary(): Promise<CurrentSecretaryReply> { return safely(async () => salonSecretary.current(await context())); }
 /** Owner 05/10 and 06/10: a message is a model call; in the Production pilot the salon's daily and monthly caps are checked first,
  * and with prepaid requests on (SALON_SECRETARY_CREDITS_ENABLED) at least one request must be left. */
-async function budgeted() { const actor = await context(); await assertSecretaryBudget(actor); await assertCanStartRequest(actor); return actor; }
+async function budgeted() {
+  const actor = await context(); await assertSecretaryBudget(actor);
+  try { await assertCanStartRequest(actor); }
+  catch (error) {
+    // Owner 06/10: a pack just paid counts at once. Out of credit, the salon's purchases waiting for payment are re-read first.
+    if (!(error instanceof Error && error.message === "SECRETARY_CREDITS_EMPTY") || !(await syncCreditPurchases(actor.salonId))) throw error;
+    await assertCanStartRequest(actor);
+  }
+  return actor;
+}
+/** Re-reads the salon's purchases still waiting for payment (credits-provider.ts); true when one was checked. Never fails a request. */
+async function syncCreditPurchases(salonId: string) {
+  try {
+    const [{ billingEnabled }, { syncPendingCreditPurchases }] = await Promise.all([import("@/lib/billing/config"), import("@/lib/billing/credits-provider")]);
+    return billingEnabled() && (await syncPendingCreditPurchases(salonId)).checked > 0;
+  } catch { console.error("SECRETARY_CREDIT_SYNC_FAILED"); return false; }
+}
 /** Owner 06/10: every model call a message made (its own, a follow-up's, a repair's, even when the message then failed: the
  * call was billed) takes its real cost from the credit right after it, each call once. A charging failure never loses the
  * reply; whatever was left uncharged is charged at the start of the next request (budgeted). */
@@ -254,6 +270,8 @@ export async function secretaryCredits(): Promise<CreditsReply> {
   if (!creditsEnabled()) return { ok: true, enabled: false };
   try {
     const actor = await context(), { role } = await getTenantContext();
+    // A pack paid a moment ago shows in the bar as soon as the Secretária opens.
+    await syncCreditPurchases(actor.salonId);
     return { ok: true, enabled: true, view: await secretaryCreditView(actor), canRecharge: role === "OWNER" };
   } catch (error) { console.error("SECRETARY_CREDITS_VIEW_REJECTED", voiceCode(error)); return { ok: false }; }
 }
