@@ -21,6 +21,7 @@ import { commandShortcutLabel } from "@/lib/platform-shortcut";
 import { requestCommandPaletteOpen } from "./command-palette";
 import { desktopTitleFor } from "./mobile-navigation";
 import { PlanShortcut } from "./plan-shortcut";
+import { SIDEBAR_COOKIE } from "./sidebar-preference";
 
 type Salon = { id: string; name: string; role: string };
 
@@ -37,8 +38,6 @@ export type AdminSidebarProps = {
   planHref?: string | null;
 };
 
-/** Cookie com a preferência de menu recolhido, lido no servidor para não piscar ao recarregar. */
-export const SIDEBAR_COOKIE = "admin-sidebar";
 
 /**
  * Moldura do computador (a partir de lg): menu lateral no padrão do protótipo (aberto por padrão, recolhe em ícones
