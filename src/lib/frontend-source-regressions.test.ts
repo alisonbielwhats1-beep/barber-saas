@@ -28,6 +28,23 @@ describe("frontend audit source regressions", () => {
     expect(layout).toMatch(/<main[^>]+overflow-x-hidden/);
   });
 
+  it("liga o painel inferior das janelas só no painel do estabelecimento", () => {
+    const dialog = source("src/components/ui/dialog.tsx");
+    const adminLayout = source("src/app/(admin)/layout.tsx");
+
+    // O padrão da primitiva é a janela centralizada; só o layout do painel liga a folha inferior.
+    expect(dialog).not.toMatch(/mobileSheet\s*=\s*true/);
+    expect(dialog).toContain("createContext(false)");
+    expect(adminLayout).toContain("<DialogMobileSheetDefault>");
+    expect(adminLayout.indexOf("<DialogMobileSheetDefault>")).toBeLessThan(adminLayout.indexOf("<CommandPalette"));
+    expect(adminLayout.indexOf("</DialogMobileSheetDefault>")).toBeGreaterThan(adminLayout.indexOf("<MobileNav"));
+    for (const outside of ["src/app/layout.tsx", "src/app/book/[salonSlug]/layout.tsx", "src/app/(platform)/plataforma/layout.tsx", "src/app/hq/layout.tsx"]) {
+      expect(source(outside)).not.toContain("DialogMobileSheetDefault");
+    }
+    // A busca rápida tem posição própria (alto da tela): nunca folha.
+    expect(source("src/app/(admin)/command-palette.tsx")).toContain("mobileSheet={false}");
+  });
+
   it("keeps every period option reachable and touch-friendly on mobile", () => {
     const rangeFilter = source("src/app/(admin)/dashboard/range-filter.tsx");
 

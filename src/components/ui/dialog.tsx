@@ -10,6 +10,19 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 const DialogThemeContext = React.createContext<"salon-dark" | "salon-light" | undefined>(undefined);
 export const DialogThemeProvider = DialogThemeContext.Provider;
+/**
+ * Onde "painel inferior abaixo de 768px" é o padrão das janelas. Fora de um provider (telas públicas, painel da
+ * plataforma, HQ, onboarding) o padrão continua sendo a janela centralizada de produção; só o painel do
+ * estabelecimento liga a folha inferior (ver `src/app/(admin)/layout.tsx`). A prop `mobileSheet` de cada janela vence.
+ */
+const DialogMobileSheetContext = React.createContext(false);
+export function DialogMobileSheetDefault({ value = true, children }: { value?: boolean; children: React.ReactNode }) {
+  return <DialogMobileSheetContext.Provider value={value}>{children}</DialogMobileSheetContext.Provider>;
+}
+/** Padrão de folha inferior vigente para as janelas deste ponto da árvore (para quem adapta o próprio conteúdo ao modo folha). */
+export function useDialogMobileSheetDefault() {
+  return React.useContext(DialogMobileSheetContext);
+}
 /** O cabeçalho só precisa se afastar do botão X quando a janela usa o preenchimento padrão. */
 const DialogReservesCloseContext = React.createContext(false);
 /** Quem define o próprio preenchimento (p-0, p-4, pr-0…) cuida sozinho do espaço do botão X. */
@@ -22,10 +35,15 @@ const SHEET_DISMISS_VELOCITY = 0.55;
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
-    /** Below 768px the dialog is a bottom sheet with a grabber (default). `false` keeps it centred. */
+    /**
+     * Below 768px the dialog is a bottom sheet with a grabber. Omitted, it follows `DialogMobileSheetDefault`
+     * (on only inside the establishment panel; centred everywhere else). `true`/`false` always win.
+     */
     mobileSheet?: boolean;
   }
->(({ className, children, style, onScroll, mobileSheet = true, ...props }, ref) => {
+>(({ className, children, style, onScroll, mobileSheet: mobileSheetProp, ...props }, ref) => {
+  const sheetDefault = React.useContext(DialogMobileSheetContext);
+  const mobileSheet = mobileSheetProp ?? sheetDefault;
   const theme = React.useContext(DialogThemeContext);
   const closeButton = React.useRef<HTMLButtonElement>(null);
   const content = React.useRef<HTMLDivElement | null>(null);

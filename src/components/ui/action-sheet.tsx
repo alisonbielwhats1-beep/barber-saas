@@ -36,7 +36,7 @@ export function ActionSheet({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent {...(description ? {} : { "aria-describedby": undefined })} className="gap-4 sm:max-w-sm">
+      <DialogContent mobileSheet {...(description ? {} : { "aria-describedby": undefined })} className="gap-4 sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-[17px] leading-snug">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

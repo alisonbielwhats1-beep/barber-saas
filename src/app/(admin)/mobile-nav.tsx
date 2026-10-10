@@ -95,6 +95,7 @@ export function MobileNav({
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
+          mobileSheet
           aria-describedby={undefined}
           onCloseAutoFocus={(event) => { event.preventDefault(); trigger.current?.focus(); }}
           className="mais-sheet gap-5 bg-background sm:max-w-md"
@@ -172,7 +173,8 @@ function MoreGroups({ role, isPlatformAdmin, pathname, onNavigate }: { role: str
           <ul className="overflow-hidden rounded-2xl bg-card ring-1 ring-inset ring-border">
             {group.links.map((link) => {
               const path = link.href.split("#")[0].split("?")[0];
-              const active = !link.href.includes("#") && matchesPath(pathname, path);
+              // Atalhos com filtro (?segment=…) ou âncora (#…) não marcam a página inteira como atual.
+              const active = !/[?#]/.test(link.href) && matchesPath(pathname, path);
               return (
                 <li key={link.href} className="border-b border-border last:border-b-0">
                   <Link

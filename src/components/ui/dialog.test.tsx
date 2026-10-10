@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogThemeProvider, DialogTitle } from "./dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogMobileSheetDefault, DialogThemeProvider, DialogTitle } from "./dialog";
 
 afterEach(cleanup);
 
@@ -55,5 +55,47 @@ describe("dialog theme across portals", () => {
   it("leaves other dialogs inheriting the document theme", () => {
     render(<OpenDialog />);
     expect(screen.getByRole("dialog")).not.toHaveAttribute("data-theme");
+  });
+});
+
+describe("painel inferior no celular (padrão só dentro do painel do estabelecimento)", () => {
+  function Sheetable({ mobileSheet }: { mobileSheet?: boolean }) {
+    return <Dialog open><DialogContent mobileSheet={mobileSheet}><DialogTitle>Janela</DialogTitle>
+      <DialogDescription>Conteúdo.</DialogDescription></DialogContent></Dialog>;
+  }
+  const isSheet = (dialog: HTMLElement) => dialog.getAttribute("data-mobile-sheet") === "true";
+  const hasGrabber = (dialog: HTMLElement) => dialog.querySelector("[data-sheet-grabber]") !== null;
+
+  it("fora do painel (telas públicas, plataforma, HQ) a janela continua centralizada, como em produção", () => {
+    render(<Sheetable />);
+    const dialog = screen.getByRole("dialog");
+    expect(isSheet(dialog)).toBe(false);
+    expect(dialog).not.toHaveAttribute("data-mobile-sheet");
+    expect(hasGrabber(dialog)).toBe(false);
+  });
+
+  it("dentro do provider do painel a janela vira folha inferior, com alça, mesmo aberta em portal", () => {
+    const view = render(<DialogMobileSheetDefault><Sheetable /></DialogMobileSheetDefault>);
+    const dialog = screen.getByRole("dialog");
+    expect(view.container.contains(dialog)).toBe(false);
+    expect(isSheet(dialog)).toBe(true);
+    expect(hasGrabber(dialog)).toBe(true);
+  });
+
+  it("a prop da própria janela vence o padrão, nos dois sentidos", () => {
+    const inside = render(<DialogMobileSheetDefault><Sheetable mobileSheet={false} /></DialogMobileSheetDefault>);
+    expect(isSheet(screen.getByRole("dialog"))).toBe(false);
+    expect(hasGrabber(screen.getByRole("dialog"))).toBe(false);
+    inside.unmount();
+    cleanup();
+
+    render(<Sheetable mobileSheet />);
+    expect(isSheet(screen.getByRole("dialog"))).toBe(true);
+    expect(hasGrabber(screen.getByRole("dialog"))).toBe(true);
+  });
+
+  it("um provider interno com value={false} desliga o padrão para o trecho dele", () => {
+    render(<DialogMobileSheetDefault><DialogMobileSheetDefault value={false}><Sheetable /></DialogMobileSheetDefault></DialogMobileSheetDefault>);
+    expect(isSheet(screen.getByRole("dialog"))).toBe(false);
   });
 });

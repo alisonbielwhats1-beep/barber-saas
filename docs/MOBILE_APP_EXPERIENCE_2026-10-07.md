@@ -68,7 +68,7 @@ descartável próprio (loopback `127.0.0.1:55461`, dados fictícios do
 
 | Componente | Mudança |
 |---|---|
-| `DialogContent` | No celular vira painel inferior por padrão: alça, entrada de baixo para cima, arrastar para baixo fecha, área segura. Computador continua centralizado. `mobileSheet={false}` mantém centralizado. |
+| `DialogContent` | Dentro do painel (`DialogMobileSheetDefault` em `(admin)/layout.tsx`) vira painel inferior no celular: alça, entrada de baixo para cima, arrastar para baixo fecha, área segura. Fora do painel (páginas públicas, plataforma, HQ) o padrão continua a janela centralizada de produção. A prop `mobileSheet` explícita sempre vence; a busca (Ctrl+K) usa `mobileSheet={false}`. Computador continua centralizado. |
 | `ConfirmDialog` | Folha de ação: ícone, texto e botões grandes empilhados. |
 | `Toaster` | Acima da barra de abas no celular. |
 | `MobileTabBar` (novo) | Substitui a barra de 3+1 itens; indicador ativo, contador, toque com retorno visual. |
@@ -95,8 +95,9 @@ de ponta a ponta continuam válidas. O "voltar" das telas filhas reabre o "Mais"
 
 ### Primitivas (valem para painel e app do cliente)
 
-- `src/components/ui/dialog.tsx`: toda janela vira painel inferior abaixo de
-  768 px (padrão `mobileSheet`), com alça, entrada de baixo para cima e
+- `src/components/ui/dialog.tsx`: dentro do painel administrativo, toda janela vira
+  painel inferior abaixo de 768 px (padrão vindo de `DialogMobileSheetDefault`;
+  fora do painel o padrão é a janela centralizada de produção), com alça, entrada de baixo para cima e
   arrastar para baixo fecha como o X (formulários com alteração continuam
   pedindo "Descartar alterações?"). A alça fica depois do conteúdo para não
   quebrar seletores `:first-child` existentes.
@@ -121,7 +122,8 @@ de ponta a ponta continuam válidas. O "voltar" das telas filhas reabre o "Mais"
   Busca e tema no topo (decisão de tema no topo também no celular). Hoje e
   Agenda mantêm o próprio topo.
 - **Hoje**: data com botões redondos, filtros em controle segmentado com
-  contagem (os quatro cartões de resumo saem do celular), lista já na primeira
+  contagem (os quatro cartões de resumo viram uma faixa compacta, com "Em atendimento";
+  a cor da agenda fica num botão de paleta na linha dos filtros), lista já na primeira
   tela, cartão com uma ação principal larga + WhatsApp + Ligar + "⋯" (chegada,
   falta, detalhes em folha de ação). Recebimento em lote vai para o fim da tela.
 - **Agenda**: Dia/Semana/Mês/Lista em controle segmentado; o "+" abre folha
@@ -141,7 +143,8 @@ de ponta a ponta continuam válidas. O "voltar" das telas filhas reabre o "Mais"
 ### App do cliente
 
 Somente o acabamento da barra inferior (pílula ativa larga, toque com retorno)
-e os painéis inferiores herdados da primitiva. A tela inicial do cliente não
+(as janelas do app do cliente continuam centralizadas como em produção: o padrão
+de painel inferior vale só dentro do painel administrativo). A tela inicial do cliente não
 foi alterada (decisão de 06/10).
 
 ### Fora desta fase (próximas)

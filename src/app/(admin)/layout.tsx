@@ -6,6 +6,7 @@ import { SalonSwitcher } from "./salon-switcher";
 import { AdminSidebar } from "./admin-sidebar";
 import { CommandPalette } from "./command-palette";
 import { Toaster } from "@/components/ui/toast";
+import { DialogMobileSheetDefault } from "@/components/ui/dialog";
 import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
 import { isPlatformAdmin } from "@/lib/platform-admin";
@@ -87,6 +88,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         __html: `try{document.documentElement.setAttribute("data-theme",localStorage.getItem("admin-theme")==="light"?"admin-light":"admin-dark")}catch(e){document.documentElement.setAttribute("data-theme","admin-dark")}`,
       }}
     />
+    {/* Só aqui as janelas viram painel inferior no celular; telas públicas, plataforma e HQ mantêm a janela centralizada. */}
+    <DialogMobileSheetDefault>
     <div className="admin-shell flex h-dvh overflow-hidden text-foreground" style={{ paddingTop: "var(--safe-top)", paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }}>
       {/* ── Sidebar ─────────────────────────────────────── */}
       <AdminSidebar current={currentSalon} memberships={membershipList} role={role} plan={planLabel} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
@@ -112,6 +115,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         voiceCorrection={process.env.SALON_SECRETARY_VOICE_CORRECTION === "true"} transcribeEnabled={process.env.SALON_SECRETARY_TRANSCRIBE_ENABLED === "true"}
         feedbackEnabled={process.env.SALON_SECRETARY_FEEDBACK === "true"} flowEnabled={process.env.SALON_SECRETARY_FLOW_WINDOW === "true"} />}
     </div>
+    </DialogMobileSheetDefault>
     </ThemeProvider>
   );
 }

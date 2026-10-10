@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
@@ -16,7 +16,10 @@ const SEARCH_FROM = 9;
  * sheet with large, checkable rows. From 768px up it is the same native
  * `<select>` as before (forms, labels and keyboard use stay identical).
  * On phones a hidden mirror `<select>` keeps `name` in the form data and
- * fires the same "change" event the visible select used to.
+ * fires the same "change" event the visible select used to. The mirror also
+ * carries `required` and `disabled`, so form validation and the submitted data
+ * match the native select: a disabled field is not sent, an empty required one
+ * blocks the submit.
  */
 export function SelectSheet({
   id,
@@ -56,6 +59,9 @@ export function SelectSheet({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const mirror = useRef<HTMLSelectElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  // Campo desligado com a folha aberta (ex.: formulário enviando): fecha, e não reabre sozinha quando voltar.
+  useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
 
   function choose(next: string) {
     if (!controlled) setInternal(next);
@@ -102,25 +108,29 @@ export function SelectSheet({
 
   return (
     <>
-      <select ref={mirror} name={name} value={current} onChange={() => {}} hidden aria-hidden="true" tabIndex={-1}>
+      {/* Obrigatório não pode ficar com `hidden`: um campo inválido e oculto trava o envio sem mostrar a mensagem (o navegador não consegue focá-lo). */}
+      <select ref={mirror} name={name} value={current} onChange={() => {}} disabled={disabled} required={required}
+        hidden={!required} className={required ? "sr-only" : undefined} aria-hidden="true" tabIndex={-1}
+        onInvalid={() => trigger.current?.focus()}>
         {placeholder !== undefined && <option value="" />}
         {options.map((option) => <option key={option.value} value={option.value} />)}
       </select>
       <button
+        ref={trigger}
         id={id}
         type="button"
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => { setQuery(""); setOpen(true); }}
+        onClick={() => { if (disabled) return; setQuery(""); setOpen(true); }}
         className={cn(className, "press-row flex items-center justify-between gap-2 text-left")}
         {...aria}
       >
         <span className={cn("min-w-0 flex-1 truncate", !selected && "text-muted-foreground")}>{selected?.label ?? placeholder ?? "Selecionar"}</span>
         <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
       </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent aria-describedby={undefined} className="gap-3 sm:max-w-sm">
+      <Dialog open={open && !disabled} onOpenChange={setOpen}>
+        <DialogContent mobileSheet aria-describedby={undefined} className="gap-3 sm:max-w-sm">
           <DialogHeader><DialogTitle className="text-[17px] leading-snug">{title}</DialogTitle></DialogHeader>
           {options.length >= SEARCH_FROM && (
             <label className="flex min-h-11 items-center gap-2 rounded-xl bg-surface-1 px-3 ring-1 ring-inset ring-border">

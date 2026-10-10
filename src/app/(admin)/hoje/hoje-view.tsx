@@ -44,6 +44,15 @@ const ACTION_ICONS: Partial<Record<ApptStatus, typeof Check>> = {
   NO_SHOW: UserX,
 };
 
+/** Filter label: name and count side by side on the computer, count under the name on the phone. */
+function filterLabel(label: string, count: number) {
+  return (
+    <span className="flex flex-col items-center leading-tight md:flex-row md:gap-1">
+      <span>{label}</span>{" "}<span className="tabular-nums max-md:text-xs max-md:font-medium">{count}</span>
+    </span>
+  );
+}
+
 export function HojeView({
   colorScope,
   date,
@@ -155,8 +164,8 @@ export function HojeView({
 
   return (
     <>
-      {/* No celular os números ficam nos filtros abaixo: a lista do dia aparece já na primeira tela. */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 max-md:hidden">
+      {/* No celular o resumo vira uma faixa compacta de quatro números (sem ícones), para a lista do dia continuar na primeira tela. */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 max-md:grid-cols-4 max-md:gap-0 max-md:divide-x max-md:divide-border max-md:overflow-hidden max-md:rounded-2xl max-md:border max-md:border-border max-md:bg-card">
         <SummaryCard icon={CalendarDays} label="Agendamentos" value={String(counts.total)} />
         <SummaryCard icon={CircleAlert} label="A confirmar" value={String(counts.attention)} tone={counts.attention > 0 ? "warning" : "neutral"} />
         <SummaryCard icon={Clock3} label="Em atendimento" value={String(counts.inProgress)} tone="info" />
@@ -167,22 +176,24 @@ export function HojeView({
 
       <section className="rounded-2xl border border-border bg-card p-4 sm:p-5 max-md:border-0 max-md:bg-transparent max-md:p-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="max-md:sr-only">
-            <h2 className="text-base font-semibold">Atendimentos do dia</h2>
-            <p className="mt-1 text-sm text-muted-foreground">A próxima ação aparece em cada cartão.</p>
+          <div className="max-md:order-1 max-md:min-w-0 max-md:flex-1">
+            <h2 className="text-base font-semibold max-md:text-sm">Atendimentos do dia</h2>
+            <p className="mt-1 text-sm text-muted-foreground max-md:sr-only">A próxima ação aparece em cada cartão.</p>
           </div>
-          <div className="max-md:hidden"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
+          {/* Celular: o seletor de cor vira um botão de 44 px (paleta) na linha do título; abre o seletor nativo do aparelho.
+              Os quatro filtros ficam sozinhos na linha de baixo, com o número sob o nome, para caberem a partir de 360 px. */}
+          <div className="max-md:order-2"><AgendaColorSelect compactOnPhone value={colorMode} onChange={setColorMode} /></div>
           <SegmentedControl
             ariaLabel="Filtrar atendimentos"
             value={filter}
             onChange={setFilter}
             stretch={false}
-            className="max-md:w-full"
+            className="max-md:order-3 max-md:basis-full max-md:justify-between max-md:[&>button]:px-1.5"
             options={[
-              { value: "active", label: `Em aberto ${counts.active}` },
-              { value: "attention", label: `A confirmar ${counts.attention}` },
-              { value: "completed", label: `Encerrados ${counts.completed + counts.noShow}` },
-              { value: "all", label: `Todos ${counts.total}` },
+              { value: "active", label: filterLabel("Em aberto", counts.active) },
+              { value: "attention", label: filterLabel("A confirmar", counts.attention) },
+              { value: "completed", label: filterLabel("Encerrados", counts.completed + counts.noShow) },
+              { value: "all", label: filterLabel("Todos", counts.total) },
             ]}
           />
         </div>
@@ -230,7 +241,7 @@ export function HojeView({
                       <p className="mt-1 text-[13px] text-muted-foreground">{formatMoney(appointment.priceCents, currency)}{appointment.hasPayment ? " · recebido" : ""}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:col-span-2 2xl:col-span-1 2xl:max-w-[660px] 2xl:justify-end max-md:pt-1">
-                      {canArrive && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className={`press min-h-11 rounded-lg border border-success/40 bg-success/10 px-3 text-[13px] font-semibold text-success ${arriveIsPrimary ? "max-md:order-first max-md:flex-1 max-md:rounded-xl max-[359px]:basis-full" : "max-md:hidden"}`}>Registrar chegada</button>}
+                      {canArrive && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className={`press min-h-11 rounded-lg border border-success/40 bg-success/10 px-3 text-[13px] font-semibold text-success ${arriveIsPrimary ? "max-md:order-first max-md:flex-1 max-md:rounded-xl max-[389px]:basis-full" : "max-md:hidden"}`}>Registrar chegada</button>}
                       {openedReminderIds.has(appointment.id) && !sentReminderIds.has(appointment.id) && <button type="button" disabled={pending} onClick={() => confirmReminder(appointment)} className="min-h-11 rounded-lg border border-border px-3 text-[13px]">Confirmar envio manual</button>}
                       <button
                         type="button"
@@ -267,14 +278,14 @@ export function HojeView({
                             type="button"
                             disabled={pending || pendingId === appointment.id}
                             onClick={() => runStatus(appointment, action)}
-                            className={`press inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 text-[13px] font-semibold transition disabled:opacity-50 ${statusActionClasses(action)} ${action === primary ? "max-md:order-first max-md:flex-1 max-md:justify-center max-[359px]:basis-full" : "max-md:hidden"}`}
+                            className={`press inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 text-[13px] font-semibold transition disabled:opacity-50 ${statusActionClasses(action)} ${action === primary ? "max-md:order-first max-md:flex-1 max-md:justify-center max-[389px]:basis-full" : "max-md:hidden"}`}
                           >
                             {pendingId === appointment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4 max-md:hidden" aria-hidden="true" />}
                             {actionLabel}
                           </button>
                         );
                       })}
-                      <Link href={`/agenda?date=${date}&appointment=${encodeURIComponent(appointment.id)}&from=hoje`} className={`press inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-3.5 text-[13px] font-medium text-muted-foreground transition hover:bg-card-hover hover:text-foreground ${primary || arriveIsPrimary ? "max-md:hidden" : "max-md:order-first max-md:flex-1 max-[359px]:basis-full"}`}>
+                      <Link href={`/agenda?date=${date}&appointment=${encodeURIComponent(appointment.id)}&from=hoje`} className={`press inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-3.5 text-[13px] font-medium text-muted-foreground transition hover:bg-card-hover hover:text-foreground ${primary || arriveIsPrimary ? "max-md:hidden" : "max-md:order-first max-md:flex-1 max-[389px]:basis-full"}`}>
                         Ver detalhes
                       </Link>
                       <button
@@ -334,10 +345,10 @@ function SummaryCard({
 }) {
   const toneClass = tone === "info" ? "text-info" : tone === "success" ? "text-success" : tone === "warning" ? "text-warning" : "text-foreground";
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <Icon className={`h-4 w-4 ${tone === "neutral" ? "text-muted-foreground" : toneClass}`} aria-hidden="true" />
-      <p className={`mt-3 text-2xl font-semibold tracking-tight ${toneClass}`}>{value}</p>
-      <p className="mt-1 text-[13px] text-muted-foreground">{label}</p>
+    <div className="rounded-2xl border border-border bg-card p-4 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-0.5 max-md:py-2.5 max-md:text-center">
+      <Icon className={`h-4 w-4 max-md:hidden ${tone === "neutral" ? "text-muted-foreground" : toneClass}`} aria-hidden="true" />
+      <p className={`mt-3 text-2xl font-semibold tracking-tight max-md:mt-0 max-md:text-xl max-md:leading-none ${toneClass}`}>{value}</p>
+      <p className="mt-1 text-[13px] text-muted-foreground max-md:text-xs max-md:leading-tight">{label}</p>
     </div>
   );
 }

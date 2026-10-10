@@ -5,7 +5,7 @@
 Branch `claude/wizardly-moore-26816c`, pedido do responsável: transformar o uso no celular numa experiência de aplicativo,
 sem mudar regras, servidor, APIs nem banco. Painel abaixo de 1024 px: barra de abas Hoje · Agenda · Clientes · Avisos · Mais,
 "Mais" como painel que sobe de baixo com listas agrupadas, barra superior compacta com voltar e título que aparece ao rolar,
-toda janela vira painel inferior com alça e arrastar para fechar, confirmações como folha de ação, Hoje com controle segmentado
+toda janela do painel vira painel inferior com alça e arrastar para fechar (páginas públicas e plataforma mantêm a janela centralizada), confirmações como folha de ação, Hoje com controle segmentado
 e uma ação principal por cartão ("⋯" para o resto), "+" único de 56 px, deslizar aviso para marcar como lido, esqueletos por tela,
 teclados certos em busca e telefone e seletores em painel. Computador inalterado (só os filtros de Hoje ganharam trilho segmentado).
 App do cliente: só acabamento da barra inferior; tela inicial intocada (decisão de 06/10). Detalhes, limites e próximas fases em

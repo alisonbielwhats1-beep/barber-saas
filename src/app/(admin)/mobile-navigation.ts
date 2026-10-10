@@ -1,15 +1,19 @@
 import {
+  ArchiveX,
   Bell,
+  Cake,
   CalendarClock,
   CalendarDays,
   ChartPie,
   Clock3,
+  Crown,
   FileBarChart2,
   Globe,
   Images,
   KeyRound,
   Megaphone,
   Package,
+  Repeat,
   Rocket,
   Scissors,
   Settings,
@@ -17,6 +21,7 @@ import {
   ShoppingBag,
   Star,
   Users,
+  UserX,
   UsersRound,
   Wallet,
   type LucideIcon,
@@ -45,6 +50,11 @@ export type MoreLink = { href: string; label: string; icon: LucideIcon };
 export type MoreGroup = { title: string; links: MoreLink[] };
 
 const LINK_ICONS: Record<string, LucideIcon> = {
+  "/clientes?segment=vip": Crown,
+  "/clientes?segment=birthday": Cake,
+  "/clientes?segment=lapsed": UserX,
+  "/clientes?segment=recurring": Repeat,
+  "/clientes?status=excluded": ArchiveX,
   "/profissionais": UsersRound,
   "/configuracoes#horarios": Clock3,
   "/configuracoes#seguranca": KeyRound,
@@ -61,7 +71,10 @@ const LINK_ICONS: Record<string, LucideIcon> = {
   "/onboarding/configuracao": Rocket,
 };
 
-/** Areas that already are tabs: their modules are reached from the tab itself. */
+/**
+ * Areas that already are tabs: the tab itself is their root ("Lista de clientes"), so only the shortcuts under it are
+ * listed in "Mais" (segments and, for the owner, "Cadastros excluídos"), with the same role gate as the desktop sidebar.
+ */
 const TAB_AREAS = new Set(["Clientes"]);
 
 /**
@@ -71,11 +84,12 @@ const TAB_AREAS = new Set(["Clientes"]);
 export function moreGroupsFor(role: string, isPlatformAdmin: boolean): MoreGroup[] {
   const groups: MoreGroup[] = [];
   for (const area of DESKTOP_AREAS) {
-    if (!canSee(area, role) || TAB_AREAS.has(area.label)) continue;
+    if (!canSee(area, role)) continue;
     const context = CONTEXT_AREAS.find((item) => item.title === area.label);
     if (!context) continue;
     const links = context.links
       .filter((link) => canSee(link, role))
+      .filter((link) => !(TAB_AREAS.has(area.label) && link.href === area.href))
       .filter((link) => {
         const path = link.path ?? link.href.split(/[?#]/)[0];
         const owner = DESKTOP_AREAS.find((candidate) => candidate.activePaths.some((active) => matchesPath(path, active)));

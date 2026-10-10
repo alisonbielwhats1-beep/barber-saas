@@ -75,34 +75,39 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
   }
 
   /* Flair controls: color is scoped to the admin, including portalled dialogs. */
+  /* Paleta Everflair (aprovada no protótipo em 08/10/2026): neutros puros, cartões separados por contorno fino,
+     botão principal branco, lilás do símbolo Flair só no que está ativo e cores de situação suaves. */
   [data-theme="admin-dark"] {
-    --background: 240 5% 8%;
-    --surface-1: 240 5% 11%;
-    --foreground: 240 8% 96%;
-    --card: 240 5% 13%;
-    --card-foreground: 240 8% 96%;
-    --card-hover: 240 5% 17%;
-    --elevated: 240 5% 19%;
-    --muted: 240 4% 21%;
-    --muted-foreground: 240 5% 73%;
-    --border: 240 5% 25%;
-    --border-strong: 240 5% 37%;
-    --input: 240 5% 28%;
-    --primary: 155 52% 65%;
-    --primary-foreground: 158 48% 12%;
-    --secondary: 240 5% 21%;
-    --secondary-foreground: 240 8% 96%;
-    --accent: 155 52% 65%;
-    --accent-foreground: 158 48% 12%;
-    --ring: 155 52% 65%;
-    --selection: 262 27% 24%;
-    --selection-foreground: 264 65% 88%;
-    --selection-solid: 264 54% 73%;
-    --selection-on-solid: 258 35% 14%;
-    /* Texto de status sobre cartões e fundos semânticos suaves. */
-    --info: 213 92% 66%;
-    --danger: 0 78% 68%;
-    --destructive: 0 67% 45%;
+    --background: 0 0% 0%;            /* #000000 */
+    --surface-1: 0 0% 4%;             /* #0A0A0A */
+    --foreground: 0 0% 93%;           /* #EDEDED */
+    --card: 0 0% 4%;                  /* #0A0A0A */
+    --card-foreground: 0 0% 93%;
+    --card-hover: 0 0% 8%;
+    --elevated: 0 0% 10%;             /* #1A1A1A */
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 63%;     /* #A1A1A1 */
+    --border: 0 0% 12%;               /* #1F1F1F */
+    --border-strong: 0 0% 18%;        /* #2E2E2E */
+    --input: 0 0% 22%;
+    --primary: 0 0% 93%;              /* botão principal branco */
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 93%;
+    --accent: 256 74% 78%;            /* lilás Flair #B29CF0 */
+    --accent-foreground: 262 34% 12%;
+    --ring: 256 74% 78%;
+    --selection: 256 22% 17%;
+    --selection-foreground: 256 80% 85%;
+    --selection-solid: 256 74% 78%;
+    --selection-on-solid: 262 34% 12%;
+    /* Situação: verde = deu certo, âmbar = espera ação, vermelho = problema; "em andamento" em lilás. */
+    --success: 131 44% 57%;           /* #62C073 */
+    --info: 256 80% 85%;              /* #C9B8F7 */
+    --warning: 36 80% 57%;            /* #E9A23B */
+    --danger: 358 75% 59%;            /* #E5484D */
+    --marketing: 256 74% 78%;
+    --destructive: 358 66% 48%;
     --destructive-foreground: 0 0% 100%;
     color: hsl(var(--foreground));
     color-scheme: dark;
@@ -110,52 +115,51 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
 
   /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
   [data-theme="admin-light"] {
-    --background: 220 20% 97%;       /* branco frio, sem tonalidade bege */
-    --surface-1: 220 20% 98%;
-    --foreground: 218 10% 15%;        /* grafite Everflair #23262B */
+    --background: 0 0% 98%;           /* #FAFAFA */
+    --surface-1: 0 0% 100%;
+    --foreground: 0 0% 9%;            /* #171717 */
 
     --card: 0 0% 100%;
-    --card-foreground: 218 10% 15%;
-    --card-hover: 220 20% 97%;
+    --card-foreground: 0 0% 9%;
+    --card-hover: 0 0% 96%;
     --elevated: 0 0% 100%;
 
-    --muted: 220 14% 94%;
-    --muted-foreground: 218 7% 38%;
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 40%;     /* #666666 */
 
-    --border: 220 14% 90%;
-    --border-strong: 220 10% 69%;
-    --input: 220 10% 58%;
-    --panel-shadow: 0 2px 4px rgb(22 34 52 / 0.04), 0 8px 24px -8px rgb(22 34 52 / 0.12);
-    --ring: 158 71% 24%;
-    /* Lilás autorizado como acento de navegação; ações operacionais mantêm semântica. */
-    --selection: 263 65% 95%;
-    --selection-foreground: 263 38% 38%;
-    --selection-solid: 263 36% 45%;
+    --border: 0 0% 92%;               /* #EBEBEB */
+    --border-strong: 0 0% 82%;
+    --input: 0 0% 70%;
+    --panel-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    --ring: 256 60% 60%;
+    /* Lilás Flair só no que está ativo; botão principal grafite. */
+    --selection: 256 60% 95%;
+    --selection-foreground: 256 52% 52%;
+    --selection-solid: 256 60% 60%;   /* #7C5CD6 */
     --selection-on-solid: 0 0% 100%;
 
-    /* Verde nos controles; lilás fica restrito à marca e à seleção. */
-    --primary: 158 71% 24%;
+    --primary: 0 0% 9%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 94%;
-    --secondary-foreground: 218 10% 23%;
+    --secondary: 0 0% 95%;
+    --secondary-foreground: 0 0% 15%;
 
-    --accent: 158 71% 24%;
+    --accent: 256 60% 60%;
     --accent-foreground: 0 0% 100%;
 
-    /* Semantic — slightly deeper for light bg legibility */
-    --success: 158 65% 25%;
-    --info: 213 85% 40%;
-    --warning: 35 90% 29%;
-    --danger: 0 68% 46%;
-    --marketing: 267 72% 50%;
+    /* Situação, com contraste de texto em fundo claro */
+    --success: 133 50% 32%;           /* #297A3A */
+    --info: 256 52% 52%;              /* #6847C4 */
+    --warning: 30 100% 32%;           /* #A35200 */
+    --danger: 358 66% 48%;            /* #CB2A2F */
+    --marketing: 256 52% 52%;
 
-    /* Contraste concentrado na prioridade; cobre faz parte da identidade. */
-    --priority-surface: #126949;
-    --priority-surface-hover: #0f5b40;
-    --copper: 22 50% 36%;
+    /* Uma prioridade sólida por tela, em grafite. */
+    --priority-surface: #171717;
+    --priority-surface-hover: #262626;
+    --copper: 256 52% 52%;
 
-    --destructive: 0 68% 46%;
+    --destructive: 358 66% 48%;
     --destructive-foreground: 0 0% 100%;
 
     --radius: 0.9rem;
@@ -448,13 +452,13 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
   [data-theme="admin-light"] .now-appointment[data-cue="next"] {
     --primary: 0 0% 100%;
     --foreground: 0 0% 100%;
-    --muted-foreground: 150 32% 89%;
-    --border: 150 30% 72%;
+    --muted-foreground: 0 0% 78%;
+    --border: 0 0% 35%;
     --ring: 0 0% 100%;
     color: hsl(var(--foreground));
     background: var(--priority-surface);
     border-color: var(--priority-surface);
-    box-shadow: 0 8px 20px -14px rgb(18 105 73 / 0.65);
+    box-shadow: 0 8px 20px -14px rgb(0 0 0 / 0.45);
   }
 
   [data-theme="admin-light"] .now-appointment[data-cue="next"]:hover {
@@ -489,8 +493,7 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
   }
 
   [data-theme="admin-light"] :is(.dashboard-kpi, .dashboard-opportunity) {
-    --indicator-accent: var(--primary);
-    border-top: 3px solid hsl(var(--indicator-accent));
+    --indicator-accent: var(--accent);
   }
 
   [data-theme="admin-light"] :is([data-accent="info"], [data-tone="info"]) {
@@ -520,8 +523,7 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
   }
 
   [data-theme="admin-light"] :is(.dashboard-kpi, .dashboard-opportunity):hover {
-    border-top-color: hsl(var(--indicator-accent));
-    box-shadow: 0 8px 20px -14px rgb(35 38 43 / 0.3);
+    border-color: hsl(var(--border-strong));
   }
 
   /* Ritmo visual comum da landing: espaçamento, superfície e hierarquia. */
