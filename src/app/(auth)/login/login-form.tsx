@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { sanitizeAuthCallback } from "@/lib/safe-callback";
+import { loginErrorMessage } from "@/lib/login-error";
 
 export function LoginForm({ recoveryLink }: { recoveryLink?: React.ReactNode }) {
   const router = useRouter();
@@ -14,12 +15,14 @@ export function LoginForm({ recoveryLink }: { recoveryLink?: React.ReactNode }) 
   const callbackUrl = sanitizeAuthCallback(params.get("callbackUrl"));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidCredentials, setInvalidCredentials] = useState(false);
   const passwordReset = params.get("senha") === "alterada";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setInvalidCredentials(false);
     const form = new FormData(e.currentTarget);
     try {
       const res = await signIn("credentials", {
@@ -27,8 +30,9 @@ export function LoginForm({ recoveryLink }: { recoveryLink?: React.ReactNode }) 
         password: form.get("password"),
         redirect: false,
       });
-      if (res?.error) {
-        setError("Email ou senha inválidos.");
+      if (!res?.ok || res.error) {
+        setError(loginErrorMessage(res?.error));
+        setInvalidCredentials(res?.error === "CredentialsSignin");
         return;
       }
       router.push(callbackUrl);
@@ -57,7 +61,7 @@ export function LoginForm({ recoveryLink }: { recoveryLink?: React.ReactNode }) 
           autoComplete="email"
           placeholder="voce@salon.com"
           className="h-11"
-          aria-invalid={!!error}
+          aria-invalid={invalidCredentials}
           aria-describedby={error ? "login-error" : undefined}
           required
         />
@@ -68,7 +72,7 @@ export function LoginForm({ recoveryLink }: { recoveryLink?: React.ReactNode }) 
         label="Senha"
         autoComplete="current-password"
         className="h-11"
-        aria-invalid={!!error}
+        aria-invalid={invalidCredentials}
         aria-describedby={error ? "login-error" : undefined}
         required
       />
