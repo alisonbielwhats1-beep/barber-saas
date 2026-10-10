@@ -1,5 +1,60 @@
 # Recuperação por Supabase Auth — publicada em 20/09/2026
 
+## 10/10/2026 — mensagens de login do painel, candidata em validação
+
+Branch `codex/admin-login-errors`. O painel distinguia credenciais inválidas,
+limite excedido e indisponibilidade pelo mesmo `CredentialsSignin`. Agora só
+recusas de credencial mantêm esse retorno; falhas operacionais usam códigos
+fixos `LOGIN_RATE_LIMITED` e `LOGIN_TEMPORARILY_UNAVAILABLE`. NextAuth v4
+transporta esses códigos para uma lista de mensagens locais da interface;
+nenhum texto bruto do provedor/banco é exposto. Resposta ausente ou não exitosa
+também não navega para o painel. Falha de conexão mantém orientação específica.
+
+Os limites (8 por e-mail e 30 por IP em 15 minutos), `failClosed`, identidade,
+confirmação e isolamento permanecem. O verificador Supabase distingue HTTP 429,
+credenciais recusadas e falhas técnicas; no aplicativo público, exceções continuam
+usando o aviso temporário existente. Não muda senha, conta, SMTP/Resend, schema
+ou configuração remota. Candidata ainda não publicada. Rollback: reverter o
+commit de código, sem restauração de dados.
+
+Testes de regressão cobrem limiter, banco, timeout, códigos do provedor, falhas
+desconhecidas sem vazamento, ausência de fallback bcrypt, identidade divergente,
+transporte real do NextAuth com CSRF e mensagens na interface sem redirecionar.
+Validação final e CI serão registrados no PR desta branch.
+
+Referência dos códigos do provedor: [Supabase Auth](https://supabase.com/docs/guides/auth/debugging/error-codes).
+
+## Complemento de 09/10/2026 — auditoria do acesso do cliente, em revisão
+
+A candidata `codex/auth-password-audit` reduz o mínimo Supabase para oito
+caracteres, mantendo letras/números e 72 bytes; preserva senhas existentes.
+Corrige retomada, confirmação e reenvio do cliente. A regra de dez e a configuração
+remota descritas abaixo são o registro histórico de implantação; a nova regra
+não foi publicada nem configurada em Production. Sincronização e validação
+obrigatórias em `AUDITORIA_ACESSO_CLIENTE_2026-10-09.md`.
+
+
+## Complemento de 09/10/2026 — pausa do e-mail no cadastro do dono, em revisão
+
+Por solicitação do responsável, `/signup` cria novos donos com hash bcrypt e
+sem `authIdentityId` enquanto `OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED` estiver
+ausente ou diferente de `true`. NextAuth já autentica essas contas mesmo com
+`AUTH_PROVIDER=supabase`; a tela segue para login automático e configuração
+inicial (ou o plano escolhido). Mantém a política de senha forte quando Supabase
+está ativo e os guards de cadastro. O e-mail informado não é prova de posse.
+
+O provedor não é chamado nesse cadastro, nenhuma identidade é autoconfirmada e
+nenhum perfil existente é vinculado. Contas que já aguardam confirmação continuam
+no fluxo anterior. Clientes, convites e recuperação não mudam. Para novas contas
+criadas durante a pausa, a recuperação voluntária continua preparando a identidade
+e vinculando os perfis somente após comprovar o e-mail, como no legado.
+
+Rollback: `OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED=true` e novo deployment
+restauram o cadastro Supabase para os próximos donos; contas criadas durante a
+pausa continuam funcionando por senha. Não alterar `AUTH_PROVIDER`, a configuração
+global de confirmação no Supabase, hashes ou vínculos já existentes. Sem migration.
+Esta implementação ainda não foi publicada em Production.
+
 Complemento em revisão no PR #116: falso alerta de conexão no login do cliente
 era causado pelo catch interceptando o redirecionamento de sucesso do Next.js.
 Tratamento com `unstable_rethrow`, mantendo feedback de erros reais. Regressão

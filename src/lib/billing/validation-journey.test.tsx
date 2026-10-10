@@ -483,10 +483,13 @@ describe("4. POST /api/billing/subscriptions: o servidor recalcula e rejeita cor
     expect(await response.json()).toEqual({ error: "INVALID_CHECKOUT" });
     expect([...subs.values()][0].checkoutUrl).toBeNull();
   });
-  it("safeCheckout aceita apenas https://www.mercadopago.com.br", () => {
+  it("safeCheckout aceita apenas o checkout do Mercado Pago e as páginas hospedadas da Stripe, em https", () => {
     for (const bad of [null, "", "javascript:alert(1)", "http://www.mercadopago.com.br/x", "https://mercadopago.com.br/x", "https://www.mercadopago.com.br.evil.test/x",
-      "https://user:pw@www.mercadopago.com.br/x", "https://www.mercadopago.com.br:8443/x", "https://www.mercadopago.com.ar/x", "/assinatura"]) expect(safeCheckout(bad)).toBeNull();
+      "https://user:pw@www.mercadopago.com.br/x", "https://www.mercadopago.com.br:8443/x", "https://www.mercadopago.com.ar/x", "/assinatura",
+      "http://checkout.stripe.com/c/pay/cs_test_1", "https://checkout.stripe.com.evil.test/c/pay/cs_test_1", "https://stripe.com/x", "https://dashboard.stripe.com/x",
+      "https://evil.checkout.stripe.com/x", "https://user@billing.stripe.com/p/session/x", "https://checkout.stripe.com:8443/x"]) expect(safeCheckout(bad)).toBeNull();
     expect(safeCheckout(CHECKOUT)).toBe(CHECKOUT);
+    for (const good of ["https://checkout.stripe.com/c/pay/cs_test_a1B2c3", "https://billing.stripe.com/p/session/test_YWNjdF8x"]) expect(safeCheckout(good)).toBe(good);
   });
   it("o portal não navega para checkoutUrl inseguro devolvido pela API", async () => {
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => init?.method === "POST"
@@ -496,6 +499,29 @@ describe("4. POST /api/billing/subscriptions: o servidor recalcula e rejeita cor
     fireEvent.click(screen.getByRole("button", { name: /Ir para pagamento/ }));
     expect(await screen.findByText("Sua solicitação foi recebida. Estamos preparando o pagamento.")).toBeVisible();
     expect(h.goToCheckout).not.toHaveBeenCalled();
+  });
+  it("com a Stripe disponível, o dono escolhe o meio de pagamento e o pedido leva o gateway escolhido", async () => {
+    const posts: Array<{ body: unknown; key: string | null }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method !== "POST") return reply(null);
+      posts.push({ body: JSON.parse(String(init.body)), key: new Headers(init.headers).get("Idempotency-Key") });
+      return new Response(JSON.stringify({ id: "s", checkoutUrl: "https://checkout.stripe.com/c/pay/cs_test_a1", state: "UNPAID", providerStatus: "pending" }), { status: 202 });
+    }));
+    render(<SubscriptionPortal salonId="salon-a" email="o@example.test" timezone="America/Sao_Paulo" initial={{ plan: "INDIVIDUAL", cycle: "MONTHLY", extraAgendas: 0 }} stripeAvailable />);
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar com este plano" }));
+    expect(screen.getByText(/Cartão de crédito pela Stripe/)).toBeVisible();
+    expect(screen.getByRole("button", { name: /Pagar pelo Mercado Pago/ })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /Ir para pagamento/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Pagar com cartão/ }));
+    await waitFor(() => expect(h.goToCheckout).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/cs_test_a1"));
+    expect(posts).toEqual([{ body: { plan: "INDIVIDUAL", cycle: "MONTHLY", extraAgendas: 0, provider: "stripe" }, key: expect.stringMatching(/^[a-f0-9-]{36}$/) }]);
+  });
+  it("com o checkout do Mercado Pago pausado, só o cartão pela Stripe é oferecido", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => reply(null)));
+    render(<SubscriptionPortal salonId="salon-a" email="o@example.test" timezone="America/Sao_Paulo" initial={{ plan: "INDIVIDUAL", cycle: "MONTHLY", extraAgendas: 0 }} stripeAvailable mercadoPagoPaused />);
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar com este plano" }));
+    expect(screen.getByRole("button", { name: /Pagar com cartão/ })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /Pagar pelo Mercado Pago/ })).toBeNull();
   });
 });
 

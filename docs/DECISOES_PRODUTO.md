@@ -1,5 +1,84 @@
 # Decisões de produto para as próximas fases
 
+## 09/10/2026 — Stripe ao lado do Mercado Pago, autorizada para implementação
+
+Depois da avaliação de 09/10 (veredito técnico "não agora": conta Stripe no
+Brasil tem Pix só por convite, sem Pix Automático e sem parcelamento; o ganho
+real é Apple Pay e Google Pay), o responsável decidiu seguir e autorizou a
+implementação por fases:
+
+- **Estratégia:** Stripe **junto com** o Mercado Pago. O dono escolhe no
+  pagamento entre cartão, Apple Pay ou Google Pay (Stripe) e Pix, boleto ou
+  cartão (Mercado Pago). Quem já assina continua no Mercado Pago.
+- **Escopo:** assinatura (mensal, anual, troca de plano, cancelamento,
+  reativação) e pacotes da Secretária. Pix continua só pelo Mercado Pago.
+- **Conta Stripe:** tipo e documento da conta definidos pelo responsável e
+  registrados fora do repositório (Brain).
+- Cada contrato e cada compra ficam presos ao gateway que os criou; acesso,
+  carência, trava de agendas e HQ continuam lendo o mesmo contrato.
+
+Esta autorização cobre código e testes. Migration em Production, chaves reais e
+ativação continuam exigindo autorização própria em cada etapa. Plano e
+andamento em `STRIPE_INTEGRACAO.md`.
+
+## 09/10/2026 — senha de oito caracteres e confiabilidade do acesso do cliente
+
+O responsável pediu investigar cadastro, login e e-mails do link de agendamento
+e reduzir o mínimo de dez para oito caracteres, mantendo senha segura. A candidata
+mantém letras/números, confirmação, limite de bytes, rate limiting e isolamento.
+Não muda senhas existentes nem dispensa prova de e-mail no cadastro do cliente.
+A regra compartilhada Supabase precisa ser sincronizada entre aplicação e provedor
+antes da promoção. Detalhes: `AUDITORIA_ACESSO_CLIENTE_2026-10-09.md`.
+
+## 09/10/2026 — cadastro de estabelecimento sem verificação de e-mail, temporariamente
+
+O responsável pediu suspender a verificação de e-mail na criação de conta pela
+landing. A pausa vale para novos donos em `/signup`: senha obrigatória e entrada
+imediata pelo fluxo bcrypt/NextAuth existente, sem marcar o e-mail como verificado
+e sem vincular perfis de cliente por coincidência de endereço. Contas existentes,
+clientes, convites e recuperação permanecem iguais. É uma exceção temporária à
+adoção do Supabase em novos cadastros; a migração voluntária por recuperação
+continua exigindo prova de posse do e-mail. Reativação pelo servidor com
+`OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED=true`.
+
+## 08/10/2026 — nova marca Everflair e nova tela inicial do cliente
+
+Aprovado pelo dono depois de conferência visual no iPhone (prévia com o app
+real da conta de apresentação, temas escuro e claro, 320 a 430 px).
+
+1. **Logo:** duas pétalas geométricas (violeta `#7C5CF0` e lilás `#BBA9FC`;
+   em fundo escuro `#C4B2FF`/`#EEE8FF`) e o nome com um brilho de 4 pontas no
+   lugar do pingo do "i". Letras da **Inter** em contorno (licença OFL; a Segoe
+   UI foi descartada pela licença). Vale em todo lugar: site, login, painel,
+   app do cliente e ícones. O nome segue a cor do texto da tela. Arquivos em
+   `logos/export`, componente em `src/components/brand.tsx`.
+2. **Ícone do app:** quadrado violeta `#6D4AFF` com as pétalas branca e lilás
+   (`PWA_ICON_VERSION = flair-violeta-1`, cache offline v6).
+3. **Abertura do cliente "do ícone ao app" (2,5 s, só CSS):** o ícone cresce até
+   ocupar a tela, as pétalas abrem espaço, o nome entra letra a letra, o brilho
+   pousa no "i" e o violeta se recolhe numa íris até o brilho. Sem verde. A do
+   painel continua a mesma, com o logo novo.
+4. **Violeta pontual no app do cliente** (substitui, só no app do cliente, o
+   "Verde de volta" de 06/10): violeta apenas nas ações (Criar conta, Agendar
+   agora, menu inferior, Ativar). Cards neutros, sem brilho ou sombra colorida;
+   "Instalar aplicativo" em contorno; preços na cor do texto; verde só como
+   sinal ("Verificado", "Aberto agora", cancelamento). O painel do dono não muda.
+5. **Tela inicial do cliente** (substitui a de 06/10): topo com logo e tema na
+   mesma linha; Entrar/Criar conta ou "Minha conta" (neutro, com texto) e, à
+   direita, WhatsApp, Instagram e site (34 px, toque de 44 px; só os
+   cadastrados). Depois: foto do estabelecimento, **Agendar um horário** (ação
+   principal), **Escolha com quem agendar** (equipe; o toque abre o agendamento),
+   avaliação/endereço/horário **recolhidos** (toque para ver endereço com Rotas,
+   horário, telefone e avaliações), avaliações em carrossel compacto com
+   estrelas douradas, regras do atendimento e serviços. Sacola no topo só com
+   itens; sino e Loja ficam no menu inferior. "Bem-vindo" e a seção "Fale com o
+   Studio" saem (o nome está na foto; os contatos, no topo).
+6. **Lembretes no topo:** o convite para ativar os lembretes vira um aviso
+   compacto que desce do topo depois da abertura, com Ativar e Fechar; fechado,
+   não volta na mesma visita.
+7. **Aviso de alteração de horário** continua logo abaixo do topo quando houver
+   proposta pendente (o dono pediu para tirá-lo só da simulação).
+
 ## 07/10/2026 — Secretária liberada a todo dono de salão, sempre pelo custo real
 
 1. **Liberação automática:** sem lista manual por salão na Vercel. Com

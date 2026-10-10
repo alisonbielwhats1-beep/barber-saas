@@ -375,10 +375,52 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/025_billing_plan_changes.verify.sql --url "$DIRECT_URL"
           docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/025-preservation-fingerprint.sql > "$RUNNER_TEMP/post025-fingerprint.txt"
           diff -u "$RUNNER_TEMP/pre025-fingerprint.txt" "$RUNNER_TEMP/post025-fingerprint.txt"
-          npx vitest run --no-file-parallelism src/lib/billing/billing-postgres.integration.test.ts src/lib/hq/hq-postgres.integration.test.ts src/lib/hq/chief-postgres.integration.test.ts src/lib/__tests__/salon-removal-postgres.integration.test.ts
           npx prisma db execute --file prisma/sql/manual/025_billing_plan_changes.rollback.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/024_billing_hq.rollback.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.rollback.sql --url "$DIRECT_URL"
+      - name: Validate Stripe provider columns and customers (033) over the billing and Secretária credit predecessors
+        run: |
+          npx prisma db execute --file prisma/sql/manual/029_secretary_credits.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/029_secretary_credits.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/029_secretary_credits.verify.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/030_secretary_credit_units.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/030_secretary_credit_units.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/030_secretary_credit_units.verify.sql --url "$DIRECT_URL"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/033-preservation-fingerprint.sql > "$RUNNER_TEMP/pre033-fingerprint.txt"
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.verify.sql --url "$DIRECT_URL"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/033-preservation-fingerprint.sql > "$RUNNER_TEMP/post033-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/pre033-fingerprint.txt" "$RUNNER_TEMP/post033-fingerprint.txt"
+          # Reversible while nothing was created through Stripe; reapplied for the journeys below.
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.rollback.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.verify.sql --url "$DIRECT_URL"
+          # The current Prisma client reads "provider" (033), so the billing journeys run on the complete schema.
+          npx vitest run --no-file-parallelism src/lib/billing/billing-postgres.integration.test.ts src/lib/billing/stripe/billing-stripe-postgres.integration.test.ts src/lib/hq/hq-postgres.integration.test.ts src/lib/hq/chief-postgres.integration.test.ts src/lib/__tests__/salon-removal-postgres.integration.test.ts
+          # With Stripe history in place, the rollback must refuse instead of dropping it.
+          if npx prisma db execute --file prisma/sql/manual/033_stripe_billing.rollback.sql --url "$DIRECT_URL"; then echo "033 rollback dropped Stripe history" >&2; exit 1; fi
+          npx prisma db execute --file prisma/sql/manual/033_stripe_billing.verify.sql --url "$DIRECT_URL"
+      - name: Validate administrative plan grants and preserve existing history
+        # After 033: the courtesy journeys read whole BillingSubscription rows, including "provider".
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre032.sql"
+          test -s "$RUNNER_TEMP/pre032.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore032_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore032_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre032.sql" > /dev/null
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/032-preservation-fingerprint.sql > "$RUNNER_TEMP/pre032-fingerprint.txt"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_restore032_ci -v ON_ERROR_STOP=1 < tests/fixtures/032-preservation-fingerprint.sql > "$RUNNER_TEMP/restored032-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/pre032-fingerprint.txt" "$RUNNER_TEMP/restored032-fingerprint.txt"
+          npx prisma db execute --file tests/fixtures/032-runtime-role.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/032_salon_plan_grants.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/032_salon_plan_grants.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/032_salon_plan_grants.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/032_salon_plan_grants.verify.sql --url "$DIRECT_URL"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/032-preservation-fingerprint.sql > "$RUNNER_TEMP/post032-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/pre032-fingerprint.txt" "$RUNNER_TEMP/post032-fingerprint.txt"
+          npx vitest run src/lib/billing/plan-grants-postgres.integration.test.ts
+          npx prisma db execute --file prisma/sql/manual/032_salon_plan_grants.rollback.sql --url "$DIRECT_URL"
       - name: Validate client push subscription migration and tenant constraints
         run: |
           docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre026.sql"
@@ -429,6 +471,10 @@ jobs:
           MERCADOPAGO_ACCESS_TOKEN: synthetic-no-external-payments
           MERCADOPAGO_WEBHOOK_SECRET: synthetic-no-webhooks
         run: npm run test:e2e:database -- --grep "@database troca de planos"
+      - name: Validate administrative plan courtesy on mobile and desktop
+        env:
+          PLATFORM_PLAN_GRANTS_ENABLED: "true"
+        run: npm run test:e2e:database -- --grep "@database administrative plan courtesy"
       - name: Preserve billing review browser evidence
         if: always()
         uses: actions/upload-artifact@v4

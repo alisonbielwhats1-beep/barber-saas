@@ -19,6 +19,7 @@ import { currentTerms } from "@/lib/billing/change-terms";
 import { loadPlanBadge } from "@/lib/billing/plan-badge";
 import { ThemeToggle } from "./theme-toggle";
 import { PlanShortcut } from "./plan-shortcut";
+import { complimentaryEntitlement, grantEntitlement } from "@/lib/billing/plan-grants";
 
 const legacyPlanLabels = { FREE: "Gratuito", STARTER: "Starter", PRO: getPlanEntitlement("PRO").label, ENTERPRISE: "Enterprise" };
 
@@ -55,12 +56,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       const legacyLabel = salon && salon.plan !== "FREE" ? legacyPlanLabels[salon.plan] : null;
       // Only the owner sees the shortcut; its situation includes pending and failed contracts.
       const badge = role === "OWNER" && billingEnabled() ? await loadPlanBadge(tx, salonId, legacyLabel) : null;
-      return { salon, memberships, unreadNotifications, badge, subscription: subscription ? await currentTerms(tx, subscription) : null };
+      const grant = await complimentaryEntitlement(tx, salonId);
+      return { salon, memberships, unreadNotifications, badge, grant, subscription: subscription ? await currentTerms(tx, subscription) : null };
     }),
   ]);
-  const { salon, memberships, unreadNotifications, subscription, badge } = adminData;
-  const planLabel = subscription ? billingCapacityLabel(subscription.plan, subscription.agendaLimit) : legacyPlanLabels[salon?.plan ?? "FREE"];
-  const planShortcut = badge ?? { plan: subscription || (salon && salon.plan !== "FREE") ? planLabel : null, status: null, tone: "neutral" as const };
+  const { salon, memberships, unreadNotifications, subscription, badge, grant } = adminData;
+  const planLabel = grant ? grantEntitlement(grant).label : subscription ? billingCapacityLabel(subscription.plan, subscription.agendaLimit) : legacyPlanLabels[salon?.plan ?? "FREE"];
+  const planShortcut = grant ? { plan: planLabel, status: `Grátis até ${grant.throughDate.split("-").reverse().join("/")}`, tone: "neutral" as const } : badge ?? { plan: subscription || (salon && salon.plan !== "FREE") ? planLabel : null, status: null, tone: "neutral" as const };
   const planHref = billingEnabled() ? "/assinatura" : "/configuracoes#plano";
 
   const membershipList = memberships.map((m) => ({

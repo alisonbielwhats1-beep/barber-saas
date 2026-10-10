@@ -23,7 +23,7 @@ const ANNUAL_SAVING_PERCENT = Math.floor(Math.max(...(Object.keys(BILLING_PLANS)
 })) * 100);
 const agendas = (count: number) => `${count} ${count === 1 ? "agenda" : "agendas"}`;
 
-export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 0, disabled, lockedReason, loadingKey, feedback, onChoose }: {
+export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 0, disabled, lockedReason, loadingKey, feedback, onChoose, paymentNote }: {
   mode: PlanPickerMode;
   initial?: BillingIntent;
   /** Paid terms in use; its card is marked and cannot be chosen again. */
@@ -38,6 +38,8 @@ export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 
   /** Result of the last choice (e.g. a rejected quote), shown next to the cards that caused it. */
   feedback?: React.ReactNode;
   onChoose: (intent: BillingIntent) => void;
+  /** Where the owner pays; defaults to Mercado Pago, the only gateway before Stripe. */
+  paymentNote?: string;
 }) {
   const anchor = initial ?? current ?? pending;
   const [cycle, setCycle] = useState<BillingIntent["cycle"]>(anchor?.cycle ?? "MONTHLY");
@@ -131,6 +133,6 @@ export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 
         <div><dt className="font-semibold">Redução</dt><dd className="mt-1 text-muted-foreground">Vale a partir do próximo vencimento. Até lá, nada muda no seu plano.</dd></div>
         <div><dt className="font-semibold">Mensal ou anual</dt><dd className="mt-1 text-muted-foreground">Começa no próximo vencimento, com uma nova autorização no Mercado Pago.</dd></div>
       </dl>
-      : <p className="text-sm text-muted-foreground">Pagamento seguro pelo Mercado Pago. A renovação é automática e pode ser cancelada quando quiser; o acesso continua até o fim do período pago.</p>}
+      : <p className="text-sm text-muted-foreground">{paymentNote ?? "Pagamento seguro pelo Mercado Pago."} A renovação é automática e pode ser cancelada quando quiser; o acesso continua até o fim do período pago.</p>}
   </div>;
 }

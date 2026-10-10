@@ -8,6 +8,7 @@ import { bcryptPasswordSchema } from "./password";
 import { z } from "zod";
 import { supabaseAuthEnabled } from "./supabase-auth-config";
 import { authenticatePassword, validateProviderSession, type ProviderSession } from "./supabase-auth";
+import { LoginError } from "./login-error";
 
 const DUMMY_ADMIN_PASSWORD_HASH =
   "$2a$10$EpwUuprmRRoDuqmTMprHZO/QYoydyJx0wblP26vSqDEMK1BhV/K1K";
@@ -54,66 +55,74 @@ export const authOptions: NextAuthOptions = {
         });
         if (!parsed.success) return null;
         const { email, password } = parsed.data;
-        const ip = clientIp(new Headers(request.headers));
-        const [ipLimit, accountLimit] = await Promise.all([
-          checkRateLimit({
-            namespace: "admin-login-ip",
-            identifier: ip,
-            limit: 30,
-            windowSeconds: 15 * 60,
-            failClosed: true,
-          }),
-          checkRateLimit({
-            namespace: "admin-login-account",
-            identifier: email,
-            limit: 8,
-            windowSeconds: 15 * 60,
-            failClosed: true,
-          }),
-        ]);
-        if (!ipLimit.allowed || !accountLimit.allowed) return null;
+        try {
+          const ip = clientIp(new Headers(request.headers));
+          const [ipLimit, accountLimit] = await Promise.all([
+            checkRateLimit({
+              namespace: "admin-login-ip",
+              identifier: ip,
+              limit: 30,
+              windowSeconds: 15 * 60,
+              failClosed: true,
+            }),
+            checkRateLimit({
+              namespace: "admin-login-account",
+              identifier: email,
+              limit: 8,
+              windowSeconds: 15 * 60,
+              failClosed: true,
+            }),
+          ]);
+          if (ipLimit.source === "unavailable" || accountLimit.source === "unavailable") {
+            throw new LoginError("LOGIN_TEMPORARILY_UNAVAILABLE");
+          }
+          if (!ipLimit.allowed || !accountLimit.allowed) throw new LoginError("LOGIN_RATE_LIMITED");
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            passwordHash: true,
-            passwordSetAt: true,
-            sessionVersion: true,
-            avatarUrl: true,
-            authIdentityId: true,
-          },
-        });
-        if (supabaseAuthEnabled() && user?.authIdentityId) {
-          try {
+          const user = await prisma.user.findUnique({
+            where: { email },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              passwordHash: true,
+              passwordSetAt: true,
+              sessionVersion: true,
+              avatarUrl: true,
+              authIdentityId: true,
+            },
+          });
+          if (supabaseAuthEnabled() && user?.authIdentityId) {
             const authenticated = await authenticatePassword(email, password);
             if (!authenticated || authenticated.user.id !== user.authIdentityId) return null;
             return { id: user.id, email: user.email, name: user.name, image: user.avatarUrl,
               sessionVersion: user.sessionVersion, providerSession: authenticated.session };
-          } catch { return null; }
+          }
+          const valid = await bcrypt.compare(
+            password,
+            user?.passwordHash ?? DUMMY_ADMIN_PASSWORD_HASH,
+          );
+          if (!user?.passwordHash || !valid) return null;
+          // Backfill seguro e gradual: uma senha só é marcada como configurada
+          // depois que seu conhecimento foi comprovado por login bem-sucedido.
+          if (user.passwordSetAt === null) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { passwordSetAt: new Date() },
+            });
+          }
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.avatarUrl ?? undefined,
+            sessionVersion: user.sessionVersion,
+          };
+        } catch (error) {
+          // CredentialsSignin is reserved for a rejected credential, never an outage.
+          // Sanitize before NextAuth serializes the exception into its response URL.
+          if (error instanceof LoginError) throw error;
+          throw new LoginError("LOGIN_TEMPORARILY_UNAVAILABLE");
         }
-        const valid = await bcrypt.compare(
-          password,
-          user?.passwordHash ?? DUMMY_ADMIN_PASSWORD_HASH,
-        );
-        if (!user?.passwordHash || !valid) return null;
-        // Backfill seguro e gradual: uma senha só é marcada como configurada
-        // depois que seu conhecimento foi comprovado por login bem-sucedido.
-        if (user.passwordSetAt === null) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { passwordSetAt: new Date() },
-          });
-        }
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.avatarUrl ?? undefined,
-          sessionVersion: user.sessionVersion,
-        };
       },
     }),
   ],

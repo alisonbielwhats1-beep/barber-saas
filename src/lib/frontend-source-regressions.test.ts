@@ -126,14 +126,16 @@ describe("frontend audit source regressions", () => {
     expect(home).toContain("<BrandLogo");
     expect(home).not.toContain("SalonLogoLightbox");
     expect(home).not.toContain('aria-label="Contato rápido"');
-    expect(home).toContain('aria-labelledby="contact-title"');
-    expect(home).toContain("Fale com o Studio");
-    expect(home).toContain("<SalonLocationLink address={salon.address}");
+    // Tela inicial de 08/10/2026: contatos oficiais num grupo só, no topo.
+    expect(home).toContain('className="client-header-contacts" role="group" aria-label={`Fale com ${salon.name}`}');
+    // Endereço só quando cadastrado, com Rotas no bloco recolhido.
+    expect(home).toContain("const address = salon.address?.trim() || null;");
+    expect(home).toContain("{mapsHref && (");
     expect(source("src/app/book/[salonSlug]/salon-location-link.tsx")).toContain("if (!location) return null;");
-    const infoStart = home.indexOf("{/* Informações");
-    expect(infoStart).toBeGreaterThan(-1);
-    expect(home.slice(infoStart)).not.toContain("whatsappHref");
-    expect(home.slice(infoStart)).not.toContain("phoneHref");
+    const rulesStart = home.indexOf("{/* Regras do atendimento");
+    expect(rulesStart).toBeGreaterThan(-1);
+    expect(home.slice(rulesStart)).not.toContain("whatsappHref");
+    expect(home.slice(rulesStart)).not.toContain("phoneHref");
   });
 
   it("permite foto do profissional e a exibe na equipe pública", () => {

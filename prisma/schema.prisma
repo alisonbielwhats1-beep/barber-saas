@@ -537,8 +537,10 @@ model User {
 }
 
 model Salon {
+  planGrants SalonPlanGrant[]
   hqBillingAccount HqAccounts?
   billingSubscriptions BillingSubscription[]
+  billingCustomers BillingCustomer[]
   id                String            @id @default(cuid())
   slug              String            @unique
   name              String
@@ -614,6 +616,26 @@ model Salon {
   @@index([accessStatus, accessRequestedAt])
 }
 
+// Administrative courtesy, independent of paid subscription terms and invoices.
+model SalonPlanGrant {
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  actorUserId String
+  requestKey String @db.Uuid
+  planCode String
+  catalogVersion String
+  amountCents Int
+  agendaLimit Int
+  throughDate String @db.VarChar(10)
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  @@unique([salonId, requestKey])
+  @@index([salonId, endsAt])
+}
+
 // Automatic SaaS billing. Legacy manual invoices and appointment payments are independent.
 model BillingSubscription {
   hqSubscription HqSubscriptions?
@@ -633,6 +655,8 @@ model BillingSubscription {
   collectorId String
   payerEmail String
   legacyPlan Plan
+  /// mercadopago | stripe (033). Set at creation and never changed; existing contracts are Mercado Pago.
+  provider String @default("mercadopago")
   providerId String? @unique
   providerStatus String @default("pending")
   providerUpdatedAt DateTime? @db.Timestamptz(3)
@@ -658,6 +682,19 @@ model BillingSubscription {
   @@unique([salonId, requestKey])
   @@unique([salonId, id])
   @@index([salonId, current])
+}
+
+/// One provider customer per salon, provider, mode and account (033). Append-only: never updated or deleted.
+model BillingCustomer {
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  provider String
+  mode String
+  accountId String
+  customerId String @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  @@unique([salonId, provider, mode, accountId])
 }
 
 model BillingPlanChange {
@@ -1469,6 +1506,8 @@ model SecretaryCreditPurchase {
   packCode          String
   amountCents       Int
   units             Int
+  /// mercadopago | stripe (033). Set at creation and never changed.
+  provider          String    @default("mercadopago")
   state             String    @default("CREATED")
   expiresAt         DateTime  @db.Timestamptz(3)
   creationStartedAt DateTime? @db.Timestamptz(3)

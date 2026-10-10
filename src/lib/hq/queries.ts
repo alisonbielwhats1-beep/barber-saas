@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import type { Tx } from "@/lib/prisma-tenant";
 import type { Row } from "./catalog";
 import * as repo from "./repository";
+import { planGrantsEnabled, grantEntitlement } from "../billing/plan-grants";
 
 export const accountProjection = Prisma.sql`
  SELECT a.*,
@@ -39,7 +40,20 @@ export async function accounts(tx: Tx, params: { kind?: string; q?: string; stat
   const where = Prisma.join(conditions, " AND ");
   const page = Math.max(1, Math.min(params.page ?? 1, 100000));
   const rows = await tx.$queryRaw<{data: Row}[]>(Prisma.sql`SELECT to_jsonb(t) data FROM (${accountProjection}) t WHERE ${where} ORDER BY "createdAt" DESC, id LIMIT 51 OFFSET ${(page-1)*50}`);
-  return { rows: rows.slice(0,50).map(r=>r.data), hasMore: rows.length > 50 };
+  const result = rows.slice(0,50).map(r=>r.data);
+  if (planGrantsEnabled()) {
+    const ids = result.flatMap(r => r.billingSalonId ? [String(r.billingSalonId)] : []);
+    const grants = await tx.salonPlanGrant.findMany({ where: { salonId: { in: ids }, revokedAt: null } });
+    const contracts = await tx.billingSubscription.findMany({ where: { salonId: { in: ids }, OR: [{ paidThrough: { not: null } }, { reviewRequired: true }] }, select: { salonId: true } });
+    for (const row of result) {
+      const grant = grants.find(g => g.salonId === row.billingSalonId);
+      if (!grant || row.planLabel || contracts.some(s => s.salonId === row.billingSalonId)) continue; // A financial contract always takes precedence.
+      const active = grant.endsAt > new Date();
+      row.planLabel = active ? grantEntitlement(grant).label + " · cortesia" : "Grátis · cortesia encerrada";
+      row.courtesyThrough = grant.throughDate; row.planAmount = 0; row.planCycle = "Sem cobrança"; row.trialEnd = grant.throughDate;
+    }
+  }
+  return { rows: result, hasMore: rows.length > 50 };
 }
 export async function options(tx: Tx) {
   const [accounts, subscriptions, bugs, features] = await Promise.all([
@@ -83,7 +97,8 @@ export async function detail(tx: Tx, entity: string, id: string) {
     record.lastRequest=dates.at(-1)??null;
   }
   if(entity==="subscriptions") sections.payments=await repo.related(tx,"payments","subscriptionId",id);
-  return { record, account, sections };
+  const courtesy = planGrantsEnabled() && account?.billingSalonId ? await tx.salonPlanGrant.findFirst({ where: { salonId: String(account.billingSalonId), revokedAt: null } }) : null;
+  return { record, account, sections, courtesy };
 }
 export async function dashboardMetrics(tx: Tx) {
  const [metrics] = await tx.$queryRaw<Record<string,number>[]>`

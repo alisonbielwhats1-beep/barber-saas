@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { BillingPlanChange, BillingSubscription, Prisma } from "@prisma/client";
 import { withSalon } from "../prisma-tenant";
-import { BillingError } from "./catalog";
+import { assertProvider, BillingError } from "./catalog";
 import { billingTermsSchema } from "./change-rules";
 import { changesEnabled, pendingChangeStates, PRICE_REDUCTION_ACTOR, remoteMatchesTerms, RENEWAL_EARLY_TOLERANCE_MS } from "./change-terms";
 import { prepareUpgradeCheckout, upgradePayments } from "./change-provider";
@@ -144,6 +144,7 @@ async function syncSupplementalPayments(sub: BillingSubscription, change: Billin
 /** Runs under the existing per-subscription dispatch lease; network stays outside transactions. */
 export async function syncPlanChanges(sub: BillingSubscription): Promise<void> {
   if (!changesEnabled() || !sub.providerId) return;
+  assertProvider(sub, "mercadopago");
   const change = await withSalon(sub.salonId, async tx => await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: sub.salonId, state: { in: pendingChangeStates.filter(state => state !== "REVIEW") }, confirmedAt: { not: null } }, orderBy: { quotedAt: "asc" } })
     ?? await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: sub.salonId, kind: "UPGRADE", creationStartedAt: { not: null }, confirmedAt: { not: null } }, orderBy: [{ updatedAt: "asc" }, { id: "asc" }] }));
   if (!change) return;

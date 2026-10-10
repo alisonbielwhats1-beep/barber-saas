@@ -252,12 +252,17 @@ export function BookingFlow({
       : false;
     if (currentIsEligible) return;
 
+    // Profissional escolhido na tela inicial ("Escolha com quem agendar"):
+    // vem pré-selecionado assim que os serviços escolhidos forem compatíveis.
+    const preferred = initialProId && eligibleProfessionals.some((professional) => professional.id === initialProId)
+      ? initialProId
+      : null;
     const nextProfessional = eligibleProfessionals.length === 1
       ? eligibleProfessionals[0]!.id
-      : null;
+      : preferred;
     setProId(nextProfessional);
     setSlot(null);
-  }, [eligibleProfessionals, proId]);
+  }, [eligibleProfessionals, proId, initialProId]);
 
   // Slot a restaurar depois que a grade de horários carregar.
   const pendingSlotRef = useRef<PendingAvailabilitySlot | null>(restoredQuerySlot && proId ? {

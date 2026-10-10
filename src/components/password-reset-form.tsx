@@ -7,7 +7,7 @@ import { resetAdminPassword, resetClientPassword } from "@/app/password-recovery
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import Link from "next/link";
-import { newAuthPasswordSchema, NEW_PASSWORD_HELP } from "@/lib/recovery-validation";
+import { newAuthPasswordSchema, NEW_PASSWORD_HELP, NEW_PASSWORD_MIN_LENGTH } from "@/lib/recovery-validation";
 
 export function PasswordResetForm({
   token,
@@ -75,7 +75,7 @@ export function PasswordResetForm({
         name="password"
         label="Nova senha"
         autoComplete="new-password"
-        minLength={provider ? 10 : 6}
+        minLength={provider ? NEW_PASSWORD_MIN_LENGTH : 6}
         maxLength={72}
         className="h-11"
         aria-describedby="password-help password-feedback"
@@ -87,7 +87,7 @@ export function PasswordResetForm({
         name="confirmPassword"
         label="Confirmar nova senha"
         autoComplete="new-password"
-        minLength={provider ? 10 : 6}
+        minLength={provider ? NEW_PASSWORD_MIN_LENGTH : 6}
         maxLength={72}
         className="h-11"
         aria-describedby="password-feedback"

@@ -1,4 +1,110 @@
+# Candidato local — 09/10/2026: planos e cortesia no HQ
+
+Implementação em `codex/platform-plans-access`, ainda sem promoção: catálogo atual no controle administrativo, cortesia com prazo inclusivo e auditoria, bloqueios de exclusão explicados. Migration 032 e flag `PLATFORM_PLAN_GRANTS_ENABLED` permanecem pendentes de aprovação/implantação em Production. Bianca ainda não deve ser declarada no plano Individual por esta implementação. Ver [plano e rollout](PLANOS_CORTESIA_HQ_2026-10-09.md). O estado implantado documentado abaixo permanece válido.
+
 # Status atual canônico — Salon SaaS
+
+## 10/10/2026 — mensagens de erro do login do painel, candidata em validação
+
+`codex/admin-login-errors` separa limite de tentativas, falha temporária e
+credenciais recusadas no servidor e no formulário. Limites/proteções, senhas,
+contas, sessões e Resend preservados; sem migration ou configuração remota.
+Não publicada. Escopo e testes: `FASE_SUPABASE_AUTH_RECOVERY.md` (10/10).
+
+## 09/10/2026 — Stripe em Production: 033 aplicada, fases 1 e 2 publicadas (desligada)
+
+Autorização do responsável no chat: "aplique a migration e realize o merge".
+- **Migration manual 033** (`033_stripe_billing`) aplicada uma única vez no
+  projeto produtivo às 20:07 UTC, seguindo o `AGENTS.md`: identificação do
+  projeto, preflight somente leitura, backup criptografado das tabelas afetadas
+  fora do Git (conferido por checksum), `VERIFY_OK` e impressão digital do
+  histórico de cobrança e créditos idêntica antes e depois. As evidências com
+  números ficam no registro privado do projeto (este repositório é público).
+  **Não reaplicar.**
+- **PR #168** (merge `59990e6`) e **PR #170** (merge `812dfdf`) publicados. A
+  árvore do segundo merge é idêntica à validada pelo CI. Depois de cada deploy,
+  `/api/health` 200 com banco ok, e home, login e vitrine da conta de
+  apresentação respondendo.
+- **Stripe continua desligada:** sem `STRIPE_BILLING_ENABLED=true` em Production
+  nenhum salão vê a Stripe. O webhook responde `503 STRIPE_NOT_CONFIGURED`
+  enquanto não houver credenciais.
+- **Conta Stripe de produção:** em análise pela Stripe (pagamentos suspensos até
+  a aprovação). Já configurados: Radar Lite, marca do Checkout e o destino de
+  webhook `everflair-producao`. A chave restrita foi validada no modo de teste
+  (permissões em `STRIPE_INTEGRACAO.md`).
+- **Próximo passo, depois da aprovação:** chave restrita de produção e segredos
+  na Vercel, `STRIPE_ALLOWED_SALONS` só com o salão de demonstração e uma
+  cobrança real de ponta a ponta antes de abrir para outros salões.
+- Registro paralelo: o histórico de migrations do Supabase de Production já tem
+  a `032` da cortesia (`salon_plan_grants_032`) e o PR #169 está publicado; o
+  estado da flag `PLATFORM_PLAN_GRANTS_ENABLED` não foi verificado neste trabalho.
+
+## 09/10/2026 — Stripe fase 2: assinar pela Stripe (PR #170, publicada desligada)
+
+Branch `claude/stripe-fase2-assinatura`, sobre a fase 1 (PR #168). Com
+`STRIPE_BILLING_ENABLED=true`, o dono escolhe "Pagar com cartão" (Stripe) ou
+"Pagar pelo Mercado Pago" ao contratar. Checkout em modo assinatura, conciliação
+pela API da Stripe, webhook `/api/webhooks/stripe`, carência e cancelamento no
+fim do período. Troca de plano e reativação continuam só no Mercado Pago (fase 3).
+A oferta vale só para os salões de `STRIPE_ALLOWED_SALONS` (vazio = nenhum; `*` =
+todos), conferida na tela e no servidor; o piloto em Production começa pelo salão
+de demonstração. Detalhes em `STRIPE_INTEGRACAO.md`. Nada ligado em Production.
+
+## 09/10/2026 — Stripe fase 1: base técnica (PR #168, desligada)
+
+Branch `claude/stripe-fase1-base`. Decisão do dono em `DECISOES_PRODUTO.md`;
+plano e ordem de liberação em `STRIPE_INTEGRACAO.md`. Nada cobra pela Stripe
+ainda e nenhuma tela muda.
+- SDK oficial `stripe@22.6.2` com a API `2026-08-26.dahlia` fixada; configuração
+  em `src/lib/billing/stripe/` (`STRIPE_*`), que só liga junto com
+  `MERCADOPAGO_BILLING_ENABLED` e recusa chave, modo ou deploy de outro ambiente.
+- Migration manual **033** (aditiva; a 032 é a cortesia do #169): `provider` em `BillingSubscription` e
+  `SecretaryCreditPurchase` (padrão `mercadopago`, imutável) e tabela
+  `BillingCustomer` com FORCE RLS e só inserção. **Precisa ser aplicada em
+  Production antes do merge**: o Prisma Client novo lê a coluna `provider`.
+- O código do Mercado Pago recusa (`PROVIDER_MISMATCH`) qualquer contrato ou
+  compra da Stripe antes de chamar a API; a conciliação dos pacotes só busca
+  compras do Mercado Pago. `safeCheckout` aceita `checkout.stripe.com` e
+  `billing.stripe.com`.
+
+## 09/10/2026 — acesso do cliente e senha de oito caracteres em revisão
+
+Candidata `codex/auth-password-audit`: retomada de cadastro pelo login existente,
+orientação/reenvio de confirmação, retorno ao mesmo salão e política Supabase
+de oito caracteres com letras/números. Logs produtivos somente leitura confirmam
+recusas por e-mail não confirmado e limite de envio no cadastro. Não publicada;
+configuração remota e contas intactas. Sincronizar o mínimo remoto antes da
+promoção autorizada. Evidências/limites: `AUDITORIA_ACESSO_CLIENTE_2026-10-09.md`.
+
+## 09/10/2026 — pausa da verificação de e-mail no cadastro da landing (em revisão)
+
+A pedido do responsável, novos estabelecimentos em `/signup` usam o login por
+senha já suportado (bcrypt/NextAuth), sem link de verificação. A senha forte,
+limite de tentativas, unicidade do usuário e criação transacional do salão são
+preservados. `OWNER_SIGNUP_EMAIL_VERIFICATION_ENABLED=true` restaura o cadastro
+Supabase; ausente ou `false` mantém a pausa. Contas existentes não são alteradas.
+Recuperação Supabase, cadastro do cliente e convites mantêm os fluxos atuais.
+Sem migration, configuração remota ou publicação em Production nesta etapa.
+Detalhes e rollback em `FASE_SUPABASE_AUTH_RECOVERY.md`.
+
+## 2026-10-08 — nova marca Everflair e tela inicial do cliente (PR desta branch)
+
+Branch `claude/everflair-logo-redesign-ddd49b`. Decisão do dono de 08/10 em
+`DECISOES_PRODUTO.md`. Sem mudança de banco, migration ou variável de ambiente.
+- **Marca:** `BrandLogo`/`BrandMark` passam a SVG em linha (pétalas e brilho pelo
+  `color-scheme`, nome por `currentColor`), letras Inter em contorno. Ícones do
+  PWA, favicon, Apple e badge refeitos; `PWA_ICON_VERSION` `flair-violeta-1` e
+  cache do `sw.js` v6.
+- **Abertura do cliente** "do ícone ao app" (2,5 s) em `brand-intro.tsx`/`brand.css`.
+- **App do cliente:** primária violeta nos temas `salon-dark`/`salon-light`
+  (painel inalterado); nova tela inicial em `book/[salonSlug]/page.tsx`
+  (contatos no topo, Agendar, equipe com link para `agendar?pro=`, que o
+  `booking-flow` pré-seleciona quando o serviço escolhido é compatível,
+  informações recolhidas com "Aberto agora" no fuso do salão e no expediente
+  semanal da equipe, avaliações em carrossel, convite de lembretes em aviso no
+  topo). Logo com alternativa de cores para navegadores sem `light-dark()`.
+- Testes atualizados: ícones (fundo violeta), abertura (2,5 s) e convite de
+  lembretes (aviso no topo); novo teste de "Aberto agora".
 
 ## 2026-10-07 — Celular com cara de aplicativo (em revisão, não publicado)
 
@@ -2372,7 +2478,9 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
   senha usa as mesmas credenciais, sem ativar convites, e também deve ser
   validada primeiro no Preview seguro.
 - WhatsApp: somente atalho manual; nenhuma integração paga automática.
-- Billing automático/Stripe: não implementado nem autorizado.
+- Billing automático: Mercado Pago em produção desde 13/09/2026. Stripe autorizada
+  em 09/10/2026, ao lado do Mercado Pago, em implementação e desligada
+  (`STRIPE_INTEGRACAO.md`).
 
 ## Melhoria da jornada do cliente implantada
 

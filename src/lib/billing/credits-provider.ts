@@ -4,7 +4,7 @@ import type { SecretaryCreditPurchase } from "@prisma/client";
 import { withSalon, withTenant, type Tx } from "../prisma-tenant";
 import { appendCredit, creditLock, creditsEnabled } from "../secretary-credits";
 import { decideCreditPayment, type PurchaseState } from "../secretary-credits-rules";
-import { BillingError, SECRETARY_CREDIT_PACKS, secretaryCreditPack } from "./catalog";
+import { assertProvider, BillingError, SECRETARY_CREDIT_PACKS, secretaryCreditPack } from "./catalog";
 import { billingConfig, checkoutPaused } from "./config";
 import { assertOwner } from "./service";
 import { alertCreditReview } from "./credit-review-alert";
@@ -48,6 +48,7 @@ export async function createCreditPurchase(ctx: { salonId: string; userId: strin
 const preferenceSchema = z.object({ id: z.string(), collector_id: z.union([z.string(), z.number()]).transform(String), external_reference: z.string(), init_point: z.string().url(),
   items: z.array(z.object({ quantity: z.number(), unit_price: z.number(), currency_id: z.string() })), expires: z.boolean(), expiration_date_to: z.string() });
 export async function prepareCreditCheckout(purchase: SecretaryCreditPurchase) {
+  assertProvider(purchase, "mercadopago");
   const config = billingConfig();
   if (purchase.preferenceId) return;
   if (purchase.expiresAt <= new Date()) throw new BillingError("CREDIT_PURCHASE_EXPIRED");
@@ -102,6 +103,7 @@ const paymentTotals = async (tx: Tx, salonId: string, paymentId: string) => {
 };
 /** Applies one payment update to its purchase (credit, reversal, state), idempotently, under the salon's credit lock. */
 export async function applyCreditPayment(purchase: SecretaryCreditPurchase, payment: mp.RemotePayment) {
+  assertProvider(purchase, "mercadopago");
   const config = billingConfig();
   const checked = validateCreditPayment(purchase, payment, config);
   if (config.mode === "test" && payment.live_mode) await mp.verifySellerAccount();
@@ -170,6 +172,7 @@ export async function creditPayments(purchase: SecretaryCreditPurchase) {
 export async function reconcileCreditPurchase(salonId: string, id: string, now = new Date()) {
   const purchase = await withSalon(salonId, tx => tx.secretaryCreditPurchase.findFirst({ where: { id, salonId } }));
   if (!purchase || !purchase.preferenceId) return;
+  assertProvider(purchase, "mercadopago");
   const payments = await creditPayments(purchase);
   // Approved first, so a refund always finds its credit (its own idempotency keeps the order safe either way).
   for (const payment of [...payments].sort((a, b) => Number(b.status === "approved") - Number(a.status === "approved"))) {
@@ -183,7 +186,7 @@ export async function reconcileCreditPurchase(salonId: string, id: string, now =
 export async function reconcilePendingCreditPurchases(limit = 20) {
   const pending = await withSalon("__billing_dispatch__", async tx => {
     await tx.$executeRaw`SELECT set_config('app.billing_dispatch', 'enabled', true)`;
-    return tx.secretaryCreditPurchase.findMany({ where: { state: "AWAITING_PAYMENT" }, orderBy: { createdAt: "asc" }, take: limit, select: { id: true, salonId: true } });
+    return tx.secretaryCreditPurchase.findMany({ where: { state: "AWAITING_PAYMENT", provider: "mercadopago" }, orderBy: { createdAt: "asc" }, take: limit, select: { id: true, salonId: true } });
   });
   for (const purchase of pending) {
     try { await reconcileCreditPurchase(purchase.salonId, purchase.id); } catch { console.error("SECRETARY_CREDIT_RECONCILE_FAILED"); }

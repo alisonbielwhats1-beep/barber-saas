@@ -251,10 +251,10 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
 
     --border: 230 8% 18%;
     --input: 230 8% 18%;
-    --ring: 155 52% 65%;
+    --ring: 252 80% 76%;
 
-    --primary: 155 52% 65%;
-    --primary-foreground: 158 48% 12%;
+    --primary: 252 80% 76%;      /* violeta Everflair, ações */
+    --primary-foreground: 252 40% 12%;
 
     --secondary: 230 8% 15%;
     --secondary-foreground: 40 30% 96%;
@@ -280,14 +280,14 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --background: 220 20% 97%;
     --foreground: 225 12% 15%;
     --card: 0 0% 100%;
-    --card-hover: 155 30% 95%;
+    --card-hover: 252 40% 97%;
     --card-foreground: 225 12% 15%;
     --muted: 220 16% 93%;
     --muted-foreground: 220 10% 40%;
     --border: 220 14% 86%;
     --input: 220 14% 80%;
-    --ring: 158 71% 24%;
-    --primary: 158 71% 24%;
+    --ring: 252 62% 54%;
+    --primary: 252 62% 54%;      /* violeta Everflair, ações */
     --primary-foreground: 0 0% 100%;
     --secondary: 220 16% 93%;
     --secondary-foreground: 225 12% 15%;

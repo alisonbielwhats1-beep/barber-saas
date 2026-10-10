@@ -13,6 +13,8 @@ import {
   acceptNewUserInvite,
 } from "@/lib/invitations";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { NEW_PASSWORD_MIN_LENGTH } from "@/lib/recovery-validation";
+import { supabaseAuthEnabled } from "@/lib/supabase-auth-config";
 import { isBcryptPasswordLengthValid } from "@/lib/password";
 
 const inputSchema = z
@@ -24,11 +26,12 @@ const inputSchema = z
   })
   .superRefine((input, ctx) => {
     if (input.mode !== "new") return;
-    if (!input.password || input.password.length < 10) {
+    const minimum = supabaseAuthEnabled() ? NEW_PASSWORD_MIN_LENGTH : 10;
+    if (!input.password || input.password.length < minimum) {
       ctx.addIssue({
         code: "custom",
         path: ["password"],
-        message: "A senha precisa ter pelo menos 10 caracteres.",
+        message: `A senha precisa ter pelo menos ${minimum} caracteres.`,
       });
     }
     if (input.password && !isBcryptPasswordLengthValid(input.password)) {

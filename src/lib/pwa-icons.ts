@@ -1,5 +1,5 @@
 export const PWA_BACKGROUND = "#131315";
-export const PWA_ICON_VERSION = "flair-dark-1";
+export const PWA_ICON_VERSION = "flair-violeta-1";
 export const PWA_FAVICON = `/icon.svg?v=${PWA_ICON_VERSION}`;
 
 export const PWA_ICONS = [

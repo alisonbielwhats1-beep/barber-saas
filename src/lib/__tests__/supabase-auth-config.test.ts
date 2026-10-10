@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { authConfig, recoveryRedirect } from "../supabase-auth-config";
+import { describe, expect, it, vi } from "vitest";
+import { authConfig, recoveryRedirect, confirmationLoginDestination } from "../supabase-auth-config";
 import { passwordRecoveryEmailEnabled } from "../password-recovery-feature";
 import { newAuthPasswordSchema } from "../recovery-validation";
 
@@ -24,5 +24,23 @@ describe("Supabase recovery configuration", () => {
   });
   it.each(["short1", "abcdefghijk", "12345678901", "a1".repeat(37)])("rejects unsafe password %s", password => {
     expect(newAuthPasswordSchema.safeParse(password).success).toBe(false);
+  });
+  it("aceita oito caracteres com letras e números sem alterar a senha digitada", () => {
+    expect(newAuthPasswordSchema.parse("Abcdef12")).toBe("Abcdef12");
+    expect(newAuthPasswordSchema.safeParse("Abcde12").success).toBe(false);
+    expect(newAuthPasswordSchema.safeParse("abcdefgh").success).toBe(false);
+    expect(newAuthPasswordSchema.safeParse("12345678").success).toBe(false);
+    expect(newAuthPasswordSchema.parse(" Abcde12 ")).toBe(" Abcde12 ");
+    expect(newAuthPasswordSchema.safeParse("é".repeat(36) + "a1").success).toBe(false);
+  });
+  it("mantém o login do salão na confirmação e recusa destinos externos", () => {
+    vi.stubEnv("APP_ENV", "test"); vi.stubEnv("NEXTAUTH_URL", "http://127.0.0.1:3100");
+    try {
+      const client = "http://127.0.0.1:3100/book/studio-a/login";
+      expect(confirmationLoginDestination(client)).toBe(client);
+      for (const next of ["https://attacker.test/book/studio-a/login", client + "?next=evil", "/book/studio-a/login", "not-a-url"]) {
+        expect(confirmationLoginDestination(next)).toBe("http://127.0.0.1:3100/login");
+      }
+    } finally { vi.unstubAllEnvs(); }
   });
 });

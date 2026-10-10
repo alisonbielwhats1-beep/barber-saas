@@ -133,7 +133,7 @@ test.describe("@static páginas públicas", () => {
     expect(manifest.display).toBe("standalone");
 
     const appleIcon = await page.locator('link[rel="apple-touch-icon"]').getAttribute("href");
-    expect(appleIcon).toContain("apple-touch-icon-180.png?v=flair-dark-1");
+    expect(appleIcon).toContain("apple-touch-icon-180.png?v=flair-violeta-1");
     const appleResponse = await request.get(appleIcon!);
     expect(appleResponse.ok()).toBe(true);
     expect(appleResponse.headers()["content-type"]).toContain("image/png");

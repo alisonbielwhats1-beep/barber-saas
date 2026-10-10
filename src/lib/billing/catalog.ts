@@ -1,6 +1,13 @@
 import { z } from "zod";
 
 export const CATALOG_VERSION = "2026-10-02";
+/** Owner decision 09/10/2026: Stripe (card, Apple Pay, Google Pay) alongside Mercado Pago. Each contract or purchase keeps
+ * the provider it was created with (033 makes it immutable); existing ones are Mercado Pago. */
+export const BILLING_PROVIDERS = ["mercadopago", "stripe"] as const;
+export type BillingProvider = (typeof BILLING_PROVIDERS)[number];
+export const billingProvider = z.enum(BILLING_PROVIDERS);
+/** A contract request names its gateway; requests from before Stripe carry none and stay Mercado Pago. */
+export const contractProvider = z.object({ provider: billingProvider.default("mercadopago") }).passthrough();
 export const BILLING_PLANS = {
   INDIVIDUAL: { label: "Individual", agendas: 1, monthly: 3990, annual: 39900 },
   TEAM: { label: "Essencial", agendas: 3, monthly: 7990, annual: 77900 },
@@ -26,6 +33,12 @@ export function quoteContract(value: unknown) {
 
 export class BillingError extends Error {
   constructor(public code: string, public status = 409) { super(code); this.name = "BillingError"; }
+}
+
+/** Each provider's code only ever touches its own contracts and purchases. Rows from before 033 (and test doubles of them)
+ * carry no provider: they are Mercado Pago. */
+export function assertProvider(record: { provider?: string | null }, provider: BillingProvider) {
+  if ((record.provider ?? "mercadopago") !== provider) throw new BillingError("PROVIDER_MISMATCH", 409);
 }
 
 /** Calendar months, preserving the original anchor day even after February. */
