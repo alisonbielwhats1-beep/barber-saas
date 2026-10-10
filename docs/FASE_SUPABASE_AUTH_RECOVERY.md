@@ -1,5 +1,29 @@
 # Recuperação por Supabase Auth — publicada em 20/09/2026
 
+## 10/10/2026 — mensagens de login do painel, candidata em validação
+
+Branch `codex/admin-login-errors`. O painel distinguia credenciais inválidas,
+limite excedido e indisponibilidade pelo mesmo `CredentialsSignin`. Agora só
+recusas de credencial mantêm esse retorno; falhas operacionais usam códigos
+fixos `LOGIN_RATE_LIMITED` e `LOGIN_TEMPORARILY_UNAVAILABLE`. NextAuth v4
+transporta esses códigos para uma lista de mensagens locais da interface;
+nenhum texto bruto do provedor/banco é exposto. Resposta ausente ou não exitosa
+também não navega para o painel. Falha de conexão mantém orientação específica.
+
+Os limites (8 por e-mail e 30 por IP em 15 minutos), `failClosed`, identidade,
+confirmação e isolamento permanecem. O verificador Supabase distingue HTTP 429,
+credenciais recusadas e falhas técnicas; no aplicativo público, exceções continuam
+usando o aviso temporário existente. Não muda senha, conta, SMTP/Resend, schema
+ou configuração remota. Candidata ainda não publicada. Rollback: reverter o
+commit de código, sem restauração de dados.
+
+Testes de regressão cobrem limiter, banco, timeout, códigos do provedor, falhas
+desconhecidas sem vazamento, ausência de fallback bcrypt, identidade divergente,
+transporte real do NextAuth com CSRF e mensagens na interface sem redirecionar.
+Validação final e CI serão registrados no PR desta branch.
+
+Referência dos códigos do provedor: [Supabase Auth](https://supabase.com/docs/guides/auth/debugging/error-codes).
+
 ## Complemento de 09/10/2026 — auditoria do acesso do cliente, em revisão
 
 A candidata `codex/auth-password-audit` reduz o mínimo Supabase para oito

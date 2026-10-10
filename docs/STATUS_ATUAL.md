@@ -4,6 +4,13 @@ Implementação em `codex/platform-plans-access`, ainda sem promoção: catálog
 
 # Status atual canônico — Salon SaaS
 
+## 10/10/2026 — mensagens de erro do login do painel, candidata em validação
+
+`codex/admin-login-errors` separa limite de tentativas, falha temporária e
+credenciais recusadas no servidor e no formulário. Limites/proteções, senhas,
+contas, sessões e Resend preservados; sem migration ou configuração remota.
+Não publicada. Escopo e testes: `FASE_SUPABASE_AUTH_RECOVERY.md` (10/10).
+
 ## 09/10/2026 — Stripe em Production: 033 aplicada, fases 1 e 2 publicadas (desligada)
 
 Autorização do responsável no chat: "aplique a migration e realize o merge".

@@ -2,6 +2,7 @@ import "server-only";
 import { createClient, type Session } from "@supabase/supabase-js";
 import { prisma } from "./prisma";
 import { authConfig } from "./supabase-auth-config";
+import { LoginError } from "./login-error";
 
 export type ProviderSession = {
   access_token: string;
@@ -41,7 +42,16 @@ export async function providerSession(session: Session): Promise<ProviderSession
 export async function authenticatePassword(email: string, password: string) {
   const client = createAuthClient();
   const { data, error } = await client.auth.signInWithPassword({ email, password });
-  if (error || !data.session || !data.user?.email_confirmed_at) return null;
+  if (error) {
+    if (error.status === 429 || error.code === "over_request_rate_limit") {
+      throw new LoginError("LOGIN_RATE_LIMITED");
+    }
+    // Keep account-specific denials indistinguishable; never expose account state.
+    if (["invalid_credentials", "email_not_confirmed", "user_banned"].includes(error.code ?? "")) return null;
+    throw new LoginError("LOGIN_TEMPORARILY_UNAVAILABLE");
+  }
+  if (!data.session || !data.user) throw new LoginError("LOGIN_TEMPORARILY_UNAVAILABLE");
+  if (!data.user.email_confirmed_at) return null;
   const session = await providerSession(data.session);
   return { user: data.user, session };
 }
