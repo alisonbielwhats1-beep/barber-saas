@@ -73,7 +73,7 @@ describe('beside the content (1216 px or wider)', () => {
   it('marks the root so the content gives her its width; nothing becomes inert and she is not modal', () => {
     viewport('side'); render(<SecretaryDock voiceEnabled={false} />); openSecretary();
     expect(document.documentElement).toHaveAttribute('data-secretary-open', 'side');
-    expect(Boolean(shell.inert)).toBe(false);
+    expect(Boolean(document.getElementById('main-content')!.inert)).toBe(false);
     expect(screen.getByRole('dialog')).not.toHaveAttribute('aria-modal');
     expect(document.querySelector('.sec-scrim')).toBeNull();
     act(() => { screen.getByRole('button', { name: 'Fechar Secretária' }).click(); });
@@ -103,9 +103,9 @@ describe('on top of the content (1024 to 1215 px)', () => {
     render(<SecretaryDock voiceEnabled={false} />); openSecretary();
     const dialog = screen.getByRole('dialog');
     expect(document.documentElement).toHaveAttribute('data-secretary-open', 'over');
-    expect(dialog).toHaveAttribute('aria-modal', 'true'); expect(Boolean(shell.inert)).toBe(true);
+    expect(dialog).toHaveAttribute('aria-modal', 'true'); expect(Boolean(document.getElementById('main-content')!.inert)).toBe(true);
     await user.click(document.querySelector('.sec-scrim')!);
-    expect(dialog).toHaveAttribute('data-state', 'closed'); expect(Boolean(shell.inert)).toBe(false);
+    expect(dialog).toHaveAttribute('data-state', 'closed'); expect(Boolean(document.getElementById('main-content')!.inert)).toBe(false);
     expect(document.querySelector('.sec-scrim')).toBeNull();
     openSecretary(); document.body.focus(); await user.keyboard('{Escape}');
     expect(dialog).toHaveAttribute('data-state', 'closed');
@@ -134,7 +134,7 @@ describe('phone and tablet (below 1024 px)', () => {
     viewport('full'); const user = userEvent.setup();
     render(<SecretaryDock voiceEnabled={false} />); openSecretary();
     expect(document.documentElement).toHaveAttribute('data-secretary-open', 'full');
-    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true'); expect(Boolean(shell.inert)).toBe(true);
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true'); expect(Boolean(document.getElementById('main-content')!.inert)).toBe(true);
     await user.keyboard('{Escape}');
     expect(screen.getByRole('dialog')).toHaveAttribute('data-state', 'closed');
   });

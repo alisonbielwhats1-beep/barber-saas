@@ -236,13 +236,13 @@ export function ClientsCrm({
   }, [clients, search, segment]);
 
   // Computer: the profile column is never empty while the list has clients (prototype v6 opens the first one).
-  // A profile that left the list (excluded/restored, merged) counts as no selection. The media query is read directly
+  // A profile that is not in the visible list (excluded/restored, merged, filtered out) counts as no selection. The media query is read directly
   // too: the hook starts as "computer" before the first measure, and phones must not open (and fetch) a profile sheet.
   useEffect(() => {
     if (!isDesktop || shown.length === 0 || !window.matchMedia(DESKTOP_QUERY).matches) return;
-    if (selectedDetail && clients.some(client => client.id === selectedDetail.id)) return;
+    if (selectedDetail && shown.some(client => client.id === selectedDetail.id)) return;
     void openDetail(shown[0]);
-  }, [isDesktop, selectedDetail, clients, shown, openDetail]);
+  }, [isDesktop, selectedDetail, shown, openDetail]);
 
   // Leaving the computer layout (tablet rotated, window narrowed): the auto-opened profile must not pop up as a sheet.
   const wasDesktop = useRef(isDesktop);

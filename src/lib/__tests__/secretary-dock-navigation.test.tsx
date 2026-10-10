@@ -18,7 +18,7 @@ function viewport(desktop: boolean) {
 /** The menu item and the phone's tab open her with this event (there is no floating button). */
 const openSecretary = () => act(() => { window.dispatchEvent(new Event('everflair:secretary-open')); });
 let shell: HTMLDivElement;
-beforeEach(() => { shell = document.createElement('div'); shell.className = 'admin-shell'; document.body.append(shell); });
+beforeEach(() => { shell = document.createElement('div'); shell.className = 'admin-shell'; shell.id = 'main-content'; document.body.append(shell); });
 afterEach(() => { cleanup(); shell.remove(); vi.unstubAllGlobals(); });
 
 describe('dock and links', () => {

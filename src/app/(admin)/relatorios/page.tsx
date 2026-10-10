@@ -125,9 +125,9 @@ export default async function RelatoriosPage({
       {/* Comparativo com período anterior */}
       <section aria-label="Comparativo com o período anterior" className="flex flex-col gap-2">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          <KpiCard icon={Wallet} label="Faturamento" value={formatMoney(m.revenue.value)} full={formatMoney(m.revenue.value)} change={m.revenue.change} hint={m.revenue.change != null ? "vs período anterior" : "no período"} />
+          <KpiCard icon={Wallet} label="Faturamento" value={formatMoney(m.revenue.value)} change={m.revenue.change} hint={m.revenue.change != null ? "vs período anterior" : "no período"} />
           <KpiCard icon={CalendarDays} label="Agendamentos" value={m.appointments.value.toString()} change={m.appointments.change} hint={m.appointments.change != null ? "vs período anterior" : "no período"} />
-          <KpiCard icon={Receipt} label="Ticket médio" value={formatMoney(m.avgTicket.value)} full={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} hint={m.avgTicket.change != null ? "vs período anterior" : "no período"} />
+          <KpiCard icon={Receipt} label="Ticket médio" value={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} hint={m.avgTicket.change != null ? "vs período anterior" : "no período"} />
           <KpiCard icon={UserPlus} tone="neutral" label="Novos clientes" value={m.clients.new.toString()} hint="no período" />
         </div>
         <p className="text-xs text-muted-foreground">O comparativo usa o período anterior de mesmo tamanho.</p>

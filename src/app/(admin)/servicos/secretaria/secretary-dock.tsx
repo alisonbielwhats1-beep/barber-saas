@@ -5,6 +5,7 @@ import { Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SecretaryChat } from './secretary-chat';
+import { openSecretary } from '../../secretary-open';
 import './secretary-mobile.css';
 
 /** Where the panel sits (prototype v6 approved by the owner, 08/10/2026). From 1216 px it stays BESIDE the content, which
@@ -17,7 +18,6 @@ const OPEN_EVENT = 'everflair:secretary-open';
 /** The panel is loaded after the page: a request made before it is there is kept on the root (an opener may set this mark
  * before dispatching the event) and honoured when the panel mounts. */
 const REQUEST_MARK = 'data-secretary-requested';
-function openSecretary() { document.documentElement.setAttribute(REQUEST_MARK, ''); window.dispatchEvent(new Event(OPEN_EVENT)); }
 /** Recording or counting down a spoken "confirma": the veil and Esc do not close her (closing would drop the dictation). */
 const holds = (panel: HTMLElement | null) => Boolean(panel?.querySelector('[data-sec-hold="true"]'));
 
@@ -72,10 +72,12 @@ export function SecretaryDock({ voiceEnabled, voiceCorrection = false, transcrib
     if (!open) return;
     const root = document.documentElement;
     root.setAttribute('data-secretary-open', mode);
-    const shell = mode === 'side' ? null : document.querySelector<HTMLElement>('.admin-shell');
-    const wasInert = shell?.inert ?? false;
-    if (shell) shell.inert = true;
-    return () => { root.removeAttribute('data-secretary-open'); if (shell) shell.inert = wasInert; };
+    // Only the content (and the phone's tab bar) becomes inert: the toast area stays live, so confirmations are announced.
+    const covered = mode === 'side' ? [] : [document.getElementById('main-content'), mode === 'full' ? document.querySelector<HTMLElement>('.app-tabbar') : null]
+      .filter((element): element is HTMLElement => Boolean(element));
+    const before = covered.map(element => element.inert);
+    covered.forEach(element => { element.inert = true; });
+    return () => { root.removeAttribute('data-secretary-open'); covered.forEach((element, index) => { element.inert = before[index] ?? false; }); };
   }, [open, mode]);
   // Opening focuses the message box (the content stays mounted between openings); closing gives the focus back to what opened
   // her, or to the content when that is gone. A focus the owner already moved elsewhere is left alone.

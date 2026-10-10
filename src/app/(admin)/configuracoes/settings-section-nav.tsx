@@ -80,7 +80,7 @@ export function SettingsSectionNav({ children }: { children: ReactNode }) {
             {matches.filter(section => section.group === group).map(({ id, label, detail, icon: Icon }) => {
               const current = id === active;
               const fallback = !active && id === FALLBACK.id;
-              return <a key={id} id={`settings-link-${id}`} href={`#${id}`} aria-current={current || fallback ? "true" : undefined} onClick={event => { event.preventDefault(); navigate(id); }}
+              return <a key={id} id={`settings-link-${id}`} href={`#${id}`} aria-current={current ? "true" : undefined} onClick={event => { event.preventDefault(); navigate(id); }}
                 className={cn(
                   "group flex min-h-[60px] items-center gap-3 border-b border-border px-3.5 py-2 transition-colors last:border-b-0 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:min-h-[42px] lg:gap-2.5 lg:px-3 lg:py-1.5",
                   current && "lg:bg-[hsl(var(--border))] lg:hover:bg-[hsl(var(--border))]",
