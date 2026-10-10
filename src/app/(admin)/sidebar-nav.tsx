@@ -141,6 +141,7 @@ export function SidebarNav({
               <AnimatedSidebarMenuItem>
                 <AnimatedSidebarMenuButton
                   className="secretary-nav-item"
+                  ariaHasPopup="dialog"
                   icon={<Sparkles className="h-4 w-4 text-[hsl(var(--selection-foreground))]" strokeWidth={1.8} />}
                   onSelect={openSecretary}
                 >
@@ -153,7 +154,7 @@ export function SidebarNav({
         })}
       </AnimatedSidebarMenu>
 
-      {(MANAGEMENT_ROLES.some((allowedRole) => allowedRole === role) || planHref || isPlatformAdmin) && (
+      {(MANAGEMENT_ROLES.some((allowedRole) => allowedRole === role) || planHref) && (
         <div className="mt-2 border-t border-border pt-2">
           <AnimatedSidebarMenu>
             {MANAGEMENT_ROLES.some((allowedRole) => allowedRole === role) && (

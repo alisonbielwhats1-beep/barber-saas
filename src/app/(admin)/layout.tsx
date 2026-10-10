@@ -104,7 +104,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <main id="main-content" tabIndex={-1} className="admin-main scrollbar-dark min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           <DesktopTopBar unreadNotifications={unreadNotifications} plan={ownerPlan} />
           <AdminMobileHeader role={role} plan={planShortcut} planHref={planHref} unreadNotifications={unreadNotifications} />
-          <MobileTopBar unreadNotifications={unreadNotifications} />
+          <MobileTopBar unreadNotifications={unreadNotifications} secretary={secretary} />
           {/* O espaço final cobre a barra inferior e o "+" de criar (84px). */}
           <div className="mx-auto w-full min-w-0 max-w-[1680px] p-4 pb-36 sm:p-5 md:p-6 lg:px-[26px] lg:pb-10 lg:pt-[22px]">{children}</div>
         </main>

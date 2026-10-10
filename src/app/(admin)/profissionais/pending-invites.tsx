@@ -63,7 +63,7 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
         </p>
       </div>
       {feedback && (
-        <p role="status" className="rounded-xl border border-border-strong bg-card px-3.5 py-2.5 text-sm text-foreground">
+        <p role="status" className="rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">
           {feedback}
         </p>
       )}

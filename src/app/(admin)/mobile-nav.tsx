@@ -109,7 +109,7 @@ export function MobileNav({
           <p aria-hidden="true" className="flex min-h-7 items-center pr-12 text-2xl font-semibold tracking-tight">Mais</p>
           {accountControls}
           <OpenCommandPaletteButton />
-          <MoreGroups role={role} isPlatformAdmin={isPlatformAdmin} pathname={pathname} onNavigate={() => setOpen(false)} />
+          <MoreGroups role={role} isPlatformAdmin={isPlatformAdmin} secretary={secretary} pathname={pathname} onNavigate={() => setOpen(false)} />
           {accountFooter && <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-inset ring-border [&>div]:border-t-0">{accountFooter}</div>}
         </DialogContent>
       </Dialog>
@@ -177,6 +177,7 @@ function SecretaryTab() {
     <button
       type="button"
       aria-label="Abrir Secretária"
+      aria-haspopup="dialog"
       onClick={openSecretary}
       className="secretary-nav-item app-tabbar-item admin-mobile-bar-item flex min-h-16 flex-1 flex-col items-center justify-center gap-[3px] px-1 text-xs font-semibold text-[hsl(var(--selection-foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
@@ -188,8 +189,8 @@ function SecretaryTab() {
   );
 }
 
-function MoreGroups({ role, isPlatformAdmin, pathname, onNavigate }: { role: string; isPlatformAdmin: boolean; pathname: string; onNavigate: () => void }) {
-  const groups = moreGroupsFor(role, isPlatformAdmin);
+function MoreGroups({ role, isPlatformAdmin, secretary, pathname, onNavigate }: { role: string; isPlatformAdmin: boolean; secretary: boolean; pathname: string; onNavigate: () => void }) {
+  const groups = moreGroupsFor(role, isPlatformAdmin, secretary);
   return (
     <nav id="admin-mobile-navigation" aria-label="Navegação principal" className="space-y-5">
       {groups.map((group) => (

@@ -116,7 +116,7 @@ export function DesktopTopBar({
   const bellLabel = unreadNotifications > 0 ? `Notificações, ${unreadNotifications} não lidas` : "Notificações";
 
   return (
-    <header aria-label="Barra do painel" className="sticky top-0 z-30 hidden h-[3.25rem] shrink-0 items-center gap-2 border-b border-border bg-background/95 pl-2.5 pr-3.5 backdrop-blur lg:flex print:hidden">
+    <header role="region" aria-label="Barra do painel" className="sticky top-0 z-30 hidden h-[3.25rem] shrink-0 items-center gap-2 border-b border-border bg-background/95 pl-2.5 pr-3.5 backdrop-blur lg:flex print:hidden">
       <AnimatedSidebarTrigger
         title={`${toggleLabel} (Ctrl+B)`}
         aria-label={toggleLabel}
@@ -129,7 +129,7 @@ export function DesktopTopBar({
       <p className="ml-1 min-w-0 truncate text-base font-semibold">{desktopTitleFor(pathname)}</p>
       <span className="flex-1" />
       {plan && (
-        <div aria-label="Plano do estabelecimento" className="min-w-0">
+        <div role="group" aria-label="Plano do estabelecimento" className="min-w-0">
           <PlanShortcut compact {...plan} />
         </div>
       )}

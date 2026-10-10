@@ -20,11 +20,11 @@ const PARENTS: Array<[path: string, parent: string, label: string]> = [
  * Compact app bar of the panel below 1024px. It stays pinned while the page
  * scrolls; the screen title fades in once the page's large title leaves the view.
  */
-export function MobileTopBar({ unreadNotifications = 0 }: { unreadNotifications?: number } = {}) {
+export function MobileTopBar({ unreadNotifications = 0, secretary = false }: { unreadNotifications?: number; secretary?: boolean } = {}) {
   const pathname = usePathname();
   const bar = useRef<HTMLDivElement>(null);
   const [condensed, setCondensed] = useState(false);
-  const screen = mobileScreenFor(pathname);
+  const screen = mobileScreenFor(pathname, secretary);
   const parent = PARENTS.find(([path]) => pathname === path || pathname.startsWith(`${path}/`));
   const hidden = OWN_HEADER.includes(pathname);
 

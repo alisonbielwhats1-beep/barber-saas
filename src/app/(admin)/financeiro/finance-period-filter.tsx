@@ -48,7 +48,7 @@ export function FinancePeriodFilter({ mode, date, label, buttonLabel }: { mode: 
         <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <input type="date" aria-label="Data de referência" value={date} disabled={pending} onChange={e => select(mode ?? "day", e.target.value)}
           onClick={e => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* o navegador abre o próprio calendário */ } }}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+          className="absolute inset-0 h-full w-full cursor-pointer rounded-[inherit] bg-card px-2.5 text-sm opacity-0 focus-visible:opacity-100 focus-visible:outline-none" />
       </label>
       <button type="button" disabled={pending} onClick={() => move(1)} aria-label="Próximo período" className={arrow}><ChevronRight aria-hidden="true" className="h-4 w-4" /></button>
     </div>

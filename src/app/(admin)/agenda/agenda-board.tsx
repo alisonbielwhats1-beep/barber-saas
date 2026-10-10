@@ -41,7 +41,7 @@ import { AgendaColorSelect, useAgendaColorMode } from "@/components/agenda-color
 import { professionalColors } from "./professional-colors";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { layoutAppointmentsAndBlocks, layoutOverlappingIntervals, type AgendaPlacement } from "./agenda-layout";
+import { layoutAppointmentsAndBlocks, type AgendaPlacement } from "./agenda-layout";
 import { AvailabilityPanel, type AvailabilityBlock, type AvailabilityPreset, type BlockSelection } from "./availability-panel";
 import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availability-block";
 import type { AgendaPrefill } from "./agenda-deep-link";
@@ -263,6 +263,7 @@ export function AgendaBoard({
   const calendarOpen = plainView ? sidePanel.plain : sidePanel.grid;
   const setCalendarOpen = (open: boolean) => setSidePanel(current => plainView ? { ...current, plain: open } : { ...current, grid: open });
   const [noticesOpen, setNoticesOpen] = useState(false);
+  const noticesOpener = useRef<HTMLButtonElement | null>(null);
   const [operationsOpen, setOperationsOpen] = useState(false);
   const [pauseLaunch, setPauseLaunch] = useState<string>();
   const [mobileCalendarOpen, setMobileCalendarOpen] = useState(false);
@@ -441,7 +442,7 @@ export function AgendaBoard({
     });
   }
   const noticesButton = (className: string) => (
-    <button type="button" onClick={() => setNoticesOpen(true)} aria-label="Avisos do período" aria-haspopup="dialog" className={`agenda-icon-btn relative ${className}`}>
+    <button type="button" onClick={event => { noticesOpener.current = event.currentTarget; setNoticesOpen(true); }} aria-label="Avisos do período" aria-haspopup="dialog" className={`agenda-icon-btn relative ${className}`}>
       <Bell aria-hidden="true" size={18} />
       <span aria-hidden="true" className="absolute right-2 top-2 h-2 w-2 rounded-full bg-foreground ring-2 ring-background" />
     </button>
@@ -474,7 +475,7 @@ export function AgendaBoard({
             <h1>{period.full}</h1>
           </div>
           <button type="button" onClick={() => goDate(1)} aria-label={`Ir para próximo ${navigationUnit}`} className="agenda-icon-btn grid"><ChevronRight aria-hidden="true" size={18} /></button>
-          <Button type="button" variant="outline" size="sm" onClick={goToday} aria-label="Ir para hoje" disabled={isToday}>Hoje</Button>
+          <Button type="button" variant="outline" size="sm" onClick={goToday} aria-label="Ir para hoje">Hoje</Button>
           {pending && <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
         </div>
 
@@ -546,7 +547,7 @@ export function AgendaBoard({
         <div className="agenda-content">
 
       <Dialog open={noticesOpen} onOpenChange={setNoticesOpen}>
-        <DialogContent aria-describedby={undefined}>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); noticesOpener.current?.focus(); }}>
           <DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader>
           <div className="space-y-3 text-sm">
             <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
@@ -1159,11 +1160,6 @@ function WeekView({
               formatInTimeZone(new Date(appointment.startAt), timezone, "yyyy-MM-dd") === dStr,
           );
           const placements = appointmentPlacements(dayAppts, timezone, blocks, dStr);
-          // Bookings of different professionals share the day column; only an overlap with the same professional is a conflict.
-          const conflicted = new Set(professionals.flatMap(pro => [...layoutOverlappingIntervals(dayAppts
-            .filter(appointment => appointment.professionalId === pro.id)
-            .map(appointment => ({ id: appointment.id, start: minutesOf(appointment.startAt, timezone), end: endMinutes(appointment, timezone) })))]
-            .filter(([, placement]) => placement.conflict).map(([id]) => id)));
           return (
             <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: `max(${colW}, calc(${Math.max(1, ...[...placements.values()].map(p => p.columns))} * var(--agenda-week-lane, 112px)))` }}>
               <button
@@ -1211,7 +1207,7 @@ function WeekView({
                     widthPct: 100,
                     conflict: false,
                   };
-                  const conflict = conflicted.has(a.id);
+                  const conflict = placement.conflict;
                   return (
                     <button
                       type="button"

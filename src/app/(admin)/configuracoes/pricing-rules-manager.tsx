@@ -185,7 +185,7 @@ export function PricingRulesManager({ rules, canManage }: { rules: Rule[]; canMa
               : rule.date ? new Date(`${rule.date.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "Data específica";
             const value = rule.adjustmentType === "PERCENTAGE"
               ? `+${rule.adjustmentValue}%`
-              : `+R$ ${(rule.adjustmentValue / 100).toFixed(2).replace(".", ",")}`;
+              : `+R$ ${(rule.adjustmentValue / 100).toFixed(2).replace(".", ",")}`;
             return (
               <li key={rule.id} className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-border bg-background px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-start gap-3">

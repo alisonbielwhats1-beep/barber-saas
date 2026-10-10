@@ -551,12 +551,12 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
           {options(view!, child!.operation_ref)}</>}
       </div>}
       {(answerable || discardable) && <div className="flex flex-wrap items-center gap-2 border-t border-border px-3.5 py-2.5 lg:px-4">
+        {answerable && <Button size="sm" variant="ghost" className="min-w-0 flex-1" aria-label="Alterar / responder a esta ação" title="Alterar / responder a esta ação" disabled={Boolean(busy || uncertain)} onClick={() => { setOperationRef(child!.operation_ref); setDirty(true); input.current?.focus(); }}><Pencil aria-hidden="true" className="h-4 w-4" />Alterar</Button>}
         {asking ? <div role="group" aria-label="Confirmar descarte" className="w-full space-y-2">
           <p className="text-sm">Descartar esta ação também descarta: {linked.map(key => actionTitle(planAction(key), state)).join('; ')}. Nada será executado.</p>
           <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={() => discard(true)}>Descartar todas</Button>
             <Button size="sm" variant="ghost" disabled={Boolean(busy || uncertain)} onClick={() => setDiscardAsk(undefined)}>Manter</Button></div></div>
         : <>
-          {answerable && <Button size="sm" variant="ghost" className="min-w-0 flex-1" aria-label="Alterar / responder a esta ação" title="Alterar / responder a esta ação" disabled={Boolean(busy || uncertain)} onClick={() => { setOperationRef(child!.operation_ref); setDirty(true); input.current?.focus(); }}><Pencil aria-hidden="true" className="h-4 w-4" />Alterar</Button>}
           {discardable && <Button size="sm" variant="ghost" className="min-w-0 flex-1" aria-label="Descartar esta ação" title="Descartar esta ação" disabled={Boolean(busy || uncertain)} onClick={() => linked.length ? setDiscardAsk(action.key) : discard(false)}><X aria-hidden="true" className="h-4 w-4" />Descartar</Button>}
         </>}
       </div>}

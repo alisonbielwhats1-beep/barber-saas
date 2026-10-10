@@ -63,7 +63,7 @@ describe("AdminFrame", () => {
 
   it("topo mostra título da tela, plano, busca, notificações e a pessoa", () => {
     renderFrame();
-    const bar = screen.getByRole("banner", { name: "Barra do painel" });
+    const bar = screen.getByRole("region", { name: "Barra do painel" });
     expect(bar).toHaveTextContent("Agenda");
     expect(screen.getByRole("link", { name: "Plano atual: Essencial. Alterar plano" })).toHaveAttribute("href", "/assinatura");
     expect(screen.getByRole("button", { name: /^Buscar/ })).toHaveAttribute("aria-haspopup", "dialog");

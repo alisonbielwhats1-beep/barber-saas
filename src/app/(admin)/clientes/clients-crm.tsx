@@ -224,22 +224,32 @@ export function ClientsCrm({
   }), [clients]);
 
   const shown = useMemo(() => {
-    const q = search.trim().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const q = search.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     return clients.filter((c) => {
       if (segment === "vip" && !c.isVip) return false;
       if (segment === "birthday" && !c.birthdayThisMonth) return false;
       if (segment === "lapsed" && !c.isLapsed) return false;
       if (segment === "recurring" && c.visits < 2) return false;
-      if (q && !c.name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(q) && !(q.replace(/\D/g, "") && (c.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "")))) return false;
+      if (q && !c.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(q) && !(q.replace(/\D/g, "") && (c.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "")))) return false;
       return true;
     });
   }, [clients, search, segment]);
 
   // Computer: the profile column is never empty while the list has clients (prototype v6 opens the first one).
+  // A profile that left the list (excluded/restored, merged) counts as no selection. The media query is read directly
+  // too: the hook starts as "computer" before the first measure, and phones must not open (and fetch) a profile sheet.
   useEffect(() => {
-    if (!isDesktop || selectedDetail || shown.length === 0) return;
+    if (!isDesktop || shown.length === 0 || !window.matchMedia(DESKTOP_QUERY).matches) return;
+    if (selectedDetail && clients.some(client => client.id === selectedDetail.id)) return;
     void openDetail(shown[0]);
-  }, [isDesktop, selectedDetail, shown, openDetail]);
+  }, [isDesktop, selectedDetail, clients, shown, openDetail]);
+
+  // Leaving the computer layout (tablet rotated, window narrowed): the auto-opened profile must not pop up as a sheet.
+  const wasDesktop = useRef(isDesktop);
+  useEffect(() => {
+    if (wasDesktop.current && !isDesktop) setDetail(null);
+    wasDesktop.current = isDesktop;
+  }, [isDesktop]);
 
   const segments: { value: ClientSegment; label: string; count?: number }[] = [
     { value: "all", label: "Todos" },

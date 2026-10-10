@@ -226,7 +226,7 @@ export default async function ConfiguracoesPage() {
                 </p>
                 {!billingEnabled() && salon.plan !== "FREE" && entitlement.priceCents > 0 && (
                   <p className="mt-1 text-sm font-semibold tabular-nums">
-                    {"R$\u00a0"}{(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
+                    R$ {(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
                   </p>
                 )}
               </div>

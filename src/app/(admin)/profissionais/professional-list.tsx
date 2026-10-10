@@ -71,7 +71,7 @@ export function ProfessionalList({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showIndicators, setShowIndicators] = useState(false);
   const selected = entries.find(entry => entry.id === selectedId);
-  const normalize = (value: string) => value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const shown = entries.filter(entry => normalize(entry.name).includes(normalize(search.trim())));
   return <div className="flex min-w-0 flex-col gap-3.5 lg:gap-4">
     {searchable && <div className="order-1 flex min-w-0 items-center gap-2 lg:order-2">

@@ -6,7 +6,7 @@ import { cn, formatMoney, formatDuration } from "@/lib/utils";
 import { formatPeriodLabel } from "@/lib/time";
 import { CalendarDays, Receipt, UserPlus, Wallet } from "lucide-react";
 import { RangeFilter } from "../dashboard/range-filter";
-import { formatMoneyHero, formatMoneyWhole, KpiCard, PeriodBadge } from "../dashboard/results-ui";
+import { KpiCard, PeriodBadge } from "../dashboard/results-ui";
 import { ReportActions, type ReportSection } from "./report-actions";
 import { FoldSection } from "./report-section";
 import { calculateRetentionMetrics } from "@/lib/operational-flows";
@@ -94,10 +94,10 @@ export default async function RelatoriosPage({
   ];
 
   const financeMinis: [string, string][] = [
-    ["Receita serviços", formatMoneyWhole(fin.serviceRevenue)],
-    ["Receita produtos", formatMoneyWhole(fin.productRevenue)],
-    ["Despesas", formatMoneyWhole(fin.expenseTotal)],
-    ["Comissões", formatMoneyWhole(fin.commissions)],
+    ["Receita serviços", formatMoney(fin.serviceRevenue)],
+    ["Receita produtos", formatMoney(fin.productRevenue)],
+    ["Despesas", formatMoney(fin.expenseTotal)],
+    ["Comissões", formatMoney(fin.commissions)],
     ["Ocupação", `${Math.round(m.occupancy.rate * 100)}%`],
     ["Tempo médio", formatDuration(m.avgDuration || 0)],
   ];
@@ -125,9 +125,9 @@ export default async function RelatoriosPage({
       {/* Comparativo com período anterior */}
       <section aria-label="Comparativo com o período anterior" className="flex flex-col gap-2">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          <KpiCard icon={Wallet} label="Faturamento" value={formatMoneyHero(m.revenue.value)} full={formatMoney(m.revenue.value)} change={m.revenue.change} hint={m.revenue.change != null ? "vs período anterior" : "no período"} />
+          <KpiCard icon={Wallet} label="Faturamento" value={formatMoney(m.revenue.value)} full={formatMoney(m.revenue.value)} change={m.revenue.change} hint={m.revenue.change != null ? "vs período anterior" : "no período"} />
           <KpiCard icon={CalendarDays} label="Agendamentos" value={m.appointments.value.toString()} change={m.appointments.change} hint={m.appointments.change != null ? "vs período anterior" : "no período"} />
-          <KpiCard icon={Receipt} label="Ticket médio" value={formatMoneyHero(m.avgTicket.value)} full={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} hint={m.avgTicket.change != null ? "vs período anterior" : "no período"} />
+          <KpiCard icon={Receipt} label="Ticket médio" value={formatMoney(m.avgTicket.value)} full={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} hint={m.avgTicket.change != null ? "vs período anterior" : "no período"} />
           <KpiCard icon={UserPlus} tone="neutral" label="Novos clientes" value={m.clients.new.toString()} hint="no período" />
         </div>
         <p className="text-xs text-muted-foreground">O comparativo usa o período anterior de mesmo tamanho.</p>

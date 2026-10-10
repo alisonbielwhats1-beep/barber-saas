@@ -124,7 +124,7 @@ export default async function HojePage({
         timezone={result.salon.timezone}
         currency={result.salon.currency}
         appointments={result.rows}
-        receipts={["OWNER", "MANAGER"].includes(ctx.role) ? <ReceiptWorkspace date={result.dateKey} /> : null}
+        receipts={["OWNER", "MANAGER"].includes(ctx.role) ? <ReceiptWorkspace date={result.dateKey} variant="bare" /> : null}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,14 +35,33 @@ export function ActionSheet({
   description?: string;
   actions: readonly SheetAction[];
 }) {
+  // The sheet is opened by state (no DialogTrigger), so Radix has nothing to return focus to: remember the element that
+  // had focus when it opened (the "⋯" or "+" button) and give focus back to it on close.
+  const opener = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+  if (open && !wasOpen.current && typeof document !== "undefined") {
+    opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+  }
+  wasOpen.current = open;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent mobileSheet {...(description ? {} : { "aria-describedby": undefined })} className="gap-4 sm:max-w-sm">
+      <DialogContent
+        mobileSheet
+        {...(description ? {} : { "aria-describedby": undefined })}
+        onCloseAutoFocus={(event) => {
+          const target = opener.current;
+          if (target?.isConnected) {
+            event.preventDefault();
+            target.focus();
+          }
+        }}
+        className="gap-4 sm:max-w-sm"
+      >
         <DialogHeader>
-          <DialogTitle className="text-[17px] leading-snug">{title}</DialogTitle>
+          <DialogTitle className="text-lg leading-snug">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <ul className="overflow-hidden rounded-2xl bg-surface-1 ring-1 ring-inset ring-border">
+        <ul className="overflow-hidden rounded-[14px] bg-card ring-1 ring-inset ring-border">
           {actions.map((action) => {
             const Icon = action.icon;
             const body = (
@@ -50,15 +70,15 @@ export function ActionSheet({
                   <span
                     className={cn(
                       "grid h-9 w-9 shrink-0 place-items-center rounded-full",
-                      action.tone === "danger" ? "bg-danger/10 text-danger" : action.tone === "primary" ? "bg-primary/15 text-primary" : "bg-muted text-foreground",
+                      action.tone === "danger" ? "bg-danger/10 text-danger" : action.tone === "primary" ? "bg-[hsl(var(--selection))] text-[hsl(var(--selection-foreground))]" : "bg-muted text-foreground",
                     )}
                   >
                     <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className={cn("block text-[15px] font-medium", action.tone === "danger" && "text-danger")}>{action.label}</span>
-                  {action.description && <span className="mt-0.5 block text-[13px] text-muted-foreground">{action.description}</span>}
+                  <span className={cn("block text-base font-medium", action.tone === "danger" && "text-danger")}>{action.label}</span>
+                  {action.description && <span className="mt-0.5 block text-sm text-muted-foreground">{action.description}</span>}
                 </span>
               </>
             );

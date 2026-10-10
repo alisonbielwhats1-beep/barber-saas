@@ -442,7 +442,7 @@ function ServiceRow({
           {s.priceType === "FROM" && <span className="lg:block lg:text-xs lg:font-normal lg:text-muted-foreground">A partir de </span>}
           <span className="whitespace-nowrap">{catalogMoney(s.priceCents)}</span>
         </span>
-        {canSeeFinancial && <span className="lg:hidden"><MarginValue m={m} /></span>}
+        {canSeeFinancial && <span className="flex items-center gap-1.5 lg:hidden"><span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:inline">{s.sold} {s.sold === 1 ? "venda" : "vendas"} ·</span><MarginValue m={m} /></span>}
       </span>
 
       {canManage && <ActionsMenu s={s} triggerRef={menuButton} onEdit={() => openEdit(menuButton.current)} />}

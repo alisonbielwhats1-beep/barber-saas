@@ -843,6 +843,8 @@ export interface AnimatedSidebarMenuButtonProps {
   isActive?: boolean;
   ariaExpanded?: boolean;
   ariaControls?: string;
+  /** Item que abre uma janela (ex.: a Secretária). */
+  ariaHasPopup?: "dialog";
   disabled?: boolean;
   closeOnSelect?: boolean;
   onSelect?: () => void;
@@ -857,6 +859,7 @@ export function AnimatedSidebarMenuButton({
   isActive = false,
   ariaExpanded,
   ariaControls,
+  ariaHasPopup,
   disabled = false,
   closeOnSelect,
   onSelect,
@@ -957,6 +960,7 @@ export function AnimatedSidebarMenuButton({
       aria-current={isActive ? "true" : undefined}
       aria-expanded={expanded}
       aria-controls={expanded ? ariaControls : undefined}
+      aria-haspopup={ariaHasPopup}
       aria-label={panel.collapsed ? textLabel : undefined}
       title={panel.collapsed ? textLabel : undefined}
       onClick={select}

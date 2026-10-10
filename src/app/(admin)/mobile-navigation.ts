@@ -82,7 +82,7 @@ const TAB_AREAS = new Set(["Clientes"]);
  * "Mais" groups, derived from the desktop navigation so both stay in sync.
  * A module listed under several areas appears once, under the area that owns its path.
  */
-export function moreGroupsFor(role: string, isPlatformAdmin: boolean): MoreGroup[] {
+export function moreGroupsFor(role: string, isPlatformAdmin: boolean, secretary = false): MoreGroup[] {
   const groups: MoreGroup[] = [];
   for (const area of DESKTOP_AREAS) {
     if (!canSee(area, role)) continue;
@@ -100,6 +100,8 @@ export function moreGroupsFor(role: string, isPlatformAdmin: boolean): MoreGroup
     if (links.length) groups.push({ title: area.label, links });
   }
   const settings: MoreLink[] = [];
+  // Sem a aba "Avisos" (lugar da Secretária), as notificações também ficam no "Mais".
+  if (secretary) settings.push({ href: "/notificacoes", label: "Notificações", icon: Bell });
   if (MANAGEMENT_ROLES.some((allowed) => allowed === role)) settings.push({ href: "/configuracoes", label: "Configurações", icon: Settings });
   if (isPlatformAdmin) settings.push({ href: "/plataforma/solicitacoes", label: "Administração", icon: ShieldCheck });
   if (settings.length) groups.push({ title: "Ajustes", links: settings });
@@ -136,7 +138,8 @@ export function desktopTitleFor(pathname: string) {
 }
 
 /** Title for the compact top bar of a screen; tab roots have no back button. */
-export function mobileScreenFor(pathname: string) {
+export function mobileScreenFor(pathname: string, secretary = false) {
+  if (secretary && pathname === "/notificacoes") return { title: "Notificações", isTabRoot: false };
   const tab = MOBILE_TABS.find((item) => item.href === pathname);
   if (tab) return { title: tab.href === "/notificacoes" ? "Notificações" : tab.label, isTabRoot: true };
   const extra = EXTRA_TITLES.find(([path]) => matchesPath(pathname, path));

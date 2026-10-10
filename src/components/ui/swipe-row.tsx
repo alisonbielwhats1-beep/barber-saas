@@ -51,11 +51,13 @@ export function SwipeRow({
     if (!nextOpen) window.setTimeout(() => setRevealed(false), 260);
   }
 
-  if (disabled || actions.length === 0) return <div className={className}>{children}</div>;
+  // Same tree whether or not the row can be swiped: toggling `disabled` (e.g. while "Marcar lida" is pending) must not
+  // remount the row, or keyboard and screen-reader focus inside it is lost.
+  const inactive = disabled || actions.length === 0;
 
   return (
     <div className={cn("relative overflow-hidden", className)}>
-      <div aria-hidden="true" className="absolute inset-y-0 right-0 flex" style={{ width: reveal, visibility: revealed || open ? "visible" : "hidden" }}>
+      {!inactive && <div aria-hidden="true" className="absolute inset-y-0 right-0 flex" style={{ width: reveal, visibility: revealed || open ? "visible" : "hidden" }}>
         {actions.map((action) => (
           <button
             key={action.key}
@@ -71,13 +73,14 @@ export function SwipeRow({
             {action.label}
           </button>
         ))}
-      </div>
+      </div>}
       <div
         ref={row}
         className="relative"
         style={{ touchAction: "pan-y" }}
         onPointerDown={(event) => {
-          if (event.pointerType !== "touch") return;
+          if (inactive || event.pointerType !== "touch") return;
+          suppressClick.current = false;
           gesture.current = { x: event.clientX, y: event.clientY, base: open ? -reveal : 0, axis: null, id: event.pointerId };
         }}
         onPointerMove={(event) => {
@@ -105,7 +108,7 @@ export function SwipeRow({
         onPointerCancel={() => { gesture.current = null; settle(open); }}
         onClickCapture={(event) => {
           // A drag (or a tap while open) only moves the row; it never opens what is under the finger.
-          if (suppressClick.current || open) {
+          if (!inactive && (suppressClick.current || open)) {
             event.preventDefault();
             event.stopPropagation();
             suppressClick.current = false;

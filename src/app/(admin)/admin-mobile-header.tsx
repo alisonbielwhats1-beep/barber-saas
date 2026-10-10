@@ -42,6 +42,7 @@ export function AdminMobileHeader({
       </button>
       {owner && (
         <div
+          role="group"
           aria-label="Plano do estabelecimento"
           className="min-w-0 max-w-40"
         >
