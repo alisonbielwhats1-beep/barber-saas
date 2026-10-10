@@ -26,7 +26,7 @@ import type {
   ServiceOption,
 } from "./appointment-form";
 const field =
-  "min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-base";
+  "min-h-11 w-full min-w-0 rounded-[10px] border border-border-strong bg-background px-3 text-base lg:min-h-10 lg:text-sm";
 export type StaffVisitDraft = {
   date: string; time: string; rows: StaffVisitRow[]; clientId: string;
   newClient: boolean; name: string; phone: string; chosen: ClientOption | null;
@@ -240,7 +240,7 @@ export function StaffVisitDialog({
           <fieldset disabled={pending || discarding} hidden={discarding} className="min-w-0 space-y-4 pb-1">
             <button
               type="button"
-              className="min-h-11 text-sm text-primary"
+              className="min-h-11 text-sm font-semibold text-foreground underline-offset-4 hover:underline"
               onClick={() => onBack({ date, time, rows, clientId, newClient, name, phone, chosen })}
             >
               ← Agendamento simples ou recorrente
@@ -328,7 +328,7 @@ export function StaffVisitDialog({
                         reset();
                         setStage("client");
                       }}
-                      className="w-full rounded-xl border border-border bg-muted/40 p-3 text-left text-sm"
+                      className="w-full rounded-xl border border-border bg-card p-3 text-left text-sm transition-colors hover:bg-card-hover"
                     >
                       <span className="block font-medium">
                         {newClient
@@ -343,7 +343,7 @@ export function StaffVisitDialog({
                             ...times.map((item) => item.start ?? Infinity),
                           ),
                         )}{" "}
-                        <span className="text-primary">· Alterar</span>
+                        <span className="font-semibold text-foreground">· Alterar</span>
                       </span>
                     </button>
                     <p className="text-sm text-muted-foreground">
@@ -352,7 +352,7 @@ export function StaffVisitDialog({
                     {rows.map((row, i) => (
                       <div
                         key={i}
-                        className="appointment-visit-card min-w-0 space-y-3 rounded-2xl border border-border p-3"
+                        className="appointment-visit-card min-w-0 space-y-3 rounded-xl border border-border p-3"
                       >
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                           <span>ATENDIMENTO {i + 1}</span>
@@ -416,7 +416,7 @@ export function StaffVisitDialog({
                                   : "",
                             })
                           }
-                          className="block min-h-11 text-left text-xs font-medium text-primary"
+                          className="block min-h-11 text-left text-xs font-semibold text-foreground underline-offset-4 hover:underline"
                         >
                           {row.customTime
                             ? "Usar sequência automática"
@@ -515,7 +515,7 @@ export function StaffVisitDialog({
                 </p>
                 <VisitSummary plan={quote.plan} />
                 {override && (
-                  <p className="rounded-xl border border-warning/60 p-3 text-sm text-foreground">
+                  <p className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">
                     Exceção de jornada: {reason}
                   </p>
                 )}
@@ -540,12 +540,12 @@ export function StaffVisitDialog({
           </fieldset>
         </div>
         <div className="appointment-flow-footer">
-          {discarding ? <div className="space-y-3"><p className="text-sm">As escolhas não confirmadas serão descartadas.</p><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setDiscarding(false)} className={field}>Continuar editando</button><button type="button" onClick={() => onOpenChange(false)} className="min-h-12 rounded-xl bg-danger px-3 text-white">Descartar</button></div></div> :
+          {discarding ? <div className="space-y-3"><p className="text-sm">As escolhas não confirmadas serão descartadas.</p><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setDiscarding(false)} className={field}>Continuar editando</button><button type="button" onClick={() => onOpenChange(false)} className="min-h-11 rounded-[10px] bg-destructive px-3 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 lg:min-h-10">Descartar</button></div></div> :
           <button
             type="button"
             disabled={pending}
             onClick={() => void submit()}
-            className="min-h-12 w-full rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-lg disabled:opacity-40"
+            className="min-h-11 w-full rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 lg:min-h-10"
           >
             {pending
               ? "Conferindo…"

@@ -3,13 +3,17 @@ import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
-import { AdminSidebar } from "./admin-sidebar";
+import { cookies } from "next/headers";
+import { AdminFrame, DesktopTopBar } from "./admin-sidebar";
+import { SIDEBAR_COOKIE } from "./sidebar-preference";
 import { CommandPalette } from "./command-palette";
 import { Toaster } from "@/components/ui/toast";
+import { DialogMobileSheetDefault } from "@/components/ui/dialog";
 import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 import { AdminMobileHeader } from "./admin-mobile-header";
+import { MobileTopBar } from "./mobile-top-bar";
 import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { billingEnabled } from "@/lib/billing/config";
 import { billingCapacityLabel } from "@/lib/billing/presentation";
@@ -80,6 +84,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     } catch { /* Admission and environment gates both fail closed. */ }
   }
 
+  const sidebarOpen = (await cookies()).get(SIDEBAR_COOKIE)?.value !== "collapsed";
+  const secretary = Boolean(SecretaryDock);
+  const ownerPlan = role === "OWNER" ? { ...planShortcut, href: planHref } : null;
+
   return (
     <ThemeProvider>
     {/* Aplica o tema salvo antes do primeiro paint — evita flash dark→light */}
@@ -88,22 +96,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         __html: `try{document.documentElement.setAttribute("data-theme",localStorage.getItem("admin-theme")==="light"?"admin-light":"admin-dark")}catch(e){document.documentElement.setAttribute("data-theme","admin-dark")}`,
       }}
     />
+    {/* Só aqui as janelas viram painel inferior no celular; telas públicas, plataforma e HQ mantêm a janela centralizada. */}
+    <DialogMobileSheetDefault>
     <div className="admin-shell flex h-dvh overflow-hidden text-foreground" style={{ paddingTop: "var(--safe-top)", paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }}>
-      {/* ── Sidebar ─────────────────────────────────────── */}
-      <AdminSidebar current={currentSalon} memberships={membershipList} role={role} plan={planLabel} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
+      {/* ── Menu lateral + área principal (o topo do computador precisa do estado do menu) ── */}
+      <AdminFrame defaultOpen={sidebarOpen} current={currentSalon} memberships={membershipList} role={role} plan={planLabel}
+        unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} secretary={secretary} planHref={role === "OWNER" ? planHref : null}>
+        <main id="main-content" tabIndex={-1} className="admin-main scrollbar-dark min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <DesktopTopBar unreadNotifications={unreadNotifications} plan={ownerPlan} />
+          <AdminMobileHeader role={role} plan={planShortcut} planHref={planHref} unreadNotifications={unreadNotifications} />
+          <MobileTopBar unreadNotifications={unreadNotifications} secretary={secretary} />
+          {/* O espaço final cobre a barra inferior e o "+" de criar (84px). */}
+          <div className="mx-auto w-full min-w-0 max-w-[1680px] p-4 pb-36 sm:p-5 md:p-6 lg:px-[26px] lg:pb-10 lg:pt-[22px]">{children}</div>
+        </main>
+      </AdminFrame>
 
-      {/* ── Main content ─────────────────────────────────── */}
-      <main id="main-content" tabIndex={-1} className="admin-main scrollbar-dark min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-        {role === "OWNER" && <header aria-label="Plano do estabelecimento" className="hidden min-h-16 items-center justify-end border-b border-border bg-surface-1 px-6 py-2 lg:flex print:hidden">
-          <PlanShortcut {...planShortcut} href={planHref} />
-        </header>}
-        <AdminMobileHeader role={role} plan={planShortcut} planHref={planHref} />
-        {/* O espaço final cobre a barra inferior, o "+" de criar (84px) e, quando existe, o botão da Secretária (192px). */}
-        <div className={`mx-auto w-full min-w-0 max-w-[1680px] p-4 ${SecretaryDock ? "pb-52" : "pb-36"} sm:p-5 md:p-6 lg:pb-6`}>{children}</div>
-      </main>
-
-      <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin}
-        accountControls={<div className="space-y-3"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact {...planShortcut} href={planHref} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /></div>}
+      <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} secretary={secretary}
+        accountControls={<div className="space-y-3 rounded-2xl bg-card p-3 ring-1 ring-inset ring-border"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact {...planShortcut} href={planHref} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /></div>}
         accountFooter={<SidebarFooter inline plan={planLabel} />}
       />
       <CommandPalette role={role} />
@@ -112,6 +121,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         voiceCorrection={process.env.SALON_SECRETARY_VOICE_CORRECTION === "true"} transcribeEnabled={process.env.SALON_SECRETARY_TRANSCRIBE_ENABLED === "true"}
         feedbackEnabled={process.env.SALON_SECRETARY_FEEDBACK === "true"} flowEnabled={process.env.SALON_SECRETARY_FLOW_WINDOW === "true"} />}
     </div>
+    </DialogMobileSheetDefault>
     </ThemeProvider>
   );
 }

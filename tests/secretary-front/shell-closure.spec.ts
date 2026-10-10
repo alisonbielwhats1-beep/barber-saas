@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { openSecretary } from './open-secretary';
 import {PrismaClient} from '@prisma/client';
 import AxeBuilder from '@axe-core/playwright';
 import {readFileSync,writeFileSync} from 'node:fs';
@@ -14,8 +15,8 @@ test('read-only finish: persisted domain state, desktop/mobile shell and accessi
  await page.goto('/agenda?date='+fixture.date);await expect(page.getByRole('button',{name:/Amanda Souza, Massagem, 11:00/})).toBeVisible();
  await page.goto('/servicos');await expect(page.getByLabel('Lista de serviços')).toContainText('100,00');
  await page.goto('/produtos');await expect(page.getByLabel('Lista de produtos').locator('summary').filter({has:page.getByText('Shampoo X',{exact:true})}).getByText('Estoque: 8',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();const panel=page.getByRole('dialog',{name:'Secretária',exact:true}),input=panel.getByRole('textbox',{name:'Mensagem'});
- await input.fill('Texto preservado');await panel.getByRole('button',{name:'Fechar Secretária'}).click();await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();await expect(input).toHaveValue('Texto preservado');
+ await openSecretary(page);const panel=page.getByRole('dialog',{name:'Secretária',exact:true}),input=panel.getByRole('textbox',{name:'Mensagem'});
+ await input.fill('Texto preservado');await panel.getByRole('button',{name:'Fechar Secretária'}).click();await openSecretary(page);await expect(input).toHaveValue('Texto preservado');
  const a11y:Record<string,unknown>={};
  for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:320,height:560}]){
   await page.setViewportSize(viewport);await expect(input).toBeInViewport();expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
@@ -23,7 +24,7 @@ test('read-only finish: persisted domain state, desktop/mobile shell and accessi
   await page.screenshot({path:resolve(out,`shell-${viewport.width}.png`)});
  }
  await input.focus();await page.keyboard.press('Tab');expect(await panel.evaluate(el=>el.contains(document.activeElement))).toBe(true);
- await page.keyboard.press('Escape');await expect(panel).toBeHidden();await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();await expect(input).toHaveValue('Texto preservado');
+ await page.keyboard.press('Escape');await expect(panel).toBeHidden();await openSecretary(page);await expect(input).toHaveValue('Texto preservado');
  const after=await snapshotDatabase(db),effects=assertEffects(before,after,fixture.salonId);expect(effects).toEqual([]);expect(external).toEqual([]);
  writeFileSync(resolve(out,'shell-verdict.json'),JSON.stringify({result:'PASS',before:hashes(before),after:hashes(after),effects,external,a11y,domain_readback:{appointment:'11:00',stock:8,service:10000},viewports:[1440,390,320],keyboard:'PASS',physical_keyboard:'NOT_TESTED'},null,2));
 });

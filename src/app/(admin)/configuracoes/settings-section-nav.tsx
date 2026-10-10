@@ -1,7 +1,8 @@
 "use client";
 
 import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Bell, CalendarClock, ChevronRight, Crown, DoorClosed, ListChecks, Palette, Search, ShieldCheck, SlidersHorizontal, UserRound, Wallet, X } from "lucide-react";
+import { Bell, CalendarClock, ChevronLeft, ChevronRight, Crown, DoorClosed, ListChecks, Palette, Search, ShieldCheck, SlidersHorizontal, UserRound, Wallet, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const SECTIONS = [
   { id: "aparencia", label: "Aparência e vitrine", detail: "Logo, capa, cores e informações públicas", group: "Meu estabelecimento", keywords: "marca foto instagram whatsapp pagamento", icon: Palette },
@@ -15,16 +16,23 @@ const SECTIONS = [
   { id: "plano", label: "Meu plano", detail: "Assinatura, recursos e cancelamento da renovação", group: "Conta e acesso", keywords: "assinatura faturamento cancelar cobrança recorrente", icon: Crown },
   { id: "primeiros-passos", label: "Primeiros passos", detail: "Confira o que falta configurar", group: "Conta e acesso", keywords: "checklist iniciar cadastro", icon: ListChecks },
 ];
+/** On the computer the list sits beside the open section; with nothing chosen, the first one is shown. */
+const FALLBACK = SECTIONS[0];
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
 }
 
-/** Preserve mounted forms when returning to search, including unsaved edits. */
+/**
+ * Preserve mounted forms when returning to search, including unsaved edits.
+ * Phone and tablet: list, then one section (with "Todas as configurações").
+ * Computer (lg): list on the left and the section on the right.
+ */
 export function SettingsSectionNav({ children }: { children: ReactNode }) {
   const [active, setActive] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
+  const titleBlock = useRef<HTMLDivElement>(null);
   const lastLink = useRef<string | null>(null);
   const search = useRef<HTMLInputElement>(null);
 
@@ -41,7 +49,8 @@ export function SettingsSectionNav({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (active) heading.current?.focus();
+    // Focus without the browser's jump (it would hide the title under the top bar); then bring it into view only if needed.
+    if (active) { heading.current?.focus({ preventScroll: true }); titleBlock.current?.scrollIntoView?.({ block: "nearest" }); }
     else if (lastLink.current) document.getElementById(`settings-link-${lastLink.current}`)?.focus();
   }, [active]);
 
@@ -52,35 +61,56 @@ export function SettingsSectionNav({ children }: { children: ReactNode }) {
   }
 
   const selected = SECTIONS.find(section => section.id === active);
+  const shown = selected ?? FALLBACK;
   const terms = normalize(query).trim().split(/\s+/).filter(Boolean);
   const matches = SECTIONS.filter(section => terms.every(term => normalize(`${section.label} ${section.detail} ${section.keywords} ${section.group}`).includes(term)));
 
-  return <div>
-    <div hidden={Boolean(active)}>
-      <div className="relative mb-4">
-        <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3.5 h-5 w-5 text-muted-foreground" />
-        <input ref={search} type="search" aria-label="Buscar configuração" placeholder="Buscar configuração" value={query} onChange={event => setQuery(event.target.value)} className="min-h-12 w-full rounded-xl border border-border bg-card pl-11 pr-12 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-        {query && <button type="button" aria-label="Limpar busca" onClick={() => { setQuery(""); search.current?.focus(); }} className="absolute right-0 top-0 grid h-12 w-12 place-items-center rounded-xl focus-visible:ring-2 focus-visible:ring-ring"><X aria-hidden="true" className="h-4 w-4" /></button>}
+  return <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-7">
+    <div className={cn("space-y-[18px] lg:sticky lg:top-[72px] lg:space-y-3.5", selected && "hidden lg:block")}>
+      <div className="relative">
+        <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input ref={search} type="search" aria-label="Buscar configuração" placeholder="Buscar configuração" value={query} onChange={event => setQuery(event.target.value)} className="h-11 w-full rounded-[10px] border border-border-strong bg-card pl-10 pr-11 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:h-9 lg:pr-9 lg:text-sm [&::-webkit-search-cancel-button]:hidden" />
+        {query && <button type="button" aria-label="Limpar busca" onClick={() => { setQuery(""); search.current?.focus(); }} className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-[10px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-9 lg:w-9"><X aria-hidden="true" className="h-4 w-4" /></button>}
       </div>
-      <nav aria-label="Seções de configurações" className="grid gap-4 lg:grid lg:grid-cols-2 xl:grid-cols-3">
+      {query && <p role="status" className="text-sm text-muted-foreground">{matches.length ? `${matches.length} ${matches.length === 1 ? "opção encontrada" : "opções encontradas"}` : "Nenhuma configuração encontrada. Tente buscar por horário, preço ou perfil."}</p>}
+      <nav aria-label="Seções de configurações" className="space-y-[18px] lg:space-y-3.5">
         {[...new Set(matches.map(section => section.group))].map(group => <section key={group}>
-          <h2 className="mb-2 text-sm font-semibold lg:mb-3 lg:text-[13px] lg:uppercase lg:tracking-wider lg:text-muted-foreground">{group}</h2>
-          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card ">
-            {matches.filter(section => section.group === group).map(({ id, label, detail, icon: Icon }) => <a key={id} id={`settings-link-${id}`} href={`#${id}`} onClick={event => { event.preventDefault(); navigate(id); }} className="group relative flex min-h-20 items-center gap-3 px-4 py-3 transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-muted-foreground lg:text-primary" /></span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-medium lg:text-base lg:font-semibold">{label}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground lg:max-w-[30ch] lg:text-[13px]">{detail}</span></span>
-              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 lg:absolute lg:right-5 lg:top-5" />
-            </a>)}
+          <h2 className="mx-0.5 mb-2 text-xs font-semibold uppercase tracking-[0.04em] text-muted-foreground">{group}</h2>
+          <div className="overflow-hidden rounded-[14px] border border-border bg-card">
+            {matches.filter(section => section.group === group).map(({ id, label, detail, icon: Icon }) => {
+              const current = id === active;
+              const fallback = !active && id === FALLBACK.id;
+              return <a key={id} id={`settings-link-${id}`} href={`#${id}`} aria-current={current ? "true" : undefined} onClick={event => { event.preventDefault(); navigate(id); }}
+                className={cn(
+                  "group flex min-h-[60px] items-center gap-3 border-b border-border px-3.5 py-2 transition-colors last:border-b-0 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:min-h-[42px] lg:gap-2.5 lg:px-3 lg:py-1.5",
+                  current && "lg:bg-[hsl(var(--border))] lg:hover:bg-[hsl(var(--border))]",
+                  fallback && "lg:bg-[hsl(var(--border))] lg:hover:bg-[hsl(var(--border))]",
+                )}>
+                <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] bg-muted text-foreground lg:h-7 lg:w-7 lg:rounded-lg"><Icon aria-hidden="true" className="h-[17px] w-[17px] lg:h-3.5 lg:w-3.5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium leading-snug">{label}</span>
+                  <span className="mt-0.5 block text-xs leading-snug text-muted-foreground lg:sr-only">{detail}</span>
+                </span>
+                <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </a>;
+            })}
           </div>
         </section>)}
       </nav>
-      {query && <p role="status" className="mt-4 text-sm text-muted-foreground">{matches.length ? `${matches.length} opções encontradas` : "Nenhuma configuração encontrada. Tente buscar por horário, preço ou perfil."}</p>}
     </div>
-    {selected && <div className="mb-5">
-      <button type="button" onClick={() => navigate(null)} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden="true" className="h-4 w-4" />Todas as configurações</button>
-      <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">{selected.label}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{selected.detail}</p>
-    </div>}
-    {Children.map(children, child => isValidElement<{ id?: string }>(child) ? <div hidden={child.props.id !== active}>{child}</div> : null)}
+    <div className="min-w-0 lg:max-w-[760px]">
+      <div ref={titleBlock} className={cn("mb-3.5 scroll-mt-24 lg:mb-4", !selected && "hidden lg:block")}>
+        {selected && <button type="button" onClick={() => navigate(null)} className="-ml-1 mb-1 inline-flex min-h-11 items-center gap-1.5 rounded-lg pr-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-8 lg:text-muted-foreground lg:hover:text-foreground"><ChevronLeft aria-hidden="true" className="h-[18px] w-[18px] lg:h-4 lg:w-4" />Todas as configurações</button>}
+        <h2 ref={heading} tabIndex={-1} className="text-base font-semibold tracking-[-0.01em] outline-none">{shown.label}</h2>
+        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{shown.detail}</p>
+      </div>
+      {query && selected && !matches.some(section => section.id === active) && <p className="mb-3 hidden text-xs text-muted-foreground lg:block">A seção aberta não aparece na busca, mas continua aqui.</p>}
+      {Children.map(children, child => {
+        if (!isValidElement<{ id?: string }>(child)) return null;
+        const id = child.props.id;
+        const fallback = !active && id === FALLBACK.id;
+        return <div hidden={id !== active && !fallback} className={fallback ? "hidden lg:block" : undefined}>{child}</div>;
+      })}
+    </div>
   </div>;
 }

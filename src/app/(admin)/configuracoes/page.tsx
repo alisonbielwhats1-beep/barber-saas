@@ -3,7 +3,10 @@ import { requireRole } from "@/lib/tenant";
 import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
-import { ArrowRight, Bell, Check, Circle, Crown, ListChecks } from "lucide-react";
+import { Check, ChevronRight, Circle, Crown, ListChecks } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { BookingPreferencesPanel } from "./booking-preferences-panel";
 import { SalonSettingsForm } from "./salon-settings-form";
 import { AccessManager, type Member } from "./access-manager";
@@ -115,19 +118,16 @@ export default async function ConfiguracoesPage() {
   const canManage = role === "OWNER";
 
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Ajustes
-        </p>
-        <h1 className="text-[26px] font-semibold tracking-tight lg:text-3xl">Configurações</h1>
-        <p className="mt-2 hidden max-w-2xl text-sm text-muted-foreground lg:block">
+    <div className="space-y-5 lg:space-y-6">
+      <div>
+        <PageHeader title="Configurações" />
+        <p className="mt-1 hidden max-w-2xl text-sm text-muted-foreground lg:block">
           Organize o estabelecimento, a agenda e os acessos da equipe por área.
         </p>
-      </header>
+      </div>
 
       <SettingsSectionNav>
-      <section id="primeiros-passos"><SetupChecklist items={[
+      <section id="primeiros-passos" className="scroll-mt-24"><SetupChecklist items={[
         { label: "Cadastrar serviços e preços", done: setupCounts.serviceCount > 0 },
         { label: "Cadastrar ao menos um profissional", done: setupCounts.professionalCount > 0 },
         { label: "Adicionar ou importar clientes", done: setupCounts.clientCount > 0 },
@@ -161,8 +161,8 @@ export default async function ConfiguracoesPage() {
         <section id="horarios" className="scroll-mt-24">
           <TeamHoursManager openMinutes={salon.openMinutes} closeMinutes={salon.closeMinutes} professionals={teamHours.map(p => ({ id: p.id, name: p.user.name, workingHours: p.workingHours }))} />
         </section>
-        <section id="agenda" className="space-y-6"><SalonSettingsForm salon={salon} /><BookingPreferencesPanel /></section>
-        <section id="precos">
+        <section id="agenda" className="scroll-mt-24 space-y-4"><SalonSettingsForm salon={salon} /><BookingPreferencesPanel /></section>
+        <section id="precos" className="scroll-mt-24">
             <PricingRulesManager
               canManage={role === "OWNER" || role === "MANAGER"}
               rules={pricingRules.map((rule) => ({
@@ -173,7 +173,7 @@ export default async function ConfiguracoesPage() {
               }))}
             />
         </section>
-        <section id="fechamentos">
+        <section id="fechamentos" className="scroll-mt-24">
             <ClosuresManager
               timezone={salon.timezone}
               closures={closures.map((c): Closure => ({
@@ -186,29 +186,19 @@ export default async function ConfiguracoesPage() {
             />
         </section>
 
-        <section id="notificacoes" aria-labelledby="settings-notifications-title" className="scroll-mt-24 rounded-2xl border border-border bg-card p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-info/10 text-info">
-                <Bell aria-hidden="true" className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 id="settings-notifications-title" className="text-[14px] font-semibold">Notificações</h2>
-                <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-muted-foreground">
-                  Confirmações, reagendamentos e cancelamentos são organizados automaticamente. Abra a central para revisar avisos e marcar itens como lidos.
-                </p>
-              </div>
-            </div>
-            <Link href="/notificacoes" className="group inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-border px-3.5 text-[12px] font-semibold transition-colors hover:border-border-strong hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              Abrir central
-              <ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
+        <section id="notificacoes" aria-labelledby="settings-notifications-title" className="scroll-mt-24 space-y-3.5 rounded-[14px] border border-border bg-card p-4">
+          <h3 id="settings-notifications-title" className="sr-only">Notificações</h3>
+          <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+            Confirmações, reagendamentos e cancelamentos são organizados automaticamente. Abra a central para revisar avisos e marcar itens como lidos.
+          </p>
+          <Link href="/notificacoes" className={cn(buttonVariants({ variant: "outline" }), "group")}>
+            Abrir central
+            <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
         </section>
 
-
-          <section id="seguranca" aria-labelledby="settings-security-title" className="scroll-mt-24 lg:col-span-3">
-            <h2 id="settings-security-title" className="sr-only">Segurança e acessos</h2>
+          <section id="seguranca" aria-labelledby="settings-security-title" className="scroll-mt-24">
+            <h3 id="settings-security-title" className="sr-only">Segurança e acessos</h3>
             <AccessManager
             members={members}
             canManage={canManage}
@@ -222,30 +212,28 @@ export default async function ConfiguracoesPage() {
             />
           </section>
 
-          <section id="plano" aria-labelledby="settings-plan-title" className="scroll-mt-24 lg:col-span-2">
-            <div className="flex h-full flex-col justify-between rounded-2xl border border-primary/25 bg-primary/5 p-5">
-              <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
-                  <Crown aria-hidden="true" className="h-5 w-5" />
-                </span>
-                <div>
-                  <h2 id="settings-plan-title" className="text-[13px] font-semibold">{billingEnabled() ? "Plano e assinatura" : `Plano ${PLAN_LABEL[salon.plan] ?? salon.plan}`}</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {billingEnabled() ? "Consulte seu plano, pagamentos e período de acesso. Você pode cancelar a renovação a qualquer momento, sem perder o período já pago." : salon.plan === "FREE"
-                      ? `1 agenda · até ${entitlement.monthlyAppointments} agendamentos por mês`
-                      : `${entitlement.maxProfessionals} agendas incluídas · sem taxa por cliente`}
+          <section id="plano" aria-labelledby="settings-plan-title" className="scroll-mt-24 space-y-3.5 rounded-[14px] border border-border bg-card p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] bg-muted text-foreground">
+                <Crown aria-hidden="true" className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <h3 id="settings-plan-title" className="text-sm font-semibold">{billingEnabled() ? "Plano e assinatura" : `Plano ${PLAN_LABEL[salon.plan] ?? salon.plan}`}</h3>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {billingEnabled() ? "Consulte seu plano, pagamentos e período de acesso. Você pode cancelar a renovação a qualquer momento, sem perder o período já pago." : salon.plan === "FREE"
+                    ? `1 agenda · até ${entitlement.monthlyAppointments} agendamentos por mês`
+                    : `${entitlement.maxProfessionals} agendas incluídas · sem taxa por cliente`}
+                </p>
+                {!billingEnabled() && salon.plan !== "FREE" && entitlement.priceCents > 0 && (
+                  <p className="mt-1 text-sm font-semibold tabular-nums">
+                    R$ {(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
                   </p>
-                  {!billingEnabled() && salon.plan !== "FREE" && entitlement.priceCents > 0 && (
-                    <p className="mt-1 text-xs font-medium text-primary">
-                      R$ {(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
-              <p className="mt-5 rounded-xl border border-border bg-card/70 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-                {billingEnabled() && role === "OWNER" ? <Link className="font-medium underline" href="/assinatura">Gerenciar ou cancelar assinatura</Link> : "A gestão do plano e da assinatura fica protegida e será liberada somente quando o faturamento estiver configurado."}
-              </p>
             </div>
+            {billingEnabled() && role === "OWNER"
+              ? <Link className={buttonVariants()} href="/assinatura">Gerenciar ou cancelar assinatura</Link>
+              : <p className="rounded-xl border border-border-strong bg-background px-3.5 py-3 text-xs leading-relaxed text-muted-foreground">A gestão do plano e da assinatura fica protegida e será liberada somente quando o faturamento estiver configurado.</p>}
           </section>
       </SettingsSectionNav>
     </div>
@@ -254,5 +242,17 @@ export default async function ConfiguracoesPage() {
 
 function SetupChecklist({ items }: { items: Array<{ label: string; done: boolean }> }) {
   const completed = items.filter((item) => item.done).length;
-  return <section className="rounded-2xl border border-border bg-card p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="flex items-center gap-2 text-[14px] font-semibold"><ListChecks className="h-4 w-4 text-primary" /> Checklist de configuração</h2><p className="mt-0.5 text-xs text-muted-foreground">{completed} de {items.length} etapas concluídas</p></div><div className="h-2 w-full max-w-52 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.round((completed / items.length) * 100)}%` }} /></div></div><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{items.map((item) => <div key={item.label} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${item.done ? "border-success/20 bg-success/5 text-foreground" : "border-border bg-surface-1 text-muted-foreground"}`}>{item.done ? <Check className="h-3.5 w-3.5 shrink-0 text-success" /> : <Circle className="h-3.5 w-3.5 shrink-0" />}<span>{item.label}</span></div>)}</div></section>;
+  return <div className="space-y-3.5 rounded-[14px] border border-border bg-card p-4">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h3 className="flex items-center gap-2 text-sm font-semibold"><ListChecks aria-hidden="true" className="h-4 w-4 text-muted-foreground" />Checklist de configuração</h3>
+        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{completed} de {items.length} etapas concluídas</p>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted sm:max-w-52"><div className="h-full rounded-full bg-[hsl(var(--selection-solid))]" style={{ width: `${Math.round((completed / items.length) * 100)}%` }} /></div>
+    </div>
+    <ul className="grid gap-2 sm:grid-cols-2">{items.map((item) => <li key={item.label} className={`flex min-h-11 items-center gap-2.5 rounded-xl border border-border px-3.5 py-2.5 text-sm ${item.done ? "bg-background text-foreground" : "text-muted-foreground"}`}>
+      {item.done ? <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-success" /> : <Circle aria-hidden="true" className="h-4 w-4 shrink-0" />}
+      <span className="min-w-0">{item.label}<span className="sr-only">{item.done ? " · concluído" : " · pendente"}</span></span>
+    </li>)}</ul>
+  </div>;
 }

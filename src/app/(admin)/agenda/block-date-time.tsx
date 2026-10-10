@@ -13,7 +13,7 @@ export function BlockDateTime({ label, value, onChange, className }: {
       const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
       const time = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
       onChange(`${value.slice(0, 10)}T${time}`);
-    }} className={className} /></label><button type="button" className="min-h-11 text-xs text-muted-foreground underline" onClick={() => setTyping(!typing)}>{typing ? `Usar seletor de ${suffix}` : `Digitar hora de ${suffix}`}</button></div>
+    }} className={className} /></label><button type="button" className="min-h-11 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground" onClick={() => setTyping(!typing)}>{typing ? `Usar seletor de ${suffix}` : `Digitar hora de ${suffix}`}</button></div>
   </div>;
 }
 

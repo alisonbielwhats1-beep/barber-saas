@@ -1,5 +1,6 @@
 /**
- * Configuração central de status do agendamento — cores e rótulos usados
+ * Configuração central de status do agendamento (paleta Everflair: âmbar a confirmar, neutro confirmado,
+ * lilás em atendimento, verde finalizado, vermelho falta) — cores e rótulos usados
  * tanto no board quanto no popover de detalhe. Cores em hex para uso direto
  * em estilos inline (borda/fundo dos cards).
  */
@@ -12,12 +13,12 @@ export type ApptStatus =
   | "NO_SHOW";
 
 export const STATUS: Record<ApptStatus, { label: string; color: string; badgeClass: string }> = {
-  PENDING: { label: "A confirmar", color: "#F59E0B", badgeClass: "bg-warning/10 text-warning" },
-  CONFIRMED: { label: "Confirmado", color: "#2ECC8B", badgeClass: "bg-success/10 text-success" },
-  IN_PROGRESS: { label: "Em atendimento", color: "#3B9EFF", badgeClass: "bg-info/10 text-info" },
-  COMPLETED: { label: "Finalizado", color: "#2ECC8B", badgeClass: "bg-success/10 text-success" },
-  NO_SHOW: { label: "Não compareceu", color: "#EF4444", badgeClass: "bg-danger/10 text-danger" },
-  CANCELLED: { label: "Cancelado", color: "#64748B", badgeClass: "bg-muted text-muted-foreground" },
+  PENDING: { label: "A confirmar", color: "#E9A23B", badgeClass: "bg-warning/15 text-warning" },
+  CONFIRMED: { label: "Confirmado", color: "#A1A1A1", badgeClass: "bg-muted text-foreground" },
+  IN_PROGRESS: { label: "Em atendimento", color: "#B29CF0", badgeClass: "bg-[hsl(var(--selection))] text-[hsl(var(--selection-foreground))]" },
+  COMPLETED: { label: "Finalizado", color: "#62C073", badgeClass: "bg-success/15 text-success" },
+  NO_SHOW: { label: "Não compareceu", color: "#E5484D", badgeClass: "bg-danger/15 text-danger" },
+  CANCELLED: { label: "Cancelado", color: "#8F8F8F", badgeClass: "bg-muted text-muted-foreground" },
 };
 
 export const ACTION_LABELS: Partial<Record<ApptStatus, string>> = {
@@ -29,8 +30,8 @@ export const ACTION_LABELS: Partial<Record<ApptStatus, string>> = {
 
 export function statusActionClasses(status: ApptStatus) {
   return status === "NO_SHOW"
-    ? "bg-[var(--action-critical)] text-white hover:brightness-110"
-    : "bg-[var(--action-positive)] text-white hover:brightness-110";
+    ? "border border-danger/40 bg-danger/10 text-danger hover:bg-danger/15"
+    : "bg-primary text-primary-foreground hover:bg-primary/90";
 }
 
 export const STATUS_ORDER: (keyof typeof STATUS)[] = [

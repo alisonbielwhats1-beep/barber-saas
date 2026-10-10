@@ -5,6 +5,8 @@ import { useFormOperation } from "@/app/(admin)/use-form-operation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, BellRing, CheckCheck, Clock3, Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SwipeRow } from "@/components/ui/swipe-row";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import {
@@ -109,13 +111,12 @@ export function NotificationList({
       </div>
 
       {notifications.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <Bell className="mx-auto h-6 w-6 text-muted-foreground" />
-          <p className="mt-3 text-sm font-medium">Nenhuma notificação ainda</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Criações, remarcações, cancelamentos e lembretes aparecerão aqui.
-          </p>
-        </div>
+        <EmptyState
+          icon={Bell}
+          title="Nenhuma notificação ainda"
+          description="Criações, remarcações, cancelamentos e lembretes aparecerão aqui."
+          className="border-solid bg-card"
+        />
       ) : (
         <div className="space-y-2">
           {notifications.map((notification) => {
@@ -141,10 +142,16 @@ export function NotificationList({
                 : `/agenda?from=notificacoes${typeof notification.payload.appointmentId === "string" ? `&appointment=${encodeURIComponent(notification.payload.appointmentId)}` : ""}`
               : `/book/${salonSlug}/minhas`;
             return (
-              <article
+              // Deslizar para a esquerda marca como lida (atalho de toque; o botão "Marcar lida" continua no cartão).
+              <SwipeRow
                 key={notification.id}
+                className="rounded-2xl"
+                disabled={Boolean(notification.readAt) || pending}
+                actions={[{ key: "read", label: "Lida", icon: CheckCheck, onSelect: () => markRead(notification.id) }]}
+              >
+              <article
                 className={`rounded-2xl border p-4 ${
-                  isClientReminder ? "border-primary/40 bg-primary/5" : notification.readAt ? "border-border bg-card" : "border-primary/40 bg-primary/5"
+                  isClientReminder || !notification.readAt ? "border-primary/40 bg-[color-mix(in_srgb,hsl(var(--primary))_5%,hsl(var(--card)))]" : "border-border bg-card"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -206,6 +213,7 @@ export function NotificationList({
                   )}
                 </div>
               </article>
+              </SwipeRow>
             );
           })}
         </div>

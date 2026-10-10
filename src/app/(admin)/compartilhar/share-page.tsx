@@ -15,6 +15,7 @@ import {
   UserPlus,
   ChevronDown,
   Instagram,
+  type LucideIcon,
   MapPin,
   Megaphone,
   MessageCircle,
@@ -22,7 +23,11 @@ import {
   Sprout,
 } from "lucide-react";
 import { buildManualPixMessage, buildReferralMessage } from "@/lib/growth-tools";
+import { PageHeader } from "@/components/page-header";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 type Salon = { name: string; slug: string; plan: string; phone: string | null };
 
@@ -119,73 +124,58 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4 lg:space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Crescimento
-        </p>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight">Compartilhar</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <PageHeader title="Presença online" />
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
           Leve clientes ao agendamento online do{" "}
-          <span className="font-medium text-foreground">{salon.name}</span>.
+          <span className="font-semibold text-foreground">{salon.name}</span>.
         </p>
       </div>
 
-      {/* Link + QR — grid 2 colunas */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Celular: link, QR, WhatsApp, indicação e Pix. Computador: duas colunas (link, indicação e Pix | QR e WhatsApp). */}
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2 lg:gap-4">
 
         {/* ── Link ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10">
-              <Link2 className="h-4 w-4 text-primary" />
-            </span>
-            <div>
-              <p className="text-[13px] font-semibold">Link de agendamento</p>
-              <p className="text-xs text-muted-foreground">Funciona no celular e no computador</p>
-            </div>
-          </div>
+        <div className={cn(cardClass, "lg:col-start-1 lg:row-start-1")}>
+          <CardHead icon={Link2} title="Link de agendamento" text="Funciona no celular e no computador" />
 
-          <div className="mt-4 flex items-center gap-2 overflow-hidden rounded-xl border border-border bg-surface-1 px-3 py-2.5">
-            <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
+          <div className="overflow-hidden rounded-xl border border-border bg-background px-3.5 py-3">
+            <p className="truncate text-sm tabular-nums text-muted-foreground" title={bookingUrl}>
               {bookingUrl}
-            </span>
+            </p>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              onClick={copyLink}
-              className="flex items-center gap-2 rounded-xl bg-primary min-h-11 px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={copyLink}>
+              {copied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />}
               {copied ? "Copiado!" : "Copiar link"}
-            </button>
+            </Button>
             <a
               href={bookingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-xl border border-border bg-card min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
+              className={buttonVariants({ variant: "outline" })}
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink aria-hidden="true" className="h-4 w-4" />
               Ver página
             </a>
           </div>
 
           {/* Prévia da URL do cliente */}
-          <div className="mt-auto pt-5">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Prévia do link</p>
-            <div className="overflow-hidden rounded-xl border border-border bg-surface-1">
-              <div className="flex items-center gap-1.5 border-b border-border bg-muted/30 px-3 py-1.5">
-                <span className="h-2 w-2 rounded-full bg-red-400/60" />
-                <span className="h-2 w-2 rounded-full bg-yellow-400/60" />
-                <span className="h-2 w-2 rounded-full bg-green-400/60" />
-                <span className="ml-2 flex-1 truncate rounded bg-card px-2 py-0.5 text-[10px] text-muted-foreground">
+          <div>
+            <p className="mb-2 text-sm font-medium text-muted-foreground">Prévia do link</p>
+            <div className="overflow-hidden rounded-xl border border-border bg-background">
+              <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5">
+                <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-border-strong" />
+                <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-border-strong" />
+                <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-border-strong" />
+                <span className="ml-1.5 min-w-0 flex-1 truncate rounded-md bg-card px-2 py-0.5 text-xs text-muted-foreground" title={bookingUrl}>
                   {bookingUrl}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-3 text-[12px] text-muted-foreground">
-                <Sprout aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+              <div className="flex items-center gap-2 px-3.5 py-3 text-sm text-muted-foreground">
+                <Sprout aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                 Agendamento online · {salon.name}
               </div>
             </div>
@@ -193,193 +183,155 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
         </div>
 
         {/* ── QR Code ──────────────────────────────────────────────── */}
-        <div className="flex flex-col items-center rounded-2xl border border-border bg-card p-5">
-          <div className="flex w-full items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10">
-              <QrCode className="h-4 w-4 text-primary" />
-            </span>
-            <div>
-              <p className="text-[13px] font-semibold">QR Code</p>
-              <p className="text-xs text-muted-foreground">Imprima e deixe na recepção</p>
-            </div>
-          </div>
+        <div className={cn(cardClass, "lg:col-start-2 lg:row-span-2 lg:row-start-1")}>
+          <CardHead icon={QrCode} title="QR Code" text="Imprima e deixe na recepção" />
 
-          {/* Card premium do QR — fundo escuro, QR em caixa branca */}
-          <div data-theme="marketing-dark" className="mt-5 w-full overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-b from-[#23262b] to-[#0f0f0f]">
-            {/* Faixa âmbar superior */}
-            <div className="flex items-center justify-center gap-2 border-b border-primary/10 py-3">
-              <span className="h-px w-6 bg-primary/40" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/70">
+          {/* QR sempre preto no branco, para ler bem em qualquer tema */}
+          <div className="flex w-full flex-col items-center overflow-hidden rounded-2xl border border-border-strong bg-background">
+            <div className="flex w-full items-center justify-center gap-2.5 border-b border-border py-2.5">
+              <span aria-hidden="true" className="h-px w-6 bg-border-strong" />
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 Agendamento online
               </span>
-              <span className="h-px w-6 bg-primary/40" />
+              <span aria-hidden="true" className="h-px w-6 bg-border-strong" />
             </div>
 
-            {/* QR em caixa branca — preto-no-branco para máxima legibilidade */}
-            <div className="flex justify-center py-6">
-              <div className="relative rounded-2xl bg-white p-4 shadow-[0_0_40px_rgba(183,118,83,0.15)]">
-                {/* Cantos âmbar decorativos */}
-                <span className="absolute -left-px -top-px h-5 w-5 rounded-tl-2xl border-l-2 border-t-2 border-primary" />
-                <span className="absolute -right-px -top-px h-5 w-5 rounded-tr-2xl border-r-2 border-t-2 border-primary" />
-                <span className="absolute -bottom-px -left-px h-5 w-5 rounded-bl-2xl border-b-2 border-l-2 border-primary" />
-                <span className="absolute -bottom-px -right-px h-5 w-5 rounded-br-2xl border-b-2 border-r-2 border-primary" />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={qrDisplay}
-                  alt={`QR Code — ${salon.name}`}
-                  width={200}
-                  height={200}
-                  className="block"
-                />
-              </div>
+            <div className="my-5 rounded-[14px] bg-white p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrDisplay}
+                alt={`QR Code — ${salon.name}`}
+                width={200}
+                height={200}
+                className="block h-auto w-[200px] max-w-full"
+              />
             </div>
 
-            {/* Nome do salão + instrução */}
-            <div className="border-t border-primary/10 py-3 text-center">
-              <p className="text-[13px] font-semibold text-white/90">{salon.name}</p>
-              <p className="mt-0.5 text-[10px] text-white/70">
+            <div className="w-full border-t border-border px-3 py-2.5 text-center">
+              <p className="text-sm font-semibold [overflow-wrap:anywhere]">{salon.name}</p>
+              <p className="text-xs text-muted-foreground">
                 Aponte a câmera do celular para agendar
               </p>
             </div>
           </div>
 
-          <button
-            onClick={downloadQr}
-            className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-card min-h-11 px-5 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Baixar QR Code (600 × 600 px)
-          </button>
-        </div>
-      </div>
-
-      {/* ── WhatsApp ─────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--action-positive)]/15">
-            <Share2 className="h-4 w-4 text-success" />
-          </span>
-          <div>
-            <p className="text-[13px] font-semibold">Mensagem para WhatsApp</p>
-            <p className="text-xs text-muted-foreground">
-              Pronta para enviar — adapte se quiser
-            </p>
+          <div className="flex justify-center">
+            <Button type="button" variant="outline" onClick={downloadQr} className="h-auto whitespace-normal py-2 text-center">
+              <Download aria-hidden="true" className="h-4 w-4" />
+              Baixar QR Code (600 × 600 px)
+            </Button>
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-border bg-surface-1 px-4 py-3">
-          <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+        {/* ── WhatsApp ─────────────────────────────────────────────────── */}
+        <div className={cn(cardClass, "lg:col-start-2 lg:row-start-3 lg:self-start")}>
+          <CardHead icon={Share2} title="Mensagem para WhatsApp" text="Pronta para enviar — adapte se quiser" />
+
+          <p className={messageClass}>
             {waMessage}
           </p>
-        </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl bg-[var(--action-positive)] min-h-11 px-4 py-2.5 text-[13px] font-medium text-white transition hover:opacity-90"
-          >
-            <Share2 className="h-3.5 w-3.5" />
-            Abrir WhatsApp
-          </a>
-          <button
-            onClick={copyMsg}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
-          >
-            {msgCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            {msgCopied ? "Copiado!" : "Copiar mensagem"}
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#3B9EFF]/15 text-[#3B9EFF]"><UserPlus className="h-4 w-4" /></span>
-            <div>
-              <p className="text-[13px] font-semibold">Mensagem de indicação</p>
-              <p className="text-xs text-muted-foreground">Para clientes fiéis encaminharem a amigos</p>
-            </div>
-          </div>
-          <p className="mt-4 whitespace-pre-line rounded-xl border border-border bg-surface-1 p-3 text-[13px] text-muted-foreground [overflow-wrap:anywhere]">{referralMessage}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <a href={`https://wa.me/?text=${encodeURIComponent(referralMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[var(--action-positive)] min-h-11 px-4 py-2.5 text-[13px] font-medium text-white">
-              <Share2 className="h-3.5 w-3.5" /> Abrir WhatsApp
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonVariants()}
+            >
+              <MessageCircle aria-hidden="true" className="h-4 w-4" />
+              Abrir WhatsApp
             </a>
-            <button onClick={copyReferral} className="inline-flex items-center gap-2 rounded-xl border border-border min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground">
-              {referralCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {referralCopied ? "Copiado!" : "Copiar"}
-            </button>
+            <Button type="button" variant="outline" onClick={copyMsg}>
+              {msgCopied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />}
+              {msgCopied ? "Copiado!" : "Copiar mensagem"}
+            </Button>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary"><HandCoins className="h-4 w-4" /></span>
-            <div>
-              <p className="text-[13px] font-semibold">Sinal Pix manual</p>
-              <p className="text-xs text-muted-foreground">Sem gateway e sem tarifa do Everflair</p>
-            </div>
+        <div className={cn(cardClass, "lg:col-start-1 lg:row-start-2")}>
+          <CardHead icon={UserPlus} title="Mensagem de indicação" text="Para clientes fiéis encaminharem a amigos" />
+          <p className={messageClass}>{referralMessage}</p>
+          <div className="flex flex-wrap gap-2">
+            <a href={`https://wa.me/?text=${encodeURIComponent(referralMessage)}`} target="_blank" rel="noopener noreferrer" className={buttonVariants()}>
+              <MessageCircle aria-hidden="true" className="h-4 w-4" /> Abrir WhatsApp
+            </a>
+            <Button type="button" variant="outline" onClick={copyReferral}>
+              {referralCopied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />} {referralCopied ? "Copiado!" : "Copiar"}
+            </Button>
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
-            <label className="text-xs text-muted-foreground">Chave Pix
-              <input value={pixKey} onChange={(event) => setPixKey(event.target.value)} placeholder="CPF, telefone, e-mail ou chave" className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground" />
+        </div>
+
+        <div className={cn(cardClass, "lg:col-start-1 lg:row-start-3 lg:self-start")}>
+          <CardHead icon={HandCoins} title="Sinal Pix manual" text="Sem gateway e sem tarifa do Everflair" />
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-[minmax(0,1fr)_120px] sm:gap-4">
+            <label className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-sm font-medium text-muted-foreground">Chave Pix</span>
+              <Input value={pixKey} onChange={(event) => setPixKey(event.target.value)} placeholder="CPF, telefone, e-mail ou chave" autoComplete="off" autoCapitalize="none" />
             </label>
-            <label className="text-xs text-muted-foreground">Valor do sinal
-              <input value={signalValue} onChange={(event) => setSignalValue(event.target.value)} inputMode="decimal" className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground" />
+            <label className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-sm font-medium text-muted-foreground">Valor do sinal</span>
+              <Input value={signalValue} onChange={(event) => setSignalValue(event.target.value)} inputMode="decimal" className="tabular-nums" />
             </label>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">A chave fica salva somente neste navegador. A conferência do comprovante continua manual.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={!pixMessage} onClick={copyPix} className="inline-flex items-center gap-2 rounded-xl bg-primary min-h-11 px-4 py-2.5 text-[13px] font-medium text-primary-foreground disabled:opacity-40">
-              {pixCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {pixCopied ? "Salvo e copiado!" : "Salvar e copiar"}
-            </button>
-            {pixMessage && <a href={`https://wa.me/?text=${encodeURIComponent(pixMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground"><Share2 className="h-3.5 w-3.5" /> Enviar</a>}
+          <p className="text-xs leading-relaxed text-muted-foreground">A chave fica salva somente neste navegador. A conferência do comprovante continua manual.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" disabled={!pixMessage} onClick={copyPix}>
+              {pixCopied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />} {pixCopied ? "Salvo e copiado!" : "Salvar e copiar"}
+            </Button>
+            {pixMessage && <a href={`https://wa.me/?text=${encodeURIComponent(pixMessage)}`} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline" })}><Share2 aria-hidden="true" className="h-4 w-4" /> Enviar</a>}
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#3B9EFF]/15 text-[#3B9EFF]"><Building2 className="h-4 w-4" /></span>
-          <div>
-            <p className="text-[13px] font-semibold">Agendamento gratuito no Google</p>
-            <p className="text-xs text-muted-foreground">Use o mesmo link público no Perfil da Empresa</p>
-          </div>
-        </div>
-        <ol className="mt-4 grid gap-2 text-[12px] text-muted-foreground sm:grid-cols-3">
-          <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">1. Abra o perfil</strong>Acesse seu Perfil da Empresa no Google.</li>
-          <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">2. Edite agendamentos</strong>Escolha a opção de link para reservar.</li>
-          <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">3. Cole o link</strong>Use o endereço do Everflair exibido acima.</li>
+      <div className={cardClass}>
+        <CardHead icon={Building2} title="Agendamento gratuito no Google" text="Use o mesmo link público no Perfil da Empresa" />
+        <ol className="grid gap-2 sm:grid-cols-3">
+          <li className={stepClass}><strong className="mb-0.5 block text-sm font-semibold text-foreground">1. Abra o perfil</strong>Acesse seu Perfil da Empresa no Google.</li>
+          <li className={stepClass}><strong className="mb-0.5 block text-sm font-semibold text-foreground">2. Edite agendamentos</strong>Escolha a opção de link para reservar.</li>
+          <li className={stepClass}><strong className="mb-0.5 block text-sm font-semibold text-foreground">3. Cole o link</strong>Use o endereço do Everflair exibido acima.</li>
         </ol>
-        <a href="https://business.google.com/" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border min-h-11 px-4 py-2.5 text-[13px] text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5" /> Abrir Perfil da Empresa</a>
+        <a href="https://business.google.com/" target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: "outline" }), "self-start")}><ExternalLink aria-hidden="true" className="h-4 w-4" /> Abrir Perfil da Empresa</a>
       </div>
 
       {/* ── Dicas ────────────────────────────────────────────────────── */}
-      <details className="group rounded-2xl border border-border bg-card">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 p-5 [&::-webkit-details-marker]:hidden">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10">
-            <Lightbulb aria-hidden="true" className="h-4 w-4 text-primary" />
-          </span>
-          <span className="text-[13px] font-semibold">Dicas de divulgação</span>
-          <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+      <details className="group space-y-3">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 rounded-[14px] border border-border bg-card px-3.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-10 [&::-webkit-details-marker]:hidden">
+          <Lightbulb aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+          <span>Dicas de divulgação</span>
+          <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
             Ver dicas
             <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" />
           </span>
         </summary>
-        <div className="border-t border-border px-5 pb-5 pt-4">
-          <ul className="space-y-3">
-            {tips.map(({ icon: TipIcon, text }) => (
-              <li key={text} className="flex items-start gap-3">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface-1 text-muted-foreground">
-                  <TipIcon aria-hidden="true" className="h-4 w-4" />
-                </span>
-                <span className="pt-1 text-[13px] leading-snug text-muted-foreground">{text}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ul className="space-y-3 rounded-[14px] border border-border bg-card p-4">
+          {tips.map(({ icon: TipIcon, text }) => (
+            <li key={text} className="flex items-start gap-3">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-muted text-foreground">
+                <TipIcon aria-hidden="true" className="h-4 w-4" />
+              </span>
+              <span className="pt-1.5 text-sm leading-snug text-muted-foreground">{text}</span>
+            </li>
+          ))}
+        </ul>
       </details>
+    </div>
+  );
+}
+
+const cardClass = "flex min-w-0 flex-col gap-3.5 rounded-[14px] border border-border bg-card p-4";
+const messageClass = "whitespace-pre-line rounded-xl border border-border bg-background px-3.5 py-3 text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]";
+const stepClass = "rounded-xl border border-border bg-background px-3.5 py-3 text-sm leading-relaxed text-muted-foreground";
+
+function CardHead({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] bg-muted text-foreground">
+        <Icon aria-hidden="true" className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{title}</p>
+        <p className="text-xs text-muted-foreground">{text}</p>
+      </div>
     </div>
   );
 }

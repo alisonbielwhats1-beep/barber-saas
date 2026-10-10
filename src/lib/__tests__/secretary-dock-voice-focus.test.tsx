@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, cleanup, render, screen } from '@testing-library/react';
 vi.mock('../../app/(admin)/servicos/secretaria/secretary-chat', () => ({
   SecretaryChat: ({ voiceEnabled }: { voiceEnabled?: boolean }) => <div>
     <textarea aria-label="Mensagem" />
@@ -15,6 +14,8 @@ import { SecretaryDock } from '../../app/(admin)/servicos/secretaria/secretary-d
 function viewport(desktop: boolean) {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: desktop, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
 }
+/** The menu item and the phone's tab open her with this event (there is no floating button). */
+const openSecretary = () => act(() => { window.dispatchEvent(new Event('everflair:secretary-open')); });
 let shell: HTMLDivElement;
 beforeEach(() => { shell = document.createElement('div'); shell.className = 'admin-shell'; document.body.append(shell); });
 afterEach(() => { cleanup(); shell.remove(); vi.unstubAllGlobals(); });
@@ -22,9 +23,8 @@ afterEach(() => { cleanup(); shell.remove(); vi.unstubAllGlobals(); });
 describe('focus when the Secretária opens', () => {
   it.each([[false, true, 'Falar com a Secretária'], [true, true, 'Mensagem'], [false, false, 'Mensagem']])('desktop=%s, voice=%s: %s takes the focus', async (desktop, voice, focused) => {
     viewport(desktop);
-    const user = userEvent.setup();
     render(<SecretaryDock voiceEnabled={voice} />);
-    await user.click(screen.getByRole('button', { name: 'Abrir Secretária' }));
+    openSecretary();
     expect(screen.getByLabelText(focused)).toHaveFocus();
   });
 });

@@ -1,37 +1,64 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import { Mic, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { SecretaryChat } from './secretary-chat';
+import { openSecretary } from '../../secretary-open';
 import './secretary-mobile.css';
+
+/** Where the panel sits (prototype v6 approved by the owner, 08/10/2026). From 1216 px it stays BESIDE the content, which
+ * shrinks (nothing is covered); from 1024 px (the computer's menu) it opens ON TOP of the content behind a veil; below that, on
+ * the phone and tablet shell, it takes the whole screen. The menu item and the phone's tab open it with the
+ * `everflair:secretary-open` event (there is no floating button). */
+type Mode = 'side' | 'over' | 'full';
+const SIDE_QUERY = '(min-width: 1216px)', OVER_QUERY = '(min-width: 1024px)';
+const OPEN_EVENT = 'everflair:secretary-open';
+/** The panel is loaded after the page: a request made before it is there is kept on the root (an opener may set this mark
+ * before dispatching the event) and honoured when the panel mounts. */
+const REQUEST_MARK = 'data-secretary-requested';
+/** Recording or counting down a spoken "confirma": the veil and Esc do not close her (closing would drop the dictation). */
+const holds = (panel: HTMLElement | null) => Boolean(panel?.querySelector('[data-sec-hold="true"]'));
 
 export function SecretaryDock({ voiceEnabled, voiceCorrection = false, transcribeEnabled = false, feedbackEnabled = false, flowEnabled = false }: { voiceEnabled: boolean; voiceCorrection?: boolean; transcribeEnabled?: boolean; feedbackEnabled?: boolean; flowEnabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const [visited, setVisited] = useState(false);
-  const [desktop, setDesktop] = useState(false);
+  const [mode, setMode] = useState<Mode>('full');
+  /** Beside the content the panel starts where the content starts (below a top bar that is not part of it). */
+  const [top, setTop] = useState(0);
   const content = useRef<HTMLDivElement>(null);
+  /** What had the focus when she was opened (the menu item, the tab): it gets it back when she closes. */
+  const opener = useRef<HTMLElement | null>(null);
+  const isOpen = useRef(open);
+  isOpen.current = open;
   /** Owner 06/10 (mobile): with the virtual keyboard open the home-indicator inset is covered, so the composer drops it (iOS reports
    * the keyboard only in the visual viewport, which becomes shorter than the layout viewport). */
   const [keyboard, setKeyboard] = useState(false);
-  /** The composer takes the focus; on the phone sheet with voice, the microphone does, so the keyboard does not open over
-   * the conversation. */
+  /** The composer takes the focus; on the phone with voice, the microphone does, so the keyboard does not open over the
+   * conversation. */
   const focusComposer = useCallback(() => {
-    const mic = !desktop && voiceEnabled ? content.current?.querySelector<HTMLElement>('[data-secretary-mic]') : undefined;
+    const mic = mode === 'full' && voiceEnabled ? content.current?.querySelector<HTMLElement>('[data-secretary-mic]') : undefined;
     (mic ?? content.current?.querySelector<HTMLElement>('textarea'))?.focus();
-  }, [desktop, voiceEnabled]);
+  }, [mode, voiceEnabled]);
+  const focusLatest = useRef(focusComposer);
+  focusLatest.current = focusComposer;
+
   useEffect(() => {
-    if (!open) return;
-    // Reopening (the content stays mounted). The first opening mounts the portal later: onOpenAutoFocus below focuses it.
-    focusComposer();
-    if (desktop) return;
-    // Keep the conversation mounted across viewport changes; only the surrounding
-    // product becomes inert while the mobile sheet is open.
-    const shell = document.querySelector<HTMLElement>('.admin-shell');
-    const wasInert = shell?.inert ?? false;
-    if (shell) shell.inert = true;
-    return () => { if (shell) shell.inert = wasInert; };
-  }, [open, desktop, focusComposer]);
+    const queries = typeof window.matchMedia === 'function' ? [window.matchMedia(SIDE_QUERY), window.matchMedia(OVER_QUERY)] : [];
+    const update = () => setMode(queries[0]?.matches ? 'side' : queries[1]?.matches ? 'over' : 'full');
+    update(); queries.forEach(query => query.addEventListener?.('change', update));
+    const show = () => {
+      document.documentElement.removeAttribute(REQUEST_MARK);
+      if (isOpen.current) { focusLatest.current(); return; }
+      const active = document.activeElement;
+      opener.current = active instanceof HTMLElement && active !== document.body && !content.current?.contains(active) ? active : null;
+      setVisited(true); setOpen(true);
+    };
+    window.addEventListener(OPEN_EVENT, show);
+    if (document.documentElement.hasAttribute(REQUEST_MARK)) show();
+    return () => { queries.forEach(query => query.removeEventListener?.('change', update)); window.removeEventListener(OPEN_EVENT, show); };
+  }, []);
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
@@ -39,46 +66,92 @@ export function SecretaryDock({ voiceEnabled, voiceCorrection = false, transcrib
     update(); viewport.addEventListener('resize', update);
     return () => viewport.removeEventListener('resize', update);
   }, []);
+  // The root says where she is (secretary-mobile.css reserves her width beside the content). On top of the content (veil, full
+  // screen) the rest of the app becomes inert. Declared before the focus effect: closing restores the app first, then the focus.
   useEffect(() => {
-    const media = window.matchMedia('(min-width: 1280px)');
-    const update = () => setDesktop(media.matches); update(); media.addEventListener('change', update);
-    const show = () => { setVisited(true); setOpen(true); };
-    window.addEventListener('everflair:secretary-open', show);
-    return () => { media.removeEventListener('change', update); window.removeEventListener('everflair:secretary-open', show); };
-  }, []);
-  return <>
-    {open && desktop && <div aria-hidden="true" className="w-[400px] shrink-0 print:hidden" />}
-    <Dialog.Root open={open} onOpenChange={value => { if (value) setVisited(true); setOpen(value); }} modal={false}>
-      {/* Owner 06/10 (mobile): on a phone the page's own create button (agenda "+", Novo cliente, Novo serviço) sits at the bottom right above the
-       bottom bar; the Secretary stacks above it there, and returns to 5rem from lg up, where those buttons move into the page header. */}
-      <Dialog.Trigger asChild><Button aria-label="Abrir Secretária" className="fixed bottom-[calc(9rem+var(--safe-bottom,0px))] right-4 z-40 min-h-12 rounded-full px-4 shadow-lg print:hidden lg:bottom-[calc(5rem+var(--safe-bottom,0px))]"><Mic aria-hidden="true" className="mr-2 h-5 w-5" />Secretária</Button></Dialog.Trigger>
-      {visited && <Dialog.Portal forceMount>
-        <Dialog.Content ref={content} forceMount aria-modal={open && !desktop ? true : undefined} onInteractOutside={event => event.preventDefault()} onOpenAutoFocus={event => { event.preventDefault(); if (open) focusComposer(); }}
-          onKeyDown={event => {
-            if (desktop || event.key !== 'Tab') return;
-            const items = Array.from(content.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], textarea:not(:disabled), [tabindex="0"]') ?? []).filter(item => item.getClientRects().length);
-            const first = items[0], last = items.at(-1);
-            if (event.shiftKey && (document.activeElement === first || !content.current?.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
-            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-          }}
-          aria-describedby="secretary-description" className={open ? 'fixed z-50 flex min-h-0 flex-col border-l border-border bg-card text-foreground shadow-xl focus:outline-none print:hidden' : 'hidden'}
-          style={desktop ? { right: 'var(--safe-right, 0px)', top: 'var(--safe-top, 0px)', bottom: 'var(--safe-bottom, 0px)', width: 400 }
-            : { left: 'var(--app-viewport-left, 0px)', top: 'var(--app-viewport-top, 0px)', width: 'var(--app-viewport-width, 100vw)', height: 'var(--app-viewport-height, 100dvh)', paddingTop: 'var(--safe-top, 0px)',
-              // Landscape phones: keep the text out from under the notch and the rounded corners.
-              paddingLeft: 'var(--safe-left, 0px)', paddingRight: 'var(--safe-right, 0px)', ['--sec-bottom-inset' as string]: keyboard ? '0px' : 'var(--safe-bottom, 0px)' }}>
-          <header className="sec-header shrink-0">
-            <div className="sec-head-text"><Dialog.Title className="font-semibold">Secretária</Dialog.Title><Dialog.Description id="secretary-description" className="text-xs text-muted-foreground">Você pede. Revisa. Confirma.</Dialog.Description></div>
-            <Dialog.Close asChild><Button size="icon" variant="ghost" aria-label="Fechar Secretária"><X aria-hidden="true" className="h-5 w-5" /></Button></Dialog.Close>
-          </header>
-          {/* Following a link out of the chat closes the dock (the conversation stays mounted): on mobile an open
-              dock keeps the rest of the app inert, so the destination would be unusable. */}
-          <div className="min-h-0 flex-1"><SecretaryChat voiceEnabled={voiceEnabled} voiceCorrection={voiceCorrection} transcribeEnabled={transcribeEnabled} feedbackEnabled={feedbackEnabled} flowEnabled={flowEnabled} active={open} onNavigate={() => setOpen(false)} /></div>
-        </Dialog.Content>
-      </Dialog.Portal>}
-    </Dialog.Root>
-  </>;
+    if (!open) return;
+    const root = document.documentElement;
+    root.setAttribute('data-secretary-open', mode);
+    // Only the content (and the phone's tab bar) becomes inert: the toast area stays live, so confirmations are announced.
+    const covered = mode === 'side' ? [] : [document.getElementById('main-content'), mode === 'full' ? document.querySelector<HTMLElement>('.app-tabbar') : null]
+      .filter((element): element is HTMLElement => Boolean(element));
+    const before = covered.map(element => element.inert);
+    covered.forEach(element => { element.inert = true; });
+    return () => { root.removeAttribute('data-secretary-open'); covered.forEach((element, index) => { element.inert = before[index] ?? false; }); };
+  }, [open, mode]);
+  // Opening focuses the message box (the content stays mounted between openings); closing gives the focus back to what opened
+  // her, or to the content when that is gone. A focus the owner already moved elsewhere is left alone.
+  useEffect(() => {
+    if (!open) return;
+    const panel = content.current;
+    focusLatest.current();
+    return () => {
+      const active = document.activeElement;
+      if (active && active !== document.body && !panel?.contains(active)) return;
+      const back = opener.current;
+      opener.current = null;
+      if (back?.isConnected) back.focus({ preventScroll: true });
+      if (!back || document.activeElement !== back) document.getElementById('main-content')?.focus({ preventScroll: true });
+    };
+  }, [open]);
+  useEffect(() => {
+    if (!open || mode !== 'side') return;
+    const measure = () => setTop(Math.max(0, document.getElementById('main-content')?.getBoundingClientRect().top ?? 0));
+    measure(); window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [open, mode]);
+  // Esc closes her. Beside the content only with the focus in the panel (an Esc used on the screen is the screen's); never while
+  // the decision window is open (Esc closes that window) or while recording or counting down. Whatever handled the key first
+  // (a dialog of the page, the recording) wins.
+  useEffect(() => {
+    if (!open) return;
+    let decision: Event | undefined;
+    const early = (event: KeyboardEvent) => { if (event.key === 'Escape' && content.current?.querySelector('[data-sec-decision="true"]')) decision = event; };
+    const late = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event === decision || holds(content.current)) return;
+      if (mode === 'side' && !content.current?.contains(document.activeElement)) return;
+      event.preventDefault(); setOpen(false);
+    };
+    window.addEventListener('keydown', early, true); window.addEventListener('keydown', late);
+    return () => { window.removeEventListener('keydown', early, true); window.removeEventListener('keydown', late); };
+  }, [open, mode]);
+  /** On top of the content the Tab key cycles inside the panel. */
+  function trapTab(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (mode === 'side' || event.key !== 'Tab') return;
+    const items = Array.from(content.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], textarea:not(:disabled), input:not(:disabled), [tabindex="0"]') ?? []).filter(item => item.getClientRects().length);
+    const first = items[0], last = items.at(-1);
+    if (event.shiftKey && (document.activeElement === first || !content.current?.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  }
+
+  const place = mode === 'full'
+    ? { left: 'var(--app-viewport-left, 0px)', top: 'var(--app-viewport-top, 0px)', width: 'var(--app-viewport-width, 100vw)', height: 'var(--app-viewport-height, 100dvh)', paddingTop: 'var(--safe-top, 0px)',
+      // Landscape phones: keep the text out from under the notch and the rounded corners.
+      paddingLeft: 'var(--safe-left, 0px)', paddingRight: 'var(--safe-right, 0px)', ['--sec-bottom-inset' as string]: keyboard ? '0px' : 'var(--safe-bottom, 0px)' }
+    : { right: 'var(--safe-right, 0px)', top: mode === 'side' ? `max(${top}px, var(--safe-top, 0px))` : 'var(--safe-top, 0px)', bottom: 'var(--safe-bottom, 0px)' };
+  return visited ? createPortal(<>
+    {open && mode === 'over' && <div aria-hidden="true" className="sec-scrim fixed inset-0 z-40 bg-black/50 print:hidden" onClick={() => { if (!holds(content.current)) setOpen(false); }} />}
+    <div ref={content} role="dialog" aria-modal={open && mode !== 'side' ? true : undefined} aria-labelledby="secretary-title" aria-describedby="secretary-description"
+      data-state={open ? 'open' : 'closed'} data-sec-mode={mode} tabIndex={-1} onKeyDown={trapTab} style={place}
+      className={open ? cn('sec-panel fixed z-50 flex min-h-0 flex-col bg-background text-foreground focus:outline-none print:hidden',
+        mode !== 'full' && 'w-[400px] max-w-full border-l border-border-strong motion-safe:animate-in motion-safe:slide-in-from-right-8 motion-safe:fade-in-0',
+        mode === 'over' && 'shadow-[-24px_0_60px_rgb(0_0_0/0.35)]') : 'hidden'}>
+      <header className="sec-header">
+        <span aria-hidden="true" className="sec-mark"><Sparkles className="h-5 w-5" /></span>
+        <div className="sec-head-text min-w-0 flex-1">
+          <h2 id="secretary-title" className="text-base font-semibold leading-tight">Secretária</h2>
+          <p id="secretary-description" className="text-xs text-muted-foreground">Você pede. Revisa. Confirma.</p>
+        </div>
+        <Button size="icon" variant="outline" aria-label="Fechar Secretária" className="shrink-0 max-lg:rounded-full" onClick={() => setOpen(false)}><X aria-hidden="true" className="h-5 w-5 lg:h-4 lg:w-4" /></Button>
+      </header>
+      {/* Following a link out of the chat closes the panel (the conversation stays mounted): on top of the content the rest of
+          the app is inert while she is open, so the destination would be unusable. */}
+      <div className="min-h-0 flex-1"><SecretaryChat voiceEnabled={voiceEnabled} voiceCorrection={voiceCorrection} transcribeEnabled={transcribeEnabled} feedbackEnabled={feedbackEnabled} flowEnabled={flowEnabled} active={open} onNavigate={() => setOpen(false)} /></div>
+    </div>
+  </>, document.body) : null;
 }
 
+/** The page /servicos/secretaria: opens the same panel. */
 export function SecretaryEntry() {
-  return <Button onClick={() => window.dispatchEvent(new Event('everflair:secretary-open'))}>Abrir Secretária</Button>;
+  return <Button onClick={openSecretary}>Abrir Secretária</Button>;
 }

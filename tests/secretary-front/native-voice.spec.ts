@@ -1,4 +1,5 @@
 import { test, expect, chromium } from '@playwright/test';
+import { openSecretary } from './open-secretary';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 const out=process.env.EXECUTION_E2E_OUTPUT!;
@@ -11,7 +12,7 @@ test('native browser speech input with synthetic Portuguese audio; no send or co
  const page=await context.newPage();
  await page.goto('http://127.0.0.1:3157/login');await page.getByLabel('Email',{exact:true}).fill(fixture.email);await page.getByLabel('Senha',{exact:true}).fill(fixture.password);await page.getByRole('button',{name:'Entrar',exact:true}).click();
  await expect(page).toHaveURL(/\/(pos-login|hoje|dashboard)/,{timeout:60000});
- await page.goto('http://127.0.0.1:3157/servicos');await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();
+ await page.goto('http://127.0.0.1:3157/servicos');await openSecretary(page);
  const panel=page.getByRole('dialog',{name:'Secretária',exact:true});
  await panel.getByRole('button',{name:'Falar com a Secretária'}).click();
  let recognized=false;

@@ -1,4 +1,4 @@
-import { changeAdminTheme } from "./admin-presentation-helpers";
+import { changeAdminTheme, agendaQuickAction } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { formatInTimeZone } from "date-fns-tz";
@@ -48,7 +48,7 @@ test.describe("@database operação diária e expediente", () => {
 
       await page.goto(`/agenda?date=${date}`);
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-      await page.getByRole("menuitem", { name: "Expediente e bloqueios", exact: true }).click();
+      await agendaQuickAction(page, "Expediente e bloqueios").click();
       await page.getByRole("button", { name: "Liberar expediente extra", exact: true }).click();
       const opening = page.getByRole("dialog", { name: "Liberar expediente extra", exact: true });
       await opening.getByLabel("Profissional", { exact: true }).selectOption(professional.id);
@@ -60,7 +60,7 @@ test.describe("@database operação diária e expediente", () => {
       await expect(page.getByRole("dialog", { name: "Expediente e bloqueios" })).not.toBeVisible();
 
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-      await page.getByRole("menuitem", { name: /Novo bloqueio de horário/ }).click();
+      await agendaQuickAction(page, /Novo bloqueio de horário/).click();
       const blocking = page.getByRole("dialog");
       await blocking.getByLabel("Hora de início", { exact: true }).fill(startTime);
       await blocking.getByLabel("Hora de fim", { exact: true }).fill(endTime);
@@ -84,7 +84,7 @@ test.describe("@database operação diária e expediente", () => {
       await expect.poll(() => page.getByRole("button", { name: "Buscar e filtrar agenda", exact: true }).evaluate(el => getComputedStyle(el).color)).toBe(expectedForeground);
       await page.screenshot({ path: test.info().outputPath("agenda-light-desktop.png"), fullPage: true, animations: "disabled" });
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-      await page.getByRole("menuitem", { name: "Selecionar intervalo na grade" }).click();
+      await agendaQuickAction(page, "Selecionar intervalo na grade").click();
       await page.getByRole("button", { name: `Selecionar bloqueio 09:00 com ${professionalName}`, exact: true }).press("Enter");
       await page.getByRole("button", { name: `Selecionar bloqueio 09:30 com ${professionalName}`, exact: true }).press("Enter");
       const selection = page.getByRole("dialog");

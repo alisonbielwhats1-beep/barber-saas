@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSecretary, expectContentReachable } from './open-secretary';
 import { PrismaClient } from '@prisma/client';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -22,25 +23,25 @@ test('real local frontend → authenticated confirmation → PostgreSQL → rece
  await page.getByRole('button',{name:'Entrar',exact:true}).click();
  await expect(page).toHaveURL(/\/(pos-login|hoje|dashboard)/, {timeout:60000});
  await page.goto('/servicos');
- await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();
+ await openSecretary(page);
  const panel=page.getByRole('dialog',{name:'Secretária',exact:true});
  const input=panel.getByRole('textbox',{name:/Mensagem/});
  await expect(panel).toBeVisible();
  await input.fill('Texto preservado ao fechar');
  await panel.getByRole('button',{name:'Fechar Secretária'}).click();
  await expect(panel).toBeHidden();
- await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();
+ await openSecretary(page);
  await expect(input).toHaveValue('Texto preservado ao fechar');
  await page.setViewportSize({width:390,height:844});
  await panel.getByRole('button',{name:'Fechar Secretária'}).click();
  // Catch hidden modal intercepting the product after closing.
- await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click({timeout:5000});
+ await expectContentReachable(page);await openSecretary(page);
  await expect(input).toHaveValue('Texto preservado ao fechar');
  await page.screenshot({path:resolve(out,'mobile-shell.png')});
  await page.keyboard.press('Escape');
  await expect(panel).toBeHidden();
  await page.setViewportSize({width:1440,height:900});
- await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();
+ await openSecretary(page);
  await input.fill('');
  const voiceCapabilities=await page.evaluate(()=>({recognition:'SpeechRecognition' in window||'webkitSpeechRecognition' in window,synthesis:'speechSynthesis' in window,voices:window.speechSynthesis?.getVoices().map(v=>({lang:v.lang,local:v.localService}))}));
  save('native-voice-capabilities',voiceCapabilities);
@@ -65,14 +66,14 @@ test('real local frontend → authenticated confirmation → PostgreSQL → rece
  await expect(serviceRows).toContainText('80,00');await expect(serviceRows).not.toContainText('100,00');
  await observe('service-success',{updates:{Service:{[fixture.serviceId]:['priceCents','updatedAt']}}});
  await page.screenshot({path:resolve(out,'desktop-service-receipt.png')});
- await page.goto('/servicos');await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();
+ await page.goto('/servicos');await openSecretary(page);
  await send('Muda Amanda Souza de amanhã às 10h para 11h.');
  await expect(panel.getByRole('article',{name:/Mudar horário/})).toBeVisible();await observe('appointment-proposal');await confirm();
  const appt=await db.appointment.findUniqueOrThrow({where:{id:fixture.appointmentId}});expect(appt.startAt.toISOString()).toBe(localDateTimeToUtc(`${fixture.date}T11:00`,'America/Sao_Paulo').toISOString());
  await checkScreen('/agenda?date='+fixture.date,/Amanda Souza, Massagem, 11:00/,'agenda');
  await observe('appointment-success',{updates:{Appointment:{[fixture.appointmentId]:['startAt','endAt','updatedAt','version']}},inserts:{AppointmentEvent:1,NotificationOutbox:1}});
  await page.screenshot({path:resolve(out,'desktop-agenda-receipt.png')});
- await page.goto('/servicos');await page.getByRole('button',{name:'Abrir Secretária',exact:true}).click();
+ await page.goto('/servicos');await openSecretary(page);
  await send('Dá baixa em 2 unidades do Shampoo X.');await expect(panel.getByRole('article',{name:/Movimentar estoque/})).toBeVisible();await observe('inventory-proposal');await confirm();
  expect((await db.product.findUniqueOrThrow({where:{id:fixture.productId}})).stock).toBe(8);
  const productsTab=await context.newPage();try{await productsTab.goto('/produtos');await expect(productsTab.getByLabel('Lista de produtos')).toContainText('8',{timeout:5000});}catch{blockedScreens.push({screen:'produtos',reason:'SQLSTATE 42501: Product SELECT columns'});}finally{await productsTab.screenshot({path:resolve(out,'produtos-screen.png')});await productsTab.close();}

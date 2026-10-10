@@ -24,7 +24,7 @@ it("distinguishes loading, failure, retry and successful empty response", async 
   expect(history).toHaveBeenCalledTimes(2);
 });
 it("searches names without accents and phones without requiring matching masks", () => {
-  setup(); const search = screen.getByRole("textbox", { name: "Buscar cliente ou telefone" });
+  setup(); const search = screen.getByRole("searchbox", { name: "Buscar cliente ou telefone" });
   for (const value of ["Joao", "11912345678", "(11) 91234-5678"]) {
     fireEvent.change(search, { target: { value } });
     expect(screen.getByRole("button", { name: "Ver detalhes de João" })).toBeInTheDocument();

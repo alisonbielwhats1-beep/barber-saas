@@ -45,18 +45,16 @@ export function DateNavigator({ date, today, onSelect }: { date: string; today: 
   }
 
   return (
-    <div ref={root} role="region" aria-label="Calendário lateral" className="rounded-xl border border-border bg-card p-3">
-      <div className="mb-2 flex items-center justify-between gap-1">
-        <h2 id={titleId} aria-live="polite" className="text-sm font-semibold capitalize">{format(month, "MMMM yyyy", { locale: ptBR })}</h2>
-        <div className="flex">
-          <button type="button" aria-label="Mês anterior no calendário" onClick={() => browse(-1)} className="grid h-11 w-11 place-items-center rounded-lg hover:bg-card-hover"><ChevronLeft size={16} /></button>
-          <button type="button" aria-label="Próximo mês no calendário" onClick={() => browse(1)} className="grid h-11 w-11 place-items-center rounded-lg hover:bg-card-hover"><ChevronRight size={16} /></button>
-        </div>
+    <div ref={root} role="region" aria-label="Calendário lateral" className="rounded-xl border border-border bg-card p-2.5 [[role=dialog]_&]:border-0 [[role=dialog]_&]:bg-transparent [[role=dialog]_&]:p-0">
+      <div className="mb-1.5 flex items-center justify-between gap-1">
+        <button type="button" aria-label="Mês anterior no calendário" onClick={() => browse(-1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:h-8 xl:w-8 xl:rounded-lg"><ChevronLeft aria-hidden="true" size={16} /></button>
+        <h2 id={titleId} aria-live="polite" className="min-w-0 truncate text-center text-sm font-semibold capitalize">{format(month, "MMMM yyyy", { locale: ptBR })}</h2>
+        <button type="button" aria-label="Próximo mês no calendário" onClick={() => browse(1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:h-8 xl:w-8 xl:rounded-lg"><ChevronRight aria-hidden="true" size={16} /></button>
       </div>
-      <div aria-hidden="true" className="mb-1 grid grid-cols-7 text-center text-xs font-medium text-muted-foreground">
-        {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map(day => <span key={day}>{day}</span>)}
+      <div aria-hidden="true" className="grid grid-cols-7 text-center text-xs text-muted-foreground">
+        {["S", "T", "Q", "Q", "S", "S", "D"].map((day, index) => <span key={index} className="py-1">{day}</span>)}
       </div>
-      <div role="group" aria-labelledby={titleId} className="grid grid-cols-7 gap-y-1">
+      <div role="group" aria-labelledby={titleId} className="grid grid-cols-7 gap-px">
         {days.map(day => {
           const key = dateKey(day);
           const selected = key === date;
@@ -64,17 +62,16 @@ export function DateNavigator({ date, today, onSelect }: { date: string; today: 
             aria-label={format(day, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
             aria-pressed={selected} aria-current={key === today ? "date" : undefined}
             onKeyDown={event => keyboard(event, day)} onClick={() => onSelect(key)}
-            className={`relative grid h-9 min-w-0 place-items-center rounded-lg text-xs tabular-nums transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "bg-[hsl(var(--selection-solid))] font-semibold text-[hsl(var(--selection-on-solid))]" : isSameMonth(day, month) ? "text-foreground hover:bg-[hsl(var(--selection))]" : "text-muted-foreground hover:bg-card-hover"}`}>
+            className={`relative grid h-11 min-w-0 place-items-center rounded-full text-xs tabular-nums transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:h-[26px] ${selected ? "bg-primary font-semibold text-primary-foreground" : `${isSameMonth(day, month) ? "text-foreground" : "text-muted-foreground"} hover:bg-card-hover ${key === today ? "ring-1 ring-inset ring-[hsl(var(--selection-solid))]" : ""}`}`}>
             {format(day, "d")}
-            {key === today && <span aria-hidden="true" className="absolute bottom-1 h-1 w-1 rounded-full bg-current" />}
           </button>;
         })}
       </div>
-      <button type="button" onClick={() => onSelect(today)} className="mt-3 min-h-11 w-full rounded-lg border border-border text-xs font-medium hover:bg-card-hover">Voltar para hoje</button>
-      <div className="mt-4 border-t border-border pt-3">
-        <p className="mb-2 text-xs font-medium">Pular semanas</p>
+      <button type="button" onClick={() => onSelect(today)} className="mt-1 min-h-11 w-full rounded-lg px-2 text-xs font-semibold text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:min-h-[30px]">Voltar para hoje</button>
+      <div className="mt-2 border-t border-border pt-2">
+        <p className="mb-1.5 text-xs font-semibold">Pular semanas</p>
         <div className="grid grid-cols-3 gap-1">
-          {[1, 2, 3, -1, -2, -3].map(offset => <button key={offset} type="button" aria-label={`${offset > 0 ? "Avançar" : "Voltar"} ${Math.abs(offset)} ${Math.abs(offset) === 1 ? "semana" : "semanas"}`} onClick={() => onSelect(dateKey(addDays(civilDate(date), offset * 7)))} className="min-h-11 rounded-lg bg-surface-1 text-xs tabular-nums hover:bg-[hsl(var(--selection))]">{offset > 0 ? "+" : ""}{offset}</button>)}
+          {[1, 2, 3, -1, -2, -3].map(offset => <button key={offset} type="button" aria-label={`${offset > 0 ? "Avançar" : "Voltar"} ${Math.abs(offset)} ${Math.abs(offset) === 1 ? "semana" : "semanas"}`} onClick={() => onSelect(dateKey(addDays(civilDate(date), offset * 7)))} className="min-h-11 rounded-lg text-xs font-medium tabular-nums text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7">{offset > 0 ? "+" : ""}{offset}</button>)}
         </div>
       </div>
     </div>

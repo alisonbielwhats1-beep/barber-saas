@@ -3,6 +3,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DialogMobileSheetDefault } from "@/components/ui/dialog";
 import { CommandPalette, OpenCommandPaletteButton } from "./command-palette";
 import { MobileNav } from "./mobile-nav";
 
@@ -73,6 +74,20 @@ describe("CommandPalette", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(trigger).toHaveFocus();
+  });
+
+  it("a busca nunca vira folha inferior: dentro do painel (padrão de folha ligado) mantém a janela de produção", async () => {
+    const user = userEvent.setup();
+    render(
+      <DialogMobileSheetDefault>
+        <OpenCommandPaletteButton />
+        <CommandPalette role="OWNER" />
+      </DialogMobileSheetDefault>,
+    );
+    await user.click(screen.getByRole("button", { name: /buscar/i }));
+    const dialog = screen.getByRole("dialog", { name: "Navegação rápida" });
+    expect(dialog).not.toHaveAttribute("data-mobile-sheet");
+    expect(dialog.querySelector("[data-sheet-grabber]")).toBeNull();
   });
 
   it("abre pelo atalho e navega com setas e Enter sem quebrar Ctrl+K", async () => {

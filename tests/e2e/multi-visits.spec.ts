@@ -1,3 +1,4 @@
+import { agendaQuickAction } from "./admin-presentation-helpers";
 import { expect, test, type Page } from "@playwright/test";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -227,7 +228,7 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
     await page
       .getByRole("button", { name: "Abrir ações rápidas da agenda" })
       .click();
-    await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
+    await agendaQuickAction(page, /Novo agendamento/).click();
     const simple = page.getByRole("dialog");
     await simple.getByLabel("Pesquisar cliente").fill(client.name);
     await simple.getByRole("button").filter({hasText:client.name}).click();
@@ -355,7 +356,7 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
     await page
       .getByRole("button", { name: "Abrir ações rápidas da agenda" })
       .click();
-    await page.getByRole("menuitem", { name: /folga/i }).click();
+    await agendaQuickAction(page, /folga/i).click();
     const block = page.getByRole("dialog", {
       name: "Adicionar folga",
     });

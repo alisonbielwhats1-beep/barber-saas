@@ -2,8 +2,10 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mic, Square, Send, Volume2, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Mic, Square, Send, Volume2, CheckCircle2, AlertCircle, X, Plus, ThumbsUp, ThumbsDown, Hourglass, Pencil, ChevronRight, Sparkles, Scissors, UserPlus, UserPen, UserSearch, User,
+  CalendarPlus, CalendarClock, CalendarX, CalendarDays, Clock, Ban, Package, Wallet, MessageSquare, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { SecretaryView } from '@/lib/salon-secretary';
 import type { ConfirmationGroup, PlanAction } from '@everflair/salon-secretary';
 import { acceptDictationSuggestion, actionDetails, actionSubject, actionTitle, candidatesOf, confirmationLabel, destinationFor, hasReceipt, humanMessage, legacyConfirmLabel,
@@ -24,6 +26,17 @@ import { VOICE_CONFIRM_DELAY_MS, voiceConfirmIntent } from '@/lib/secretary-voic
  * cards; only the newest turn's plan is live (rendered below the conversation). */
 type Turn = { id: number; user?: string; reply?: string; plan?: string; summary?: { label: string; items: string[]; final?: true } };
 const count = (n: number) => `${n} ${n === 1 ? 'ação' : 'ações'}`;
+/** Prototype v6 (08/10/2026): each card carries the pictogram of what it does. Presentation only. */
+const operationIcons: Record<string, LucideIcon> = {
+  'service.create': Scissors, 'service.change': Scissors, 'customer.create': UserPlus, 'customer.change': UserPen, 'customer.search': UserSearch,
+  'customer.read': User, 'appointment.create': CalendarPlus, 'appointment.change': CalendarClock, 'appointment.cancel': CalendarX,
+  'appointment.list': CalendarDays, 'appointment.read': CalendarDays, 'availability.get': Clock, 'schedule.block': Ban, 'stock.movement': Package,
+  'stock.balance': Package, 'product.search': Package, 'financial.report': Wallet, 'customer.message': MessageSquare,
+};
+/** Text buttons of the panel (prototype "btn-text"): the words line up with the blocks; the touch area stays 44 px on the phone. */
+const textButton = 'h-auto min-h-11 px-2 font-semibold lg:min-h-8';
+/** A link out of the conversation, like the prototype's ghost button with a chevron. */
+const outLink = 'inline-flex min-h-11 items-center gap-1 rounded-[10px] text-sm font-semibold text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-8';
 /** Owner feedback limits (the server re-validates): the conversation text entries and each entry's length. */
 const FEEDBACK_ENTRIES = 80, FEEDBACK_TEXT = 2000;
 
@@ -340,14 +353,14 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     const exception = slots.filter(slot => slot.kind === 'exception'), times = slots.filter(slot => slot.kind !== 'exception');
     return <>
       {!!candidatesOf(view).length && <div aria-label="Opções encontradas" className="flex flex-col gap-2">
-        {candidatesOf(view).map((candidate, index) => <Button key={candidate.id} variant={proposed && index === 0 ? 'default' : 'outline'} disabled={Boolean(busy || uncertain)} className="h-auto min-h-11 justify-start whitespace-normal text-left" onClick={() => select(view, candidate.id, operation)}>{`${index + 1}. ${candidate.label}`}</Button>)}
+        {candidatesOf(view).map((candidate, index) => <Button key={candidate.id} variant={proposed && index === 0 ? 'default' : 'outline'} disabled={Boolean(busy || uncertain)} className="h-auto justify-start whitespace-normal py-2 text-left font-medium" onClick={() => select(view, candidate.id, operation)}>{`${index + 1}. ${candidate.label}`}</Button>)}
       </div>}
-      {!!times.length && <div aria-label="Horários disponíveis" className="flex flex-col gap-2">
-        {times.map((slot, index) => <Button key={slot.option_id} variant="outline" disabled={Boolean(busy || uncertain)} className="h-auto min-h-11 justify-start whitespace-normal text-left" onClick={() => pickSlot(slot.option_id, operation!)}>{`${index + 1}. ${slot.label}`}</Button>)}
+      {!!times.length && <div aria-label="Horários disponíveis" className="flex flex-wrap gap-2">
+        {times.map((slot, index) => <Button key={slot.option_id} variant="outline" disabled={Boolean(busy || uncertain)} className="h-auto min-w-[5.5rem] flex-auto justify-start whitespace-normal py-2 text-left font-medium tabular-nums" onClick={() => pickSlot(slot.option_id, operation!)}>{`${index + 1}. ${slot.label}`}</Button>)}
       </div>}
       {/* 05/10: the schedule exception itself, apart and never focused on its own (Enter never authorizes it); Confirmar still follows. */}
       {!!exception.length && <div aria-label="Exceção de horário" className="flex flex-col gap-2">
-        {exception.map(slot => <Button key={slot.option_id} variant="outline" disabled={Boolean(busy || uncertain)} className="h-auto min-h-11 justify-start whitespace-normal border-amber-500 text-left text-amber-700 dark:text-amber-300" onClick={() => pickSlot(slot.option_id, operation!)}>{slot.label}</Button>)}
+        {exception.map(slot => <Button key={slot.option_id} variant="outline" disabled={Boolean(busy || uncertain)} className="h-auto justify-center whitespace-normal border-warning/40 bg-warning/15 py-2 text-center text-warning hover:bg-warning/20" onClick={() => pickSlot(slot.option_id, operation!)}>{slot.label}</Button>)}
       </div>}
     </>;
   }
@@ -356,10 +369,10 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     const inWindow = decisionOpen && decisions.some(decision => (decision.operation ?? '') === (operation ?? ''));
     const slots = operation ? view.options ?? [] : [];
     return <>
-      {inWindow ? <p className="text-[13px] text-muted-foreground">Escolha na janela de decisão aberta.</p> : choiceButtons(view, operation)}
-      {reviewOf(view) && reviewHeading(reviewOf(view)!.status, copyV2) && <div className="border-l-2 border-amber-500 pl-3 text-sm">
-        <strong>{reviewHeading(reviewOf(view)!.status, copyV2)}</strong>
-        <p>{humanMessage(reviewOf(view)!.message)}</p>
+      {inWindow ? <p className="text-xs text-muted-foreground">Escolha na janela de decisão aberta.</p> : choiceButtons(view, operation)}
+      {reviewOf(view) && reviewHeading(reviewOf(view)!.status, copyV2) && <div className="space-y-0.5 border-l-2 border-warning pl-2.5 text-sm">
+        <strong className="font-semibold">{reviewHeading(reviewOf(view)!.status, copyV2)}</strong>
+        <p className="text-muted-foreground">{humanMessage(reviewOf(view)!.message)}</p>
         {reviewOf(view)!.alternatives.length > 0 && !slots.length && <p>Alternativas disponíveis: {reviewOf(view)!.alternatives.map(slot => formatLocal(slot.startLocal, state?.today)).join(', ')}.</p>}
       </div>}
     </>;
@@ -501,37 +514,56 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       group.action_keys.some(key => { const other = planAction(key); return key !== action.key && other.status !== 'DONE' && other.status !== 'READY_FOR_CONFIRMATION' && !(!other.mutation && other.status === 'READY'); }));
     // B7: named as the salon registered the subject once resolved ("Fábio Santos"), else with the owner's words.
     const subject = actionSubject(action, state);
-    return <article key={action.key} aria-label={actionTitle(action, state)} className="rounded-xl border border-border bg-surface-1 p-3 space-y-2">
-      <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-semibold">{operationLabels[action.operation] ?? 'Ação'}{subject && <span className="mt-0.5 block font-normal">{subject}</span>}</h3>
-        {success ? <CheckCircle2 aria-label="Concluído" className="h-5 w-5 shrink-0 text-emerald-500" /> : failure ? <AlertCircle aria-label="Revisão necessária" className="h-5 w-5 shrink-0 text-amber-500" /> : null}</div>
-      <p className="text-[13px] font-medium">{success ? 'Concluído' : action.status === 'DONE' ? 'Aguardando comprovante' : expiredKeys.has(action.key) ? 'Proposta expirada' : review ? 'Precisa ser revista' : waitsForGroup ? 'Pronta — será confirmada junto com as demais' : statusLabels[action.status]}</p>
-      {details && !repeated && <ActionSummary text={details} />}
-      {!!action.depends_on.length && <p className="text-[13px] text-muted-foreground">Depende de: {action.depends_on.map(key => {
-        const dependency = state!.action_plan!.actions.find(item => item.key === key)!;
-        return `${operationLabels[dependency.operation] ?? 'ação anterior'} ${actionSubject(dependency, state)}`;
-      }).join('; ')}.</p>}
-      {view && child && !success && !closed && <>{asked?.options?.length && asked.attempt >= 2 ? <p className="text-[13px] text-muted-foreground">Se preferir, toque em uma das opções abaixo.</p> : null}
-        {options(view, child.operation_ref)}
-        <Button size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={() => { setOperationRef(child.operation_ref); setDirty(true); input.current?.focus(); }}>Alterar / responder a esta ação</Button></>}
-      {action.status !== 'DONE' && !closed && !state?.cancelled && (() => {
-        // Withdraws only this action from the current plan; nothing is executed. Actions linked to it (same
-        // operation card, or depending on it) would go too: they are named and confirmed first (review 2b).
-        const linked = state ? linkedDiscard(state, action.key) : [];
-        const discard = (withLinked: boolean) => {
-          if (!state?.action_plan) return;
-          const target = { plan_ref: state.action_plan.plan_ref, action_key: action.key, ...(withLinked && linked.length ? { linked } : {}) };
-          setDiscardAsk(undefined);
-          if (child && operationRef === child.operation_ref) setOperationRef(undefined);
-          void act(() => discardSecretaryAction(state.sessionId, target), 'thinking', true);
-        };
-        if (discardAsk === action.key && linked.length) return <div role="group" aria-label="Confirmar descarte" className="space-y-2 rounded-lg border border-border p-2">
+    const statusText = success ? 'Concluído' : action.status === 'DONE' ? 'Aguardando comprovante' : expiredKeys.has(action.key) ? 'Proposta expirada' : review ? 'Precisa ser revista' : waitsForGroup ? 'Pronta — será confirmada junto com as demais' : statusLabels[action.status];
+    // The dot beside the status (never the only sign: the words say it): green done, red not done or expired, neutral discarded,
+    // amber for everything still waiting for the owner.
+    const dot = success ? 'bg-success' : failure || expiredKeys.has(action.key) ? 'bg-danger' : action.status === 'DISCARDED' ? 'bg-muted-foreground' : 'bg-warning';
+    const Icon = success ? CheckCircle2 : operationIcons[action.operation] ?? Sparkles;
+    const answerable = Boolean(view && child && !success && !closed);
+    const discardable = action.status !== 'DONE' && !closed && !state?.cancelled;
+    // Withdraws only this action from the current plan; nothing is executed. Actions linked to it (same
+    // operation card, or depending on it) would go too: they are named and confirmed first (review 2b).
+    const linked = discardable && state ? linkedDiscard(state, action.key) : [];
+    const discard = (withLinked: boolean) => {
+      if (!state?.action_plan) return;
+      const target = { plan_ref: state.action_plan.plan_ref, action_key: action.key, ...(withLinked && linked.length ? { linked } : {}) };
+      setDiscardAsk(undefined);
+      if (child && operationRef === child.operation_ref) setOperationRef(undefined);
+      void act(() => discardSecretaryAction(state.sessionId, target), 'thinking', true);
+    };
+    const asking = discardable && discardAsk === action.key && linked.length > 0;
+    return <article key={action.key} aria-label={actionTitle(action, state)} className="overflow-hidden rounded-[14px] border border-border bg-card">
+      <div className="flex items-start gap-2.5 px-3.5 pb-2.5 pt-3.5 lg:px-4 lg:pb-3 lg:pt-4">
+        <span aria-hidden="true" className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-[10px]', success ? 'bg-success/15 text-success' : 'bg-muted text-foreground')}><Icon className="h-4 w-4" /></span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold leading-snug">{operationLabels[action.operation] ?? 'Ação'}{subject && <span className="mt-0.5 block font-normal text-muted-foreground">{subject}</span>}</h3>
+          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><span aria-hidden="true" className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} /><span className="min-w-0">{statusText}</span></p>
+        </div>
+        {success ? <CheckCircle2 aria-label="Concluído" className="h-5 w-5 shrink-0 text-success" /> : failure ? <AlertCircle aria-label="Revisão necessária" className="h-5 w-5 shrink-0 text-warning" /> : null}
+      </div>
+      {(Boolean(details && !repeated) || !!action.depends_on.length || answerable) && <div className="space-y-2 px-3.5 pb-3.5 text-sm lg:px-4 lg:pb-4">
+        {details && !repeated && <ActionSummary text={details} />}
+        {!!action.depends_on.length && <p className="text-xs text-muted-foreground">Depende de: {action.depends_on.map(key => {
+          const dependency = state!.action_plan!.actions.find(item => item.key === key)!;
+          return `${operationLabels[dependency.operation] ?? 'ação anterior'} ${actionSubject(dependency, state)}`;
+        }).join('; ')}.</p>}
+        {answerable && <>{asked?.options?.length && asked.attempt >= 2 ? <p className="text-xs text-muted-foreground">Se preferir, toque em uma das opções abaixo.</p> : null}
+          {options(view!, child!.operation_ref)}</>}
+      </div>}
+      {(answerable || discardable) && <div className="flex flex-wrap items-center gap-2 border-t border-border px-3.5 py-2.5 lg:px-4">
+        {answerable && <Button size="sm" variant="ghost" className="min-w-0 flex-1" aria-label="Alterar / responder a esta ação" title="Alterar / responder a esta ação" disabled={Boolean(busy || uncertain)} onClick={() => { setOperationRef(child!.operation_ref); setDirty(true); input.current?.focus(); }}><Pencil aria-hidden="true" className="h-4 w-4" />Alterar</Button>}
+        {asking ? <div role="group" aria-label="Confirmar descarte" className="w-full space-y-2">
           <p className="text-sm">Descartar esta ação também descarta: {linked.map(key => actionTitle(planAction(key), state)).join('; ')}. Nada será executado.</p>
           <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={() => discard(true)}>Descartar todas</Button>
-            <Button size="sm" variant="ghost" disabled={Boolean(busy || uncertain)} onClick={() => setDiscardAsk(undefined)}>Manter</Button></div></div>;
-        return <Button size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={() => linked.length ? setDiscardAsk(action.key) : discard(false)}>Descartar esta ação</Button>;
-      })()}
-      {fallback && !closed && !state?.cancelled && <Link className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4" href={fallback.href} onClick={() => onNavigate?.()}>{fallback.label}</Link>}
-      {link && <Link className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4" href={link.href} onClick={() => onNavigate?.()}>{link.label}</Link>}
+            <Button size="sm" variant="ghost" disabled={Boolean(busy || uncertain)} onClick={() => setDiscardAsk(undefined)}>Manter</Button></div></div>
+        : <>
+          {discardable && <Button size="sm" variant="ghost" className="min-w-0 flex-1" aria-label="Descartar esta ação" title="Descartar esta ação" disabled={Boolean(busy || uncertain)} onClick={() => linked.length ? setDiscardAsk(action.key) : discard(false)}><X aria-hidden="true" className="h-4 w-4" />Descartar</Button>}
+        </>}
+      </div>}
+      {((fallback && !closed && !state?.cancelled) || link) && <div className="flex flex-wrap gap-x-4 border-t border-border px-3.5 py-1 lg:px-4">
+        {fallback && !closed && !state?.cancelled && <Link className={outLink} href={fallback.href} onClick={() => onNavigate?.()}>{fallback.label}<ChevronRight aria-hidden="true" className="h-4 w-4" /></Link>}
+        {link && <Link className={outLink} href={link.href} onClick={() => onNavigate?.()}>{link.label}<ChevronRight aria-hidden="true" className="h-4 w-4" /></Link>}
+      </div>}
     </article>;
   }
 
@@ -552,42 +584,49 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   }
   function feedbackControl(turn: Turn, index: number) {
     if (!feedbackEnabled || !state || (index === 0 && turn.user === undefined)) return null;
-    if (rated.includes(turn.id)) return <p className="mt-1 text-[13px] text-muted-foreground">Obrigado. Sua avaliação foi registrada.</p>;
+    if (rated.includes(turn.id)) return <p className="ml-1 text-xs text-muted-foreground">Obrigado. Sua avaliação foi registrada.</p>;
     // Owner decision 06/10/2026: "Boa resposta" next to "Não era isso", both kept for future training (migration 031).
-    if (feedback?.turn !== turn.id) return <div className="mt-1 flex flex-wrap gap-1">
-      <Button type="button" size="sm" variant="ghost" className="min-h-11 px-2 text-[13px]" onClick={() => setFeedback({ turn: turn.id, rating: 'good', comment: '', transcript: false })}>Boa resposta</Button>
-      <Button type="button" size="sm" variant="ghost" className="min-h-11 px-2 text-[13px]" onClick={() => setFeedback({ turn: turn.id, rating: 'bad', comment: '', transcript: false })}>Não era isso</Button></div>;
-    return <form aria-label="Avaliar esta resposta" className="mt-2 space-y-2 rounded-lg border border-border p-2" onSubmit={event => { event.preventDefault(); void submitFeedback(index); }}>
-      <label htmlFor="secretary-feedback" className="block text-[13px] font-medium">{feedback.rating === 'good' ? 'O que ficou bom? (opcional)' : 'O que você esperava? (opcional)'}</label>
+    if (feedback?.turn !== turn.id) return <div className="flex flex-wrap gap-0.5">
+      <Button type="button" size="sm" variant="ghost" className="h-auto min-h-11 gap-1.5 px-2 text-xs font-medium text-muted-foreground lg:min-h-8" onClick={() => setFeedback({ turn: turn.id, rating: 'good', comment: '', transcript: false })}><ThumbsUp aria-hidden="true" className="h-3.5 w-3.5" />Boa resposta</Button>
+      <Button type="button" size="sm" variant="ghost" className="h-auto min-h-11 gap-1.5 px-2 text-xs font-medium text-muted-foreground lg:min-h-8" onClick={() => setFeedback({ turn: turn.id, rating: 'bad', comment: '', transcript: false })}><ThumbsDown aria-hidden="true" className="h-3.5 w-3.5" />Não era isso</Button></div>;
+    return <form aria-label="Avaliar esta resposta" className="w-full space-y-2 rounded-[14px] border border-border bg-card p-2.5" onSubmit={event => { event.preventDefault(); void submitFeedback(index); }}>
+      <label htmlFor="secretary-feedback" className="block text-xs font-medium">{feedback.rating === 'good' ? 'O que ficou bom? (opcional)' : 'O que você esperava? (opcional)'}</label>
       <textarea id="secretary-feedback" rows={2} maxLength={1000} value={feedback.comment} disabled={feedback.sending} onChange={event => setFeedback({ ...feedback, comment: event.target.value })}
-        className="w-full resize-none rounded-lg border border-border bg-background p-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-      <label className="flex min-h-11 items-center gap-3 text-[13px]"><input type="checkbox" className="h-5 w-5 shrink-0" checked={feedback.transcript} disabled={feedback.sending} onChange={event => setFeedback({ ...feedback, transcript: event.target.checked })} />incluir o texto desta conversa para melhorar a Secretária</label>
-      {feedback.error && <p role="alert" className="text-[13px] text-destructive">{feedback.error}</p>}
-      <div className="flex flex-wrap gap-2"><Button type="submit" size="sm" disabled={feedback.sending}>Enviar avaliação</Button>
-        <Button type="button" size="sm" variant="ghost" disabled={feedback.sending} onClick={() => setFeedback(undefined)}>Cancelar</Button></div>
+        className="w-full resize-none rounded-[10px] border border-border-strong bg-background px-2.5 py-2 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:text-sm" />
+      <label className="flex min-h-11 items-center gap-3 text-sm lg:min-h-8"><input type="checkbox" className="h-5 w-5 shrink-0 accent-[hsl(var(--selection-solid))]" checked={feedback.transcript} disabled={feedback.sending} onChange={event => setFeedback({ ...feedback, transcript: event.target.checked })} />incluir o texto desta conversa para melhorar a Secretária</label>
+      {feedback.error && <p role="alert" className="text-xs text-danger">{feedback.error}</p>}
+      <div className="flex flex-wrap items-center gap-2"><Button type="submit" size="sm" variant="outline" disabled={feedback.sending}>Enviar avaliação</Button>
+        <Button type="button" size="sm" variant="ghost" className={textButton} disabled={feedback.sending} onClick={() => setFeedback(undefined)}>Cancelar</Button></div>
     </form>;
   }
 
-  return <section aria-label="Conversa com a Secretária" data-sec-started={turns.length > 0} className="relative flex h-full min-h-0 flex-col">
-    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-1">
-      <Button size="sm" variant="outline" disabled={Boolean(busy || uncertain || recording)} onClick={() => void begin()}>Nova conversa</Button>
-      {credits && <CreditsMeter view={credits.view} className="ml-auto" />}
-      <Button size="sm" variant="ghost" aria-label="Ouvir resposta curta" className="sec-iconbtn" disabled={Boolean(busy || recording || !state)} onClick={() => {
+  return <section aria-label="Conversa com a Secretária" data-sec-started={turns.length > 0} data-sec-decision={decisionOpen && step ? 'true' : undefined}
+    data-sec-hold={recording || countdown ? 'true' : undefined} className="relative flex h-full min-h-0 flex-col">
+    <div className="sec-tools flex shrink-0 items-center gap-2 border-b border-border px-4 pb-2.5">
+      <Button size="sm" variant="outline" className="sec-newconv shrink-0" disabled={Boolean(busy || uncertain || recording)} onClick={() => void begin()}><Plus aria-hidden="true" className="h-4 w-4" /><span className="sec-newlbl">Nova conversa</span></Button>
+      <span className="min-w-0 flex-1" />
+      {credits && <CreditsMeter view={credits.view} />}
+      <Button size="icon" variant="outline" aria-label="Ouvir resposta curta" title="Ouvir resposta curta" className="shrink-0" disabled={Boolean(busy || recording || !state)} onClick={() => {
         const text = closed ? 'Confira o resultado de cada ação na tela.' : hasProposal ? 'Confira as ações na tela antes de confirmar.' : humanMessage(state?.message ?? '');
         if (!speakSecretary(text)) setError('Leitura em voz não disponível para esta resposta ou neste dispositivo. A resposta permanece na tela.');
-      }}><Volume2 className="mr-1 h-4 w-4" aria-hidden="true" /><span className="sec-label">Ouvir</span></Button>
+      }}><Volume2 className="h-4 w-4" aria-hidden="true" /></Button>
     </div>
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-4" aria-busy={Boolean(busy)}>
-      {!turns.length && <div className="py-3"><h2 className="text-lg font-semibold">Como posso ajudar?</h2><p className="mt-2 text-sm text-muted-foreground">Fale ou digite para organizar sua agenda, serviços, clientes e estoque. Você confere tudo antes de confirmar.</p></div>}
+    {credits && credits.view.status !== 'OK' && <div className="shrink-0 px-4 pt-2.5"><CreditsNotice view={credits.view} canRecharge={credits.canRecharge} /></div>}
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4" aria-busy={Boolean(busy)}>
+      {/* Owner decision: no list of examples on the empty screen. */}
+      {!turns.length && <div className="pt-1"><h2 className="text-lg font-semibold tracking-tight">Como posso ajudar?</h2><p className="mt-1.5 text-sm text-muted-foreground">Fale ou digite para organizar sua agenda, serviços, clientes e estoque. Você confere tudo antes de confirmar.</p></div>}
       <div role="log" aria-label="Conversa" aria-live="polite" aria-relevant="additions" className="space-y-3">
         {turns.map((turn, index) => {
           const latest = index === turns.length - 1;
           // Past turns are read-only text: the owner's words, the reply and what the actions looked like then.
-          return <div key={turn.id} className="space-y-3">
-            {turn.user !== undefined && <div className="ml-6 rounded-xl bg-primary/10 p-3"><strong className="text-xs text-muted-foreground">Você</strong><p className="mt-1 whitespace-pre-wrap break-words text-sm">{turn.user}</p></div>}
-            {turn.reply !== undefined && <div className="pr-2"><strong className="text-xs text-muted-foreground">Secretária</strong><ActionSummary text={turn.reply} className="mt-1" />
+          return <div key={turn.id} className="flex flex-col gap-2">
+            {turn.user !== undefined && <div className="max-w-[86%] self-end rounded-[14px] rounded-br-md bg-muted px-3.5 py-2.5"><strong className="sr-only">Você</strong><p className="whitespace-pre-wrap break-words text-sm">{turn.user}</p></div>}
+            {turn.reply !== undefined && <div className="flex max-w-full flex-col items-start gap-1">
+              <div className="max-w-[86%] rounded-[14px] rounded-bl-md border border-border bg-card px-3.5 py-2.5"><strong className="sr-only">Secretária</strong><ActionSummary text={turn.reply} /></div>
               {latest && feedbackControl(turn, index)}</div>}
-            {turn.summary && (!latest || turn.summary.final) && <details className="rounded-lg border border-border px-3 text-sm text-muted-foreground"><summary className="block min-h-11 cursor-pointer py-3">{turn.summary.label}</summary><ul className="mt-2 space-y-1">{turn.summary.items.map((line, lineIndex) => <li key={lineIndex}>{line}</li>)}</ul></details>}
+            {turn.summary && (!latest || turn.summary.final) && <details className="group rounded-[10px] border border-dashed border-border-strong text-xs text-muted-foreground">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 px-2.5 lg:min-h-9 [&::-webkit-details-marker]:hidden"><ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-90" />{turn.summary.label}</summary>
+              <ul className="space-y-1 pb-2.5 pl-7 pr-3">{turn.summary.items.map((line, lineIndex) => <li key={lineIndex}>{line}</li>)}</ul></details>}
           </div>;
         })}
       </div>
@@ -597,16 +636,16 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
           const several = state.action_plan!.confirmation_groups.length > 1, members = group.action_keys.map(planAction);
           // Per component every group is an independent item: named by its actions, never by position.
           const titles = members.map(action => actionTitle(action, state)).join(' · '), label = confirmationLabel(members, state) || titles;
-          return <section key={group.key} aria-label={perComponent ? titles : `Grupo ${index + 1}`} className="space-y-2">
-          {several && !perComponent && <h2 className="text-sm font-semibold">Grupo {index + 1}</h2>}
+          return <section key={group.key} aria-label={perComponent ? titles : `Grupo ${index + 1}`} className="space-y-2.5">
+          {several && !perComponent && <h2 className="px-0.5 text-sm font-semibold">Grupo {index + 1}</h2>}
           {members.map(action => card(action, group))}
-          {groupOffered(group) && !(decisionOpen && step === 'confirm' && confirmGroup?.key === group.key) && <Button className="w-full min-h-11" variant={readyGroups.length > 1 ? 'outline' : 'default'} disabled={disabled || group.status !== 'READY_FOR_CONFIRMATION'} onClick={() => {
+          {groupOffered(group) && !(decisionOpen && step === 'confirm' && confirmGroup?.key === group.key) && <Button className="h-auto w-full whitespace-normal py-2 leading-snug" variant={readyGroups.length > 1 ? 'outline' : 'default'} disabled={disabled || group.status !== 'READY_FOR_CONFIRMATION'} onClick={() => {
             if (disabled) return;
             const approval = groupApproval(group);
             void act(() => confirmSecretaryGroup(state.sessionId, approval), 'executing');
           }}>Confirmar{several ? perComponent ? ` ${label}` : ` grupo ${index + 1}` : ''}{group.status === 'READY_FOR_CONFIRMATION' ? '' : (() => { const missing = members.filter(action => action.missing_fields.length).length; return missing ? ` (falta ${missing === 1 ? '1 informação' : `${missing} informações`})` : ''; })()}</Button>}
         </section>; })}
-        {readyGroups.length > 1 && <Button className="w-full min-h-11" disabled={disabled} onClick={() => {
+        {readyGroups.length > 1 && <Button className="h-auto w-full whitespace-normal py-2 leading-snug" disabled={disabled} onClick={() => {
           if (disabled) return;
           // One call with every current approval; the backend validates them all before executing any.
           const approvals = readyGroups.map(groupApproval);
@@ -615,40 +654,43 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       </div> : state && (state.skill !== 'auto' || !!state.operations?.length) && <div ref={lastResult} tabIndex={-1} className="space-y-3 focus:outline-none">{(state.operations ?? [{ operation_ref: '', state }]).map(({ operation_ref, state: view }, index) => {
         const proposal = proposalOf(view), receipt = receiptOf(view), done = Boolean(receipt || view.financial?.status === 'DONE' || view.inventory?.status === 'DONE' || view.cancelled);
         const link = receipt ? destinationFor(view) : undefined;
-        return <section key={operation_ref} aria-label={`Operação ${index + 1}`} className="rounded-xl border border-border bg-surface-1 p-3 space-y-2">
-          <h3 className="text-sm font-semibold">{receipt ? 'Resultado confirmado' : proposal ? 'Confira a proposta' : 'Vamos preparar sua ação'}</h3>
+        return <section key={operation_ref} aria-label={`Operação ${index + 1}`} className="space-y-2.5 rounded-[14px] border border-border bg-card p-3.5 text-sm lg:p-4">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">{receipt && <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-success" />}{receipt ? 'Resultado confirmado' : proposal ? 'Confira a proposta' : 'Vamos preparar sua ação'}</h3>
           <ActionSummary text={actionDetails(view)} />
           {!done && !closed && <>{options(view, operation_ref || undefined)}
-            {proposal && <div aria-label="Proposta para confirmação"><Button className="w-full min-h-11" disabled={disabled} onClick={() => {
+            {proposal && <div aria-label="Proposta para confirmação"><Button className="h-auto w-full whitespace-normal py-2 leading-snug" disabled={disabled} onClick={() => {
               if (disabled) return;
               const approval = { proposal_ref: proposal.proposal_ref, draft_revision: proposal.draft_revision };
               void act(() => operation_ref ? confirmSecretaryOperation(state.sessionId, operation_ref, approval) : confirmSecretary(state.sessionId, approval), 'executing');
             }}>{legacyConfirmLabel(view)}</Button></div>}
-            {!!operation_ref && <Button variant="outline" size="sm" disabled={Boolean(busy || uncertain)} onClick={() => { setOperationRef(operation_ref); setDirty(true); input.current?.focus(); }}>Responder a esta operação</Button>}
+            {!!operation_ref && <Button variant="outline" size="sm" disabled={Boolean(busy || uncertain)} onClick={() => { setOperationRef(operation_ref); setDirty(true); input.current?.focus(); }}><Pencil aria-hidden="true" className="h-4 w-4" />Responder a esta operação</Button>}
           </>}
-          {link && <Link className="inline-flex min-h-11 items-center text-sm text-primary underline" href={link.href} onClick={() => onNavigate?.()}>{link.label}</Link>}
+          {link && <Link className={outLink} href={link.href} onClick={() => onNavigate?.()}>{link.label}<ChevronRight aria-hidden="true" className="h-4 w-4" /></Link>}
         </section>;
       })}</div>}
       {state && [state, ...(state.operations?.map(op => op.state) ?? [])].some(view => view.execution_warnings?.length) && <p className="text-sm">A ação foi registrada, mas houve uma falha técnica posterior. Confira o resultado na tela correspondente.</p>}
       {!!state?.confirmation_batch?.not_executed.length && <p className="text-sm">Algumas ações não foram executadas porque mudaram ou expiraram antes da confirmação. Revise-as acima antes de confirmar de novo.</p>}
+      {/* She is preparing the answer (the status below says it in words). */}
+      {busy === 'thinking' && <div aria-hidden="true" className="flex w-fit items-center gap-1 rounded-[14px] rounded-bl-md border border-border bg-card px-3.5 py-3.5">
+        {[0, 1, 2].map(dot => <span key={dot} className="h-1.5 w-1.5 rounded-full bg-muted-foreground motion-safe:animate-pulse" style={{ animationDelay: `${dot * 0.2}s` }} />)}</div>}
       <div ref={threadEnd} aria-hidden="true" />
     </div>
-    {decisionOpen && step && state && <div className="absolute inset-0 z-20 flex items-end justify-center bg-background/70 px-3 pt-3 backdrop-blur-[2px] sm:items-center" style={{ paddingBottom: 'max(.75rem, var(--sec-bottom-inset, var(--safe-bottom, 0px)))' }}
+    {decisionOpen && step && state && <div className="absolute inset-0 z-20 flex items-end justify-center bg-black/50 pt-6 motion-safe:animate-in motion-safe:fade-in-0"
       onClick={event => { if (event.target === event.currentTarget && !countdown) setDecisionOpen(false); }}>
-      <div ref={decisionWindow} role="dialog" aria-modal="false" aria-labelledby="secretary-decision-title" className="sec-sheet flex max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
+      <div ref={decisionWindow} role="dialog" aria-modal="false" aria-labelledby="secretary-decision-title" className="sec-sheet flex max-h-[85%] w-full flex-col overflow-hidden rounded-t-[22px] border-x border-t border-border-strong bg-card shadow-xl motion-safe:animate-in motion-safe:slide-in-from-bottom-6"
         onKeyDown={event => { if (event.key === 'Escape' && !countdown) { event.stopPropagation(); setDecisionOpen(false); } }}>
         {/* Owner 06/10 (mobile): only this part scrolls (short screen, virtual keyboard, landscape); the footer below it never does,
             so Confirmar and the way out are always in reach. */}
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div><p className="text-[13px] font-medium text-muted-foreground">{step === 'choice' ? decisions.length > 1 ? `Decisão 1 de ${decisions.length}` : 'Decisão pendente' : step === 'question' ? 'Falta uma informação' : 'Confira e confirme'}</p>
-            <h2 id="secretary-decision-title" className="text-base font-semibold">{step === 'choice' ? decision!.action ? actionTitle(decision!.action, state) : 'Escolha uma opção'
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4 pt-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0"><p className="text-xs font-medium text-muted-foreground">{step === 'choice' ? decisions.length > 1 ? `Decisão 1 de ${decisions.length}` : 'Decisão pendente' : step === 'question' ? 'Falta uma informação' : 'Confira e confirme'}</p>
+            <h2 id="secretary-decision-title" className="text-base font-semibold leading-snug">{step === 'choice' ? decision!.action ? actionTitle(decision!.action, state) : 'Escolha uma opção'
               : step === 'question' ? actionTitle(questionAction!, state) : confirmMembers.map(action => actionTitle(action, state)).join(' · ')}</h2></div>
-          <Button type="button" size="icon" variant="ghost" className="-mr-2 -mt-2 shrink-0" aria-label="Fechar janela de decisão" disabled={Boolean(countdown)} onClick={() => setDecisionOpen(false)}><X className="h-4 w-4" aria-hidden="true" /></Button>
+          <Button type="button" size="icon" variant="ghost" className="-mr-2 shrink-0" aria-label="Fechar janela de decisão" disabled={Boolean(countdown)} onClick={() => setDecisionOpen(false)}><X className="h-4 w-4" aria-hidden="true" /></Button>
         </div>
         {step === 'choice' && <>
           {(() => { const question = decision!.action ? actionDetails(decision!.view, decision!.action, state.today, released) : actionDetails(decision!.view);
-            return question ? <p className="whitespace-pre-wrap break-words text-sm">{question}</p> : null; })()}
+            return question ? <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{question}</p> : null; })()}
           {choiceButtons(decision!.view, decision!.operation)}
         </>}
         {step === 'question' && (() => {
@@ -659,79 +701,81 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
         })()}
         {step === 'confirm' && <>
           {confirmMembers.map(action => { const child = viewForAction(state, action);
-            return <ActionSummary key={action.key} text={actionDetails(child?.state, action, state.today, released)} className="rounded-lg bg-surface-1 p-3" />; })}
-          {voiceEnabled && !countdown && <p className="text-[13px] text-muted-foreground">{oneToConfirm ? 'Ou diga “confirma”. Para mudar algo, é só falar o que muda.' : 'Para mudar algo, é só falar o que muda.'}</p>}
+            return <ActionSummary key={action.key} text={actionDetails(child?.state, action, state.today, released)} className="rounded-[14px] border border-border bg-background p-3.5" />; })}
+          {voiceEnabled && !countdown && <p className="text-xs text-muted-foreground">{oneToConfirm ? 'Ou diga “confirma”. Para mudar algo, é só falar o que muda.' : 'Para mudar algo, é só falar o que muda.'}</p>}
         </>}
         {flowNote && !countdown && <p role="status" className="text-sm">{flowNote}</p>}
         {step !== 'choice' && !countdown && voiceEnabled && (recording || voice.phase === 'processing') && <div className="flex flex-wrap items-center gap-2">
-          {recording ? <><span role="status" className="text-sm font-medium text-primary">{voice.phase === 'requesting' ? 'Permita o microfone…' : `Ouvindo…${elapsed}`}{message ? ` “${message}”` : ''}</span>
+          {recording ? <><span role="status" className="text-sm font-semibold text-[hsl(var(--selection-foreground))]">{voice.phase === 'requesting' ? 'Permita o microfone…' : `Ouvindo…${elapsed}`}{message ? ` “${message}”` : ''}</span>
             <Button type="button" size="sm" variant="outline" onClick={() => { sendAfterVoice.current = true; if (voice.phase === 'listening') voice.stop(); }}>Pronto</Button></>
             : <span role="status" className="text-sm text-muted-foreground">Transcrevendo…{seconds}</span>}
         </div>}
-        {step !== 'choice' && !countdown && voiceEnabled && transcribeEnabled && recorder.silenced && !recording && <p className="text-[13px] text-muted-foreground">O microfone fechou porque ninguém falou.</p>}
-        {step !== 'choice' && !countdown && <form className="flex items-center gap-2" onSubmit={event => { event.preventDefault(); const text = windowText; void sendText(text).then(sent => { if (sent) setWindowText(''); }); }}>
+        {step !== 'choice' && !countdown && voiceEnabled && transcribeEnabled && recorder.silenced && !recording && <p className="text-xs text-muted-foreground">O microfone fechou porque ninguém falou.</p>}
+        {step !== 'choice' && !countdown && <form className="sec-answer flex items-center gap-2" onSubmit={event => { event.preventDefault(); const text = windowText; void sendText(text).then(sent => { if (sent) setWindowText(''); }); }}>
           <label htmlFor="secretary-window-answer" className="sr-only">Responder digitando</label>
-          <input id="secretary-window-answer" value={windowText} maxLength={1000} disabled={Boolean(busy || uncertain || recording)} onChange={event => setWindowText(event.target.value)}
-            placeholder={step === 'question' ? 'Ou digite: dia 12 às 10h' : 'Ou digite o que muda'} className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-          {voiceEnabled && !recording && voice.phase !== 'processing' && <Button type="button" size="sm" className="sec-iconbtn" disabled={Boolean(busy || uncertain)} onClick={() => { handsFree.current = true; listen(); }}><Mic className="mr-2 h-4 w-4" aria-hidden="true" /><span className="sec-label">{transcribeEnabled && recorder.silenced ? 'Falar de novo' : 'Falar'}</span></Button>}
-          <Button type="submit" variant="outline" className="min-h-11" disabled={Boolean(busy || uncertain || recording || !windowText.trim())} aria-label="Enviar resposta"><Send className="h-4 w-4" aria-hidden="true" /></Button>
+          <input id="secretary-window-answer" value={windowText} maxLength={1000} disabled={Boolean(busy || uncertain || recording)} onChange={event => setWindowText(event.target.value)} autoComplete="off" enterKeyHint="send"
+            placeholder={step === 'question' ? 'Ou digite: dia 12 às 10h' : 'Ou digite o que muda'} className="min-h-11 min-w-0 flex-1 rounded-[10px] border border-border-strong bg-background px-3 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 lg:min-h-10 lg:text-sm" />
+          {voiceEnabled && !recording && voice.phase !== 'processing' && <Button type="button" variant="outline" className="sec-voice shrink-0 lg:min-h-10" disabled={Boolean(busy || uncertain)} onClick={() => { handsFree.current = true; listen(); }}><Mic className="h-4 w-4" aria-hidden="true" /><span>{transcribeEnabled && recorder.silenced ? 'Falar de novo' : 'Falar'}</span></Button>}
+          <Button type="submit" size="icon" variant="outline" className="shrink-0 lg:h-10 lg:w-10" disabled={Boolean(busy || uncertain || recording || !windowText.trim())} aria-label="Enviar resposta"><Send className="h-4 w-4" aria-hidden="true" /></Button>
         </form>}
         </div>
-        <div className="sec-foot flex shrink-0 flex-col gap-2 border-t border-border bg-card p-3">
-          {step === 'confirm' && (countdown ? <div role="status" className="space-y-2 rounded-lg border border-primary/50 p-3">
-            <p className="text-sm font-medium">{flowNote ? `${flowNote} ` : ''}Confirmando em {Math.max(1, Math.ceil((countdown.until - Date.now()) / 1000))} s…</p>
-            <Button type="button" variant="outline" className="w-full min-h-11" onClick={() => { setCountdown(undefined); setFlowNote('Confirmação cancelada. Nada foi gravado.'); }}>Cancelar</Button>
-          </div> : <Button type="button" className="w-full min-h-11" disabled={Boolean(busy || uncertain)} onClick={confirmNow}>Confirmar</Button>)}
-          {!countdown && <div className="flex flex-wrap gap-2">
-            {step === 'choice' && <Button type="button" size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={answerByMessage}>Responder por mensagem</Button>}
+        <div className="sec-foot flex shrink-0 flex-col gap-2 border-t border-border bg-card px-4 pt-2.5" style={{ paddingBottom: 'max(.75rem, var(--sec-bottom-inset, var(--safe-bottom, 0px)))' }}>
+          {step === 'confirm' && (countdown ? <div role="status" className="space-y-2 rounded-[14px] border border-border-strong p-3">
+            <p className="text-sm font-semibold">{flowNote ? `${flowNote} ` : ''}Confirmando em {Math.max(1, Math.ceil((countdown.until - Date.now()) / 1000))} s…</p>
+            <Button type="button" variant="outline" className="w-full lg:min-h-10" onClick={() => { setCountdown(undefined); setFlowNote('Confirmação cancelada. Nada foi gravado.'); }}>Cancelar</Button>
+          </div> : <Button type="button" className="w-full lg:min-h-10" disabled={Boolean(busy || uncertain)} onClick={confirmNow}>Confirmar</Button>)}
+          {!countdown && <div className="-mx-2 flex flex-wrap justify-between gap-x-4">
+            {step === 'choice' && <Button type="button" size="sm" variant="ghost" className={textButton} disabled={Boolean(busy || uncertain)} onClick={answerByMessage}>Responder por mensagem</Button>}
             {step !== 'choice' && (() => { const key = questionAction?.key ?? (oneToConfirm ? confirmMembers[0].key : undefined);
-              return key && !linkedDiscard(state, key).length ? <Button type="button" size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={discardStep}>Descartar pedido</Button> : null; })()}
-            <Button type="button" size="sm" variant="ghost" onClick={() => { voice.cancel(); sendAfterVoice.current = false; setDecisionOpen(false); }}>Decidir depois</Button>
+              return key && !linkedDiscard(state, key).length ? <Button type="button" size="sm" variant="ghost" className={textButton} disabled={Boolean(busy || uncertain)} onClick={discardStep}>Descartar pedido</Button> : null; })()}
+            <Button type="button" size="sm" variant="ghost" className={textButton} onClick={() => { voice.cancel(); sendAfterVoice.current = false; setDecisionOpen(false); }}>Decidir depois</Button>
           </div>}
-          {busy && <p role="status" className="text-[13px] text-muted-foreground">{busy === 'executing' ? 'Executando…' : 'Preparando…'}{seconds}</p>}
+          {busy && <p role="status" className="text-xs text-muted-foreground">{busy === 'executing' ? 'Executando…' : 'Preparando…'}{seconds}</p>}
         </div>
       </div>
     </div>}
-    <div className="shrink-0 border-t border-border bg-card p-3 space-y-2" style={{ paddingBottom: 'max(.75rem, var(--sec-bottom-inset, var(--safe-bottom, 0px)))' }}>
-      {!decisionOpen && step && <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm">
-        <span className="font-medium">{step === 'choice' ? decisions.length === 1 ? '1 decisão pendente' : `${decisions.length} decisões pendentes` : step === 'question' ? 'Falta uma informação' : 'Pronto para confirmar'}</span>
-        <Button type="button" size="sm" disabled={Boolean(busy || uncertain)} onClick={() => setDecisionOpen(true)}>Responder</Button>
+    <div className="sec-composer shrink-0 space-y-2 border-t border-border bg-card px-4 pt-2.5" style={{ paddingBottom: 'max(.75rem, var(--sec-bottom-inset, var(--safe-bottom, 0px)))' }}>
+      {!decisionOpen && step && <div className="flex items-center gap-2 rounded-[10px] border border-border-strong bg-background py-1 pl-3 pr-1 text-sm">
+        <Hourglass aria-hidden="true" className="h-4 w-4 shrink-0 text-warning" />
+        <span className="min-w-0 flex-1 font-medium">{step === 'choice' ? decisions.length === 1 ? '1 decisão pendente' : `${decisions.length} decisões pendentes` : step === 'question' ? 'Falta uma informação' : 'Pronto para confirmar'}</span>
+        <Button type="button" size="sm" variant="outline" className="shrink-0 lg:min-h-8" disabled={Boolean(busy || uncertain)} onClick={() => setDecisionOpen(true)}>Responder</Button>
       </div>}
       {/* Owner 06/10 (mobile): the status and "Cancelar conversa" share one row (no 44 px row of their own), and the idle text of an empty box is left to screen readers. */}
       <div className="flex items-center justify-between gap-2">
-        <p role="status" aria-live="polite" className={`min-w-0 flex-1 text-sm font-medium${status === idleStatus ? ' sec-status-idle' : ''}`}>{status}{slow ? ' Ainda aguardando o sistema; nenhuma nova tentativa foi iniciada.' : ''}</p>
-        {state && !closed && <Button size="sm" variant="ghost" className="shrink-0" disabled={Boolean(busy || uncertain || recording)} onClick={() => void act(() => cancelSecretary(state.sessionId), 'thinking', true)}>Cancelar conversa</Button>}
+        <p role="status" aria-live="polite" className={cn('min-w-0 flex-1 text-xs font-medium', status === idleStatus && 'sec-status-idle font-normal text-muted-foreground')}>{recording && <span aria-hidden="true" className="mr-1.5 inline-block h-2 w-2 rounded-full bg-danger align-middle motion-safe:animate-pulse" />}{status}{slow && <span className="block font-normal text-muted-foreground"> Ainda aguardando o sistema; nenhuma nova tentativa foi iniciada.</span>}</p>
+        {state && !closed && <Button size="sm" variant="ghost" className={cn('-mr-2 shrink-0', textButton)} disabled={Boolean(busy || uncertain || recording)} onClick={() => void act(() => cancelSecretary(state.sessionId), 'thinking', true)}>Cancelar conversa</Button>}
       </div>
-      {credits && <CreditsNotice view={credits.view} canRecharge={credits.canRecharge} />}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       {uncertain && <Button variant="outline" disabled={Boolean(busy)} onClick={() => { if (retry.current) void act(retry.current, 'executing'); }}>Verificar resultado</Button>}
       {!closed && <form onSubmit={event => { event.preventDefault(); if (recording) finishAndSend(); else void send(); }} className="space-y-2">
-        {operationRef && <div className="flex items-center justify-between gap-2 text-[13px] text-muted-foreground"><span>Respondendo à ação selecionada.</span><button type="button" className="min-h-11 px-2 font-medium underline underline-offset-4" disabled={Boolean(busy || uncertain)} onClick={() => setOperationRef(undefined)}>Sair da seleção</button></div>}
-        {!!state?.suspended_plans?.length && <div className="space-y-1" aria-label="Pedidos preservados"><p className="text-[13px] text-muted-foreground">Pedidos pausados — retome se ainda quiser</p>{state.suspended_plans.map(saved => <Button key={saved.plan_ref} size="sm" variant="outline" disabled={Boolean(busy || uncertain || state.cancelled)} onClick={() => { setOperationRef(undefined); void act(() => resumeSecretaryPlan(state.sessionId, saved.plan_ref), 'thinking', true); }}>Retomar {saved.label.split(', ').map(op => operationLabels[op] ?? op).join(', ')}{saved.subjects?.length ? ` — ${saved.subjects.join(', ')}` : ''}</Button>)}</div>}
-        <label htmlFor="secretary-message" className="sec-label text-xs font-medium">{voice.phase === 'ready' ? 'Transcrição — revise ou edite' : 'Mensagem'}</label>
+        {operationRef && <div className="flex items-center gap-2 rounded-[10px] border border-border-strong bg-background py-0.5 pl-3 pr-1 text-xs text-muted-foreground"><Pencil aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /><span className="min-w-0 flex-1">Respondendo à ação selecionada.</span><button type="button" className="min-h-11 shrink-0 rounded-[10px] px-2 font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-8" disabled={Boolean(busy || uncertain)} onClick={() => setOperationRef(undefined)}>Sair da seleção</button></div>}
+        {!!state?.suspended_plans?.length && <div className="sec-paused flex flex-col items-start gap-1.5" aria-label="Pedidos preservados"><p className="text-xs text-muted-foreground">Pedidos pausados — retome se ainda quiser</p>{state.suspended_plans.map(saved => <Button key={saved.plan_ref} size="sm" variant="outline" className="h-auto max-w-full justify-start whitespace-normal py-1.5 text-left" disabled={Boolean(busy || uncertain || state.cancelled)} onClick={() => { setOperationRef(undefined); void act(() => resumeSecretaryPlan(state.sessionId, saved.plan_ref), 'thinking', true); }}>Retomar {saved.label.split(', ').map(op => operationLabels[op] ?? op).join(', ')}{saved.subjects?.length ? ` — ${saved.subjects.join(', ')}` : ''}</Button>)}</div>}
+        <label htmlFor="secretary-message" className={voice.phase === 'ready' ? 'block text-xs font-medium text-muted-foreground' : 'sec-label'}>{voice.phase === 'ready' ? 'Transcrição — revise ou edite' : 'Mensagem'}</label>
         <div className="sec-row">
           <textarea ref={input} id="secretary-message" aria-label="Mensagem" rows={1} maxLength={1000} disabled={Boolean(busy || uncertain)} readOnly={recording} value={message} onChange={event => edit(event.target.value)} onKeyDown={event => {
             // Enter sends; Shift+Enter breaks the line (never while an input method is composing).
             if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
-          }} placeholder={compact ? 'Ex.: Massagem para R$90' : 'Ex.: altera a Massagem para R$90'} className="sec-input resize-none rounded-lg border border-border bg-background p-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60" />
+          }} placeholder={compact ? 'Ex.: Massagem para R$90' : 'Ex.: altera a Massagem para R$90'} enterKeyHint="send" autoComplete="off"
+            className={cn('sec-input resize-none rounded-[10px] border bg-background px-3 py-2.5 text-base leading-snug placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 lg:py-2 lg:text-sm', recording ? 'border-danger/50' : 'border-border-strong')} />
           <div className="sec-buttons">
-              {voiceEnabled && <Button type="button" data-secretary-mic="" className="sec-iconbtn" variant={recording ? 'outline' : 'default'} aria-label={recording ? 'Parar gravação' : 'Falar com a Secretária'} disabled={Boolean(busy || uncertain)} onClick={() => {
+              {voiceEnabled && <Button type="button" data-secretary-mic="" size={recording ? 'default' : 'icon'} variant="outline" className={cn('sec-iconbtn shrink-0', !recording && 'lg:h-10 lg:w-10')} aria-label={recording ? 'Parar gravação' : 'Falar com a Secretária'} title={recording ? undefined : 'Falar (Ctrl+Espaço)'} disabled={Boolean(busy || uncertain)} onClick={() => {
                 // "Parar" leaves the transcript in the box for review; while the permission is still asked, it gives up.
                 if (recording) { if (voice.phase === 'requesting') cancelRecording(); else { sendAfterVoice.current = false; voice.stop(); } return; }
                 startVoice();
-              }}>{recording ? <Square className="mr-2 h-4 w-4" aria-hidden="true" /> : <Mic className="mr-2 h-4 w-4" aria-hidden="true" />}<span className={recording ? undefined : 'sec-label'}>{recording ? 'Parar' : 'Falar'}</span></Button>}
-              <Button type="submit" className="sec-iconbtn sec-send min-h-11" disabled={Boolean(busy || uncertain || voice.phase === "requesting" || (!recording && !message.trim()))}><Send className="mr-2 h-4 w-4" aria-hidden="true" /><span className="sec-label">Enviar</span></Button>
+              }}>{recording ? <Square className="h-4 w-4" aria-hidden="true" /> : <Mic className="h-[18px] w-[18px]" aria-hidden="true" />}<span className={recording ? undefined : 'sec-label'}>{recording ? 'Parar' : 'Falar'}</span></Button>}
+              {/* With the microphone beside an empty box, Enviar shows once there is something to send (prototype). */}
+              <Button type="submit" size="icon" className={cn('sec-iconbtn sec-send shrink-0 lg:h-10 lg:w-10', voiceEnabled && !recording && !message.trim() && 'sec-send-idle')} disabled={Boolean(busy || uncertain || voice.phase === "requesting" || (!recording && !message.trim()))}><Send className="h-[18px] w-[18px]" aria-hidden="true" /><span className="sec-label">Enviar</span></Button>
           </div>
         </div>
-        {voiceCorrection && corrections && corrections.text === message && !recording && <div aria-label="Correções sugeridas" className="flex flex-wrap items-center gap-2 text-[13px]">
+        {voiceCorrection && corrections && corrections.text === message && !recording && <div aria-label="Correções sugeridas" className="flex flex-wrap items-center gap-2 text-xs">
           <span className="text-muted-foreground">Você quis dizer:</span>
-          {corrections.items.map(item => <Button key={`${item.start}:${item.to}`} type="button" size="sm" variant="outline" disabled={Boolean(busy || uncertain)} aria-label={`Trocar “${item.from}” por “${item.to}”`} onClick={() => acceptCorrection(item)}>{item.to}?</Button>)}
-          <Button type="button" size="sm" variant="ghost" onClick={() => setCorrections(undefined)}>Manter como está</Button>
+          {corrections.items.map(item => <Button key={`${item.start}:${item.to}`} type="button" size="sm" variant="outline" className="lg:min-h-8" disabled={Boolean(busy || uncertain)} aria-label={`Trocar “${item.from}” por “${item.to}”`} onClick={() => acceptCorrection(item)}>{item.to}?</Button>)}
+          <Button type="button" size="sm" variant="ghost" className={textButton} onClick={() => setCorrections(undefined)}>Manter como está</Button>
         </div>}
-        {(recording || (voice.phase === 'ready' && message === dictated.current)) && <div className="flex flex-wrap items-center gap-2">
-            {recording && <Button type="button" variant="ghost" onClick={cancelRecording}>Cancelar gravação</Button>}
+        {(recording || (voice.phase === 'ready' && message === dictated.current)) && <div className="-mx-2 flex flex-wrap items-center gap-2">
+            {recording && <Button type="button" size="sm" variant="ghost" className={textButton} onClick={cancelRecording}>Cancelar gravação</Button>}
             {/* Only while the box still holds exactly what the latest dictation produced: an edit is never undone. */}
-            {!recording && voice.phase === 'ready' && message === dictated.current && <Button type="button" variant="ghost" disabled={Boolean(busy || uncertain)} onClick={() => {
+            {!recording && voice.phase === 'ready' && message === dictated.current && <Button type="button" size="sm" variant="ghost" className={textButton} disabled={Boolean(busy || uncertain)} onClick={() => {
               voice.cancel(); setCorrections(undefined); edit(beforeVoice.current);
             }}>Desfazer ditado</Button>}
         </div>}

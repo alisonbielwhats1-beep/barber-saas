@@ -84,7 +84,7 @@ export function PlanForm({ plan, trigger }: { plan?: PlanEditable; trigger?: Rea
             </div>
             <div>
               <label htmlFor="plan-form-interval" className="mb-1 block text-sm font-medium">Cobrança</label>
-              <select id="plan-form-interval" name="interval" defaultValue={plan?.interval ?? "MONTHLY"} className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <select id="plan-form-interval" name="interval" defaultValue={plan?.interval ?? "MONTHLY"} className="flex min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:min-h-10 lg:text-sm">
                 <option value="MONTHLY">Mensal</option>
                 <option value="ANNUAL">Anual</option>
               </select>
@@ -98,7 +98,7 @@ export function PlanForm({ plan, trigger }: { plan?: PlanEditable; trigger?: Rea
             <label htmlFor="plan-form-benefits" className="mb-1 block text-sm font-medium">Benefícios</label>
             <Input id="plan-form-benefits" name="benefits" defaultValue={plan?.benefits ?? ""} placeholder="Cortes ilimitados; 10% off produtos…" />
           </div>
-          {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-[10px] bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
           <DialogFooter>
             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
             <Button type="submit" disabled={pending}>{pending ? "Salvando…" : editing ? "Salvar" : "Criar"}</Button>

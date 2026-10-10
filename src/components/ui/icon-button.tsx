@@ -16,7 +16,7 @@ export const IconButton = React.forwardRef<
     aria-label={label}
     title={title ?? label}
     className={cn(
-      "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex min-h-11 min-w-11 items-center justify-center rounded-[10px] text-muted-foreground lg:min-h-9 lg:min-w-9 lg:rounded-[9px] transition-colors hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
     {...props}

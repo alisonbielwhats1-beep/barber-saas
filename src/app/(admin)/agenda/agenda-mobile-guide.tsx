@@ -6,7 +6,7 @@ import {
   ArrowRight,
   CalendarDays,
   Hand,
-  HelpCircle,
+  Info,
   Plus,
 } from "lucide-react";
 import {
@@ -82,9 +82,9 @@ export function AgendaMobileGuide({
           setOpen(true);
         }}
         aria-label="Como usar a agenda"
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground md:hidden"
+        className="agenda-icon-btn grid"
       >
-        <HelpCircle size={18} aria-hidden />
+        <Info size={18} aria-hidden />
       </button>
       <Dialog
         open={open}
@@ -100,9 +100,9 @@ export function AgendaMobileGuide({
             trigger.current?.focus();
           }}
         >
-          <div className="flex items-center justify-between px-5 pb-3 pr-16 pt-5 text-xs text-muted-foreground">
-            <span>GUIA DA AGENDA</span>
-            <span>
+          <div className="flex items-center justify-between px-5 pb-3 pr-16 pt-5 text-xs font-semibold uppercase tracking-[.04em] text-muted-foreground">
+            <span>Guia da agenda</span>
+            <span className="normal-case tracking-normal tabular-nums">
               {step + 1} de {steps.length}
             </span>
           </div>
@@ -159,18 +159,18 @@ export function AgendaMobileGuide({
               {steps.map((_, i) => (
                 <span
                   key={i}
-                  className={`h-1 rounded-full ${i === step ? "w-7 bg-primary" : "w-3 bg-border"}`}
+                  className={`h-1 rounded-full ${i === step ? "w-7 bg-primary" : "w-3 bg-border-strong"}`}
                 />
               ))}
             </div>
             <DialogTitle
               ref={title}
               tabIndex={-1}
-              className="text-2xl leading-tight outline-none"
+              className="text-lg font-semibold leading-snug outline-none"
             >
               {lesson.title}
             </DialogTitle>
-            <DialogDescription className="text-base leading-relaxed">
+            <DialogDescription className="text-sm leading-relaxed">
               {lesson.text}
             </DialogDescription>
             <button
@@ -178,7 +178,7 @@ export function AgendaMobileGuide({
               onClick={() =>
                 step === steps.length - 1 ? finish() : setStep(step + 1)
               }
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 font-semibold text-primary-foreground"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               {step === steps.length - 1 ? "Começar a usar" : "Próximo"}
               <ArrowRight size={18} aria-hidden />

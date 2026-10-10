@@ -49,7 +49,8 @@ test.describe("@database listas mobile compactas", () => {
           const list = page.getByLabel(label, { exact: true });
           await expect(list).toBeVisible();
           const box = await list.boundingBox();
-          expect(box!.y).toBeLessThan(320);
+          // Clientes (protótipo v6): busca, grupos, indicadores e retornos previstos ficam acima da lista.
+          expect(box!.y).toBeLessThan(route === "clientes" ? 380 : 320);
           expect(box!.x).toBeGreaterThanOrEqual(0);
           expect(box!.x + box!.width).toBeLessThanOrEqual(width);
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
@@ -59,11 +60,11 @@ test.describe("@database listas mobile compactas", () => {
             await page.getByLabel("Buscar cliente ou telefone").fill("inexistente");
             await expect(page.getByText("Nenhum cliente neste filtro.")).toBeVisible();
             await page.getByLabel("Buscar cliente ou telefone").fill("Ana");
-            await page.getByRole("button", { name: "Filtros de clientes", exact:true }).click();
-            await page.getByRole("dialog").getByRole("button", {name:/^Aniversariantes/}).click();
-            await page.getByRole("button", {name:"Aplicar filtros",exact:true}).click();
+            const groups = page.getByRole("group", { name: "Grupos de clientes", exact: true });
+            await groups.getByRole("button", {name:/^Aniversariantes/}).click();
+            await expect(groups.getByRole("button", {name:/^Aniversariantes/})).toHaveAttribute("aria-pressed", "true");
             await expect(page.getByText("Nenhum cliente neste filtro.")).toBeVisible();
-            await page.getByRole("button", { name: "Aniversariantes ×", exact: true }).click();
+            await groups.getByRole("button", { name: "Todos", exact: true }).click();
             await expect(list.getByText("Ana Carolina de Albuquerque")).toBeVisible();
           }
           if (route === "servicos") {

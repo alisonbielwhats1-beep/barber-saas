@@ -34,7 +34,9 @@ afterEach(cleanup);
 describe("movimentar estoque: motivo opcional na tela", () => {
   it("rotula o motivo como opcional e permite salvar sem preenchê-lo", async () => {
     render(<ProductsCatalog products={[product]} movements={[]} />);
-    fireEvent.click(screen.getByRole("button", { name: /Movimentar estoque/ }));
+    // Tocar no produto abre a ficha, onde fica "Movimentar estoque".
+    fireEvent.click(screen.getByRole("button", { name: "Pomada modeladora" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Movimentar estoque/ }));
 
     expect(await screen.findByText("Motivo (opcional)")).toBeInTheDocument();
     const save = screen.getByRole("button", { name: /Salvar movimentação/ });
@@ -47,7 +49,8 @@ describe("movimentar estoque: motivo opcional na tela", () => {
 
   it("com motivo digitado, continua enviando o texto", async () => {
     render(<ProductsCatalog products={[product]} movements={[]} />);
-    fireEvent.click(screen.getByRole("button", { name: /Movimentar estoque/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Pomada modeladora" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Movimentar estoque/ }));
     fireEvent.change(await screen.findByLabelText("Motivo (opcional)"), { target: { value: "Nota 123" } });
     fireEvent.click(screen.getByRole("button", { name: /Salvar movimentação/ }));
 
@@ -61,8 +64,8 @@ describe("movimentar estoque: motivo opcional na tela", () => {
         movements={[{ id: "m1", actorName: "Alison", reason: null, createdAt: "2026-10-03T12:00:00.000Z", metadata: { delta: 2, productName: "Pomada modeladora" } }]}
       />,
     );
-    // O histórico fica dentro do painel "Filtros de produtos".
-    fireEvent.click(screen.getByRole("button", { name: "Filtros de produtos" }));
+    // O histórico fica abaixo da lista (no celular, recolhido atrás do próprio título).
+    fireEvent.click(screen.getByRole("button", { name: /Histórico de movimentações/ }));
     expect(await screen.findByText(/Sem motivo · Alison/)).toBeInTheDocument();
   });
 });

@@ -122,8 +122,8 @@ export function ServiceForm({ service, trigger, open: controlledOpen, onOpenChan
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
-          <Button className="admin-directory-create" aria-label="Novo serviço">
-            <Plus className="h-5 w-5" /> <span className="hidden md:inline">Novo serviço</span>
+          <Button>
+            <Plus aria-hidden="true" className="h-4 w-4" /> Novo serviço
           </Button>
         ))}
       </DialogTrigger>}
@@ -164,7 +164,7 @@ export function ServiceForm({ service, trigger, open: controlledOpen, onOpenChan
             </div>
           </div>
           <label className="block text-sm font-medium">Tipo de preço
-            <select value={priceType} onChange={e => setPriceType(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3">
+            <select value={priceType} onChange={e => setPriceType(e.target.value)} className="mt-1.5 min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:min-h-10 lg:text-sm">
               <option value="FIXED">Fixo</option><option value="FROM">A partir de</option>
             </select>
           </label>
@@ -180,9 +180,9 @@ export function ServiceForm({ service, trigger, open: controlledOpen, onOpenChan
           </div>
           {priceType === "FROM" && <>
             <label className="block text-sm font-medium">Explicação para o cliente
-              <textarea value={priceNote} onChange={e => setPriceNote(e.target.value)} maxLength={240} rows={3} required className="mt-1 w-full rounded-lg border border-border bg-background p-3 text-sm" />
+              <textarea value={priceNote} onChange={e => setPriceNote(e.target.value)} maxLength={240} rows={3} required className="mt-1.5 w-full rounded-[10px] border border-border-strong bg-background p-3 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:text-sm" />
             </label>
-            <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm" aria-label="Prévia para o cliente">
+            <div className="rounded-xl border border-border bg-background p-3 text-sm" aria-label="Prévia para o cliente">
               <p className="mb-2 text-xs text-muted-foreground">Como aparece para o cliente</p>
               <p className="font-semibold">{servicePriceLabel({ priceType, priceCents: Math.round(Number(price || 0) * 100) })}</p>
               <p className="mt-1 text-xs leading-relaxed">{priceNote.trim() || DEFAULT_PRICE_NOTE}</p>
@@ -209,7 +209,7 @@ export function ServiceForm({ service, trigger, open: controlledOpen, onOpenChan
           <fieldset className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-medium">Etapas do atendimento</legend><p className="text-xs text-muted-foreground">A duração total inclui execução, processamento e finalização. O profissional e o recurso ficam reservados durante todo o atendimento.</p><label className="block text-sm">Processamento (min)<Input name="processingMin" type="number" min={0} max={599} defaultValue={service?.processingMin ?? 0} /></label><label className="block text-sm">Finalização (min)<Input name="finishingMin" type="number" min={0} max={599} defaultValue={service?.finishingMin ?? 0} /></label></fieldset>
           {loadingResources && <p role="status" className="text-xs">Carregando salas e equipamentos…</p>}
           {resourceError && <div role="alert"><p className="text-sm text-danger">Não foi possível carregar salas e equipamentos. A seleção atual foi preservada.</p><Button type="button" variant="outline" onClick={loadResources}>Tentar novamente</Button></div>}
-          <label className="block text-sm">Sala ou equipamento necessário<select name="physicalResourceId" value={resourceId} onChange={e => setResourceId(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3"><option value="">Nenhum</option>{resourceId && !resources.some(r => r.id === resourceId) && <option value={resourceId}>Recurso atual</option>}{resources.map(r => <option key={r.id} value={r.id} disabled={!r.active}>{r.name}{r.active ? "" : " (inativo)"}</option>)}</select></label>
+          <label className="block text-sm">Sala ou equipamento necessário<select name="physicalResourceId" value={resourceId} onChange={e => setResourceId(e.target.value)} className="mt-1.5 min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:min-h-10 lg:text-sm"><option value="">Nenhum</option>{resourceId && !resources.some(r => r.id === resourceId) && <option value={resourceId}>Recurso atual</option>}{resources.map(r => <option key={r.id} value={r.id} disabled={!r.active}>{r.name}{r.active ? "" : " (inativo)"}</option>)}</select></label>
           </FormSection>
         </TaskForm>
       </DialogContent>

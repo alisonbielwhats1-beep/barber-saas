@@ -4,6 +4,33 @@ Implementação em `codex/platform-plans-access`, ainda sem promoção: catálog
 
 # Status atual canônico — Salon SaaS
 
+## 10/10/2026 — novo visual do painel do dono (protótipo v6), em validação
+
+Branch `claude/wizardly-moore-26816c`, pedido do dono: "implemente o novo visual do
+dono, coloque em production". Só apresentação: sem migration, sem flag nova, sem
+mudança de regra, permissão, server action, API ou consulta. Decisão registrada em
+`DECISOES_PRODUTO.md` (10/10).
+- Paleta Everflair (neutros, botão principal branco/grafite, lilás só no ativo,
+  situação verde/âmbar/vermelho), alturas 44 celular / 36–40 computador, tipografia
+  12–24 sem negrito pesado.
+- Moldura: menu lateral aberto por padrão (cookie `admin-sidebar` lembra recolhido),
+  barra de topo com título, plano (dono), busca, notificações e pessoa; celular com
+  Secretária no meio da barra quando ela existe (Notificações no sino e no "Mais").
+- Secretária sem botão flutuante: abre pelo menu/aba (evento
+  `everflair:secretary-open`), ao lado do conteúdo a partir de 1216 px e por cima
+  abaixo disso; painel próprio no lugar do Dialog do Radix (Esc, foco e véu revistos).
+- Telas: Hoje (tabela com uma ação principal por linha), Agenda (mini calendário,
+  profissionais, cartões escuros), Clientes (lista + ficha), Notificações, Visão
+  geral/Financeiro/Relatórios (indicadores sem centavos; Relatórios e exportações com
+  centavos), Serviços agrupados por categoria, Produtos, Pacotes, Portfólio,
+  Colaboradores, Marketing, Avaliações, Presença online, Configurações e Plano.
+- Revisão independente de comportamento em quatro áreas; achados corrigidos (foco ao
+  fechar janelas, regra de conflito da Semana mantida, ficha de cliente excluído,
+  Notificações no "Mais").
+- Funções que o protótipo mostra e o app não tem ficaram de fora (ex.: "Sua equipe"
+  no menu, período personalizado com calendário, lista de espera nas pendências da
+  Hoje, função do profissional na coluna da Agenda).
+
 ## 10/10/2026 — mensagens de erro do login do painel, candidata em validação
 
 `codex/admin-login-errors` separa limite de tentativas, falha temporária e
@@ -105,6 +132,18 @@ Branch `claude/everflair-logo-redesign-ddd49b`. Decisão do dono de 08/10 em
   topo). Logo com alternativa de cores para navegadores sem `light-dark()`.
 - Testes atualizados: ícones (fundo violeta), abertura (2,5 s) e convite de
   lembretes (aviso no topo); novo teste de "Aberto agora".
+
+## 2026-10-07 — Celular com cara de aplicativo (incorporado ao visual de 10/10)
+
+Branch `claude/wizardly-moore-26816c`, pedido do responsável: transformar o uso no celular numa experiência de aplicativo,
+sem mudar regras, servidor, APIs nem banco. Painel abaixo de 1024 px: barra de abas Hoje · Agenda · Clientes · Avisos · Mais,
+"Mais" como painel que sobe de baixo com listas agrupadas, barra superior compacta com voltar e título que aparece ao rolar,
+toda janela do painel vira painel inferior com alça e arrastar para fechar (páginas públicas e plataforma mantêm a janela centralizada), confirmações como folha de ação, Hoje com controle segmentado
+e uma ação principal por cartão ("⋯" para o resto), "+" único de 56 px, deslizar aviso para marcar como lido, esqueletos por tela,
+teclados certos em busca e telefone e seletores em painel. Computador inalterado (só os filtros de Hoje ganharam trilho segmentado).
+App do cliente: só acabamento da barra inferior; tela inicial intocada (decisão de 06/10). Detalhes, limites e próximas fases em
+[MOBILE_APP_EXPERIENCE_2026-10-07.md](MOBILE_APP_EXPERIENCE_2026-10-07.md). Sem migration, sem flag, sem deploy; merge só depois
+da conferência visual do dono no Preview (como em "Verde de volta", 06/10).
 
 ## 2026-10-05 — Secretária: trava de serviço repetido, janela de decisão e manhã/noite na remarcação
 

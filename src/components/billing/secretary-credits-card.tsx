@@ -12,7 +12,7 @@ type Pack = { code: string; amountCents: number; estimatedRequests: number };
 type Purchase = { id: string; packCode: string; amountCents: number; estimatedRequests: number; state: string; createdAt: string; paidAt: string | null; refundedCents: number; checkoutUrl: string | null };
 type CreditsData = { view: CreditView; buyable: boolean; packs: Pack[]; purchases: Purchase[] };
 const purchaseLabels: Record<string, string> = { CREATED: "Preparando", AWAITING_PAYMENT: "Aguardando pagamento", PAID: "Pago", EXPIRED: "Não concluída", REFUNDED: "Estornada", REVIEW: "Em revisão" };
-const tone = { OK: "bg-success", LOW: "bg-warning", EMPTY: "bg-danger" } as const;
+const tone = { OK: "bg-[hsl(var(--selection-solid))]", LOW: "bg-warning", EMPTY: "bg-danger" } as const;
 
 /** Owner only, in Plano e assinatura (owner decisions 06/10/2026): the Secretária's credit as a bar and a percentage only, the
  * packs (Pix or card through Mercado Pago; the number of requests is an estimate, never a promise) and the latest purchases.
@@ -63,32 +63,32 @@ export function SecretaryCreditsCard({ salonId, timezone, returnedFromCheckout =
     } catch { setError("Falha de conexão. Nada foi cobrado. Tente novamente."); setBuying(null); }
   }
   const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: timezone }).format(new Date(value));
-  return <section id="secretaria" aria-labelledby="secretaria-pedidos" className="space-y-4 rounded-2xl border border-border bg-surface-2 p-4 sm:p-6">
+  return <section id="secretaria" aria-labelledby="secretaria-pedidos" className="space-y-3.5 rounded-[14px] border border-border bg-card p-4">
     <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <h2 id="secretaria-pedidos" className="text-lg font-semibold">Crédito da Secretária</h2>
-      {data && <span className="text-sm text-muted-foreground">{data.view.percent}% restantes</span>}
+      <h2 id="secretaria-pedidos" className="text-base font-semibold">Crédito da Secretária</h2>
+      {data && <span className="text-sm tabular-nums text-muted-foreground">{data.view.percent}% restantes</span>}
     </div>
     {data === undefined && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />Carregando…</p>}
     {data && <>
-      <div role="progressbar" aria-label="Crédito restante da Secretária" aria-valuemin={0} aria-valuemax={100} aria-valuenow={data.view.percent} className="h-2.5 overflow-hidden rounded-full bg-border">
+      <div role="progressbar" aria-label="Crédito restante da Secretária" aria-valuemin={0} aria-valuemax={100} aria-valuenow={data.view.percent} className="h-2 overflow-hidden rounded-full bg-[hsl(var(--border-strong))]">
         <div className={cn("h-full rounded-full", tone[data.view.status])} style={{ width: `${data.view.percent}%` }} />
       </div>
-      {data.view.status === "LOW" && <p role="status" className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-sm">O crédito está acabando. Recarregue para a Secretária não parar.</p>}
-      {data.view.status === "EMPTY" && <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 p-2 text-sm">O crédito acabou. A Secretária volta assim que o pagamento for confirmado; a agenda segue normal.</p>}
+      {data.view.status === "LOW" && <p role="status" className="rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-sm">O crédito está acabando. Recarregue para a Secretária não parar.</p>}
+      {data.view.status === "EMPTY" && <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm">O crédito acabou. A Secretária volta assim que o pagamento for confirmado; a agenda segue normal.</p>}
       <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-        {data.packs.map(pack => <Button key={pack.code} type="button" variant="outline" className="h-auto min-h-11 flex-col py-2" disabled={!data.buyable || Boolean(buying)} onClick={() => void buy(pack)}>
+        {data.packs.map(pack => <Button key={pack.code} type="button" variant="outline" className="h-auto min-h-11 flex-col gap-0.5 py-2.5 tabular-nums" disabled={!data.buyable || Boolean(buying)} onClick={() => void buy(pack)}>
           <span className="font-semibold">{billingMoney(pack.amountCents)}</span><span className="text-xs text-muted-foreground">cerca de {pack.estimatedRequests} pedidos</span>
           {buying === pack.code && <Loader2 aria-hidden="true" className="mt-1 h-3 w-3 animate-spin" />}
         </Button>)}
       </div>
       <p className="text-xs text-muted-foreground">Pix ou cartão pelo Mercado Pago. Cada pedido usa uma parte do crédito conforme o tamanho, por isso a quantidade de pedidos é uma estimativa. A recarga soma ao que você já tem, o crédito não expira e todo mês há uma franquia grátis.</p>
       {!data.buyable && <p className="text-sm text-muted-foreground">A compra online está pausada no momento. Seu crédito continua valendo.</p>}
-      {data.purchases.some(p => p.state === "REVIEW") && <p role="status" className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-sm">Um pagamento precisa de conferência antes de virar crédito. Nossa equipe já foi avisada e vai resolver com você: liberar o crédito ou estornar o valor.</p>}
+      {data.purchases.some(p => p.state === "REVIEW") && <p role="status" className="rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-sm">Um pagamento precisa de conferência antes de virar crédito. Nossa equipe já foi avisada e vai resolver com você: liberar o crédito ou estornar o valor.</p>}
       {data.purchases.length > 0 && <div className="space-y-1">
         <h3 className="text-sm font-semibold">Compras</h3>
-        <ul className="divide-y divide-border rounded-lg border border-border text-sm">
-          {data.purchases.map(p => <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-            <span>{billingMoney(p.amountCents)}<span className="block text-xs text-muted-foreground">{date(p.paidAt ?? p.createdAt)}</span></span>
+        <ul className="divide-y divide-border rounded-xl border border-border text-sm">
+          {data.purchases.map(p => <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5">
+            <span className="font-semibold tabular-nums">{billingMoney(p.amountCents)}<span className="block text-xs font-normal text-muted-foreground">{date(p.paidAt ?? p.createdAt)}</span></span>
             <span className="flex items-center gap-2 text-xs text-muted-foreground">{purchaseLabels[p.state] ?? p.state}
               {p.checkoutUrl && safeCheckout(p.checkoutUrl) && <Button type="button" size="sm" variant="ghost" onClick={() => goToCheckout(safeCheckout(p.checkoutUrl)!)}>Pagar</Button>}</span>
           </li>)}

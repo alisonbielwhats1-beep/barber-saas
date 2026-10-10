@@ -23,9 +23,9 @@ export function parseActionSummary(text: string): ParsedSummary | undefined {
 }
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return <div className={cn('flex items-baseline gap-3 rounded-md px-2 py-1.5', strong && 'bg-primary/10')}>
+  return <div className={cn('flex items-baseline gap-3 rounded-lg px-2 py-1.5', strong && 'bg-muted')}>
     <span className="w-14 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-    <span className={cn('min-w-0 flex-1', strong ? 'text-base font-semibold' : 'text-muted-foreground')}>{value}</span>
+    <span className={cn('min-w-0 flex-1 tabular-nums', strong ? 'text-base font-semibold' : 'text-muted-foreground')}>{value}</span>
   </div>;
 }
 
@@ -35,15 +35,15 @@ export function ActionSummary({ text, className }: { text: string; className?: s
   if (!parsed) return <p className={cn('whitespace-pre-wrap break-words text-sm', className)}>{text}</p>;
   const [subject, ...details] = parsed.heading;
   return <div className={cn('space-y-2 break-words text-sm', className)}>
-    <p className="text-[13px] font-semibold tracking-wide text-muted-foreground">{parsed.title}</p>
+    <p className="text-xs font-semibold tracking-wide text-muted-foreground">{parsed.title}</p>
     {subject && <p className="text-base font-semibold leading-snug">{subject}</p>}
     {!!details.length && <p className="text-muted-foreground">{details.join(' · ')}</p>}
-    {parsed.before && <div className="rounded-lg border border-border bg-background/60 p-1">
+    {parsed.before && <div className="rounded-[10px] border border-border bg-background/60 p-1">
       <Row label="Antes" value={parsed.before} />
       {parsed.after && <ArrowDown aria-hidden="true" className="ml-[1.35rem] h-4 w-4 text-muted-foreground" />}
       {parsed.after && <Row label="Depois" value={parsed.after} strong />}
     </div>}
-    {!parsed.before && parsed.after && <div className="rounded-lg border border-border bg-background/60 p-1"><Row label="Depois" value={parsed.after} strong /></div>}
+    {!parsed.before && parsed.after && <div className="rounded-[10px] border border-border bg-background/60 p-1"><Row label="Depois" value={parsed.after} strong /></div>}
     {parsed.notes.map((line, index) => {
       const change = CHANGE.exec(line), fact = FACT.exec(line);
       return change ? <p key={index}><span className="text-muted-foreground">{change[1]}:</span> {change[2]} <ArrowRight aria-hidden="true" className="inline h-3.5 w-3.5 align-[-2px] text-muted-foreground" /><span className="sr-only"> para </span> <strong className="font-semibold">{change[3]}</strong></p>

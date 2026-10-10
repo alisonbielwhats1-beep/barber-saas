@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, UserRound } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { updateMyProfile } from "./actions";
+import { labelClass, noteClass } from "./settings-ui";
 
 export function ProfileForm({
   profile,
@@ -34,35 +35,33 @@ export function ProfileForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-5">
-      <div className="flex items-center gap-2">
-        <UserRound className="h-4 w-4 text-primary" />
-        <h2 className="text-[13px] font-semibold">Meu perfil</h2>
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+    <form onSubmit={onSubmit} aria-label="Meu perfil" className="flex min-w-0 flex-col gap-3.5 rounded-[14px] border border-border bg-card p-4">
+      <p className={noteClass}>
         Sua foto e seu nome aparecem na equipe e, se você atender clientes, na escolha do profissional.
       </p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-[9rem_1fr]">
+      <div className="grid gap-4 sm:grid-cols-[9rem_minmax(0,1fr)]">
         <ImageUpload value={avatarUrl} onChange={setAvatarUrl} folder="profiles" aspectRatio="square" />
-        <div className="space-y-3">
-          <div>
-            <label htmlFor="profile-name" className="mb-1 block text-xs font-medium">Nome</label>
+        <div className="space-y-3.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="profile-name" className={labelClass}>Nome<span aria-hidden="true"> *</span></label>
             <Input id="profile-name" name="name" defaultValue={profile.name} required />
           </div>
-          <div>
-            <label htmlFor="profile-phone" className="mb-1 block text-xs font-medium">Telefone</label>
-            <Input id="profile-phone" name="phone" defaultValue={profile.phone ?? ""} placeholder="(11) 90000-0000" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="profile-phone" className={labelClass}>Telefone</label>
+            <Input id="profile-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" defaultValue={profile.phone ?? ""} placeholder="(11) 90000-0000" />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium">E-mail</label>
-            <Input value={profile.email} disabled aria-label="E-mail da conta" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="profile-email" className={labelClass}>E-mail</label>
+            <Input id="profile-email" value={profile.email} disabled aria-label="E-mail da conta" />
           </div>
         </div>
       </div>
-      <Button type="submit" className="mt-4" disabled={pending}>
-        {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-        Salvar meu perfil
-      </Button>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Button type="submit" disabled={pending}>
+          {pending && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
+          Salvar meu perfil
+        </Button>
+      </div>
     </form>
   );
 }

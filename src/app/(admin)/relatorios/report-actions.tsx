@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Download, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export type ReportSection = { title: string; headers: string[]; rows: (string | number)[][] };
 
@@ -42,13 +43,13 @@ export function ReportActions({ sections, filename }: { sections: ReportSection[
   }
 
   return (
-    <div className="flex items-center gap-2 print:hidden">
-      <button onClick={downloadCsv} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-[12px] font-medium text-muted-foreground transition hover:text-foreground">
-        <Download className="h-3.5 w-3.5" /> CSV / Excel
-      </button>
-      <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-[12px] font-medium text-muted-foreground transition hover:text-foreground">
-        <Printer className="h-3.5 w-3.5" /> Imprimir / PDF
-      </button>
+    <div className="flex flex-wrap items-center gap-2 print:hidden">
+      <Button type="button" variant="outline" size="sm" onClick={downloadCsv} className="max-sm:flex-1">
+        <Download aria-hidden="true" className="h-4 w-4 shrink-0" /> CSV / Excel
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={() => window.print()} className="max-sm:flex-1">
+        <Printer aria-hidden="true" className="h-4 w-4 shrink-0" /> Imprimir / PDF
+      </Button>
     </div>
   );
 }

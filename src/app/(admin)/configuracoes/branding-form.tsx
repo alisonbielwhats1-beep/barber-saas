@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Check, Loader2, ExternalLink, RotateCcw } from "lucide-react";
@@ -10,7 +10,9 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import { toast } from "@/components/ui/toast";
 import { SEGMENTS } from "@/lib/segments";
 import { normalizeImageUrl } from "@/lib/images";
+import { cn } from "@/lib/utils";
 import { updateSalonBranding } from "./actions";
+import { checkboxClass, labelClass, noteClass, selectClass, SettingsBlock, SettingsField, textareaClass } from "./settings-ui";
 
 export type Branding = {
   slug: string;
@@ -39,6 +41,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const colorId = useId();
 
   const [segment, setSegment] = useState(branding.segment ?? "");
   const [color, setColor] = useState(branding.themeColorHex ?? "");
@@ -86,17 +89,17 @@ export function BrandingForm({ branding }: { branding: Branding }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <Section
+    <form onSubmit={onSubmit} className="space-y-3.5 lg:space-y-4">
+      <SettingsBlock
         title="Aparência da vitrine"
         hint="É o que o cliente vê na sua página pública de agendamento."
       >
-        <Field label="Tipo de negócio">
+        <SettingsField label="Tipo de negócio" hint="Ajusta textos e imagens padrão. Não limita os serviços que você pode cadastrar.">
           <select
             aria-label="Tipo de negócio"
             value={segment}
             onChange={(e) => setSegment(e.target.value)}
-                className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+            className={selectClass}
           >
             <option value="">Não definido</option>
             {SEGMENTS.map((s) => (
@@ -105,29 +108,26 @@ export function BrandingForm({ branding }: { branding: Branding }) {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Ajusta textos e imagens padrão. Não limita os serviços que você pode
-            cadastrar.
-          </p>
-        </Field>
+        </SettingsField>
 
-        <Field label="Apresentação">
+        <SettingsField label="Apresentação">
           <textarea
             name="description"
             defaultValue={branding.description ?? ""}
             rows={3}
             maxLength={600}
             placeholder="Conte em poucas linhas o que o seu espaço tem de diferente."
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className={textareaClass}
           />
-        </Field>
+        </SettingsField>
 
-        <Field label="Foto de perfil do estabelecimento">
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <p className={labelClass}>Foto de perfil do estabelecimento</p>
+          <p className={noteClass}>
             Aparece ao lado do nome para seus clientes. Use uma foto quadrada do
             salão ou o seu logotipo.
           </p>
-          <div className="max-w-sm">
+          <div className="mt-1.5 max-w-sm">
             <ImageUpload
               value={logoUrl}
               onChange={setLogoUrl}
@@ -136,111 +136,116 @@ export function BrandingForm({ branding }: { branding: Branding }) {
               objectFit="contain"
             />
           </div>
-        </Field>
+        </div>
 
-        <Field label="Foto de capa da página de agendamento">
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <p className={labelClass}>Foto de capa da página de agendamento</p>
+          <p className={noteClass}>
             Você pode enviar uma foto real do espaço ou manter a imagem padrão do
             tipo de estabelecimento escolhido acima.
           </p>
-          <div className={`rounded-2xl border p-3 ${!coverUrl ? "border-primary bg-primary/5" : "border-border"}`}>
-            <div className="relative aspect-video overflow-hidden rounded-xl">
+          <div className={cn("mt-1.5 flex flex-col gap-2.5 rounded-[14px] border p-3", !coverUrl ? "border-muted-foreground/60 bg-muted/40" : "border-border-strong")}>
+            <div className="relative aspect-[21/8] max-h-[170px] w-full overflow-hidden rounded-xl border border-border-strong">
               <Image
                 src={SEGMENTS.find((item) => item.id === segment)?.accentImage ?? SEGMENTS[0].accentImage}
                 alt="Prévia da foto padrão"
                 fill
                 quality={95}
-                sizes="(max-width: 640px) 90vw, 1200px"
+                sizes="(max-width: 640px) 90vw, 760px"
                 className="object-cover"
               />
               {!coverUrl && (
-                <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white">
+                <span className="absolute left-2.5 top-2.5 inline-flex min-h-[22px] items-center rounded-full bg-card px-2.5 text-xs font-medium text-foreground">
                   Padrão selecionado
                 </span>
               )}
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div>
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="min-w-0">
                 <p className="text-sm font-medium">Imagem padrão do segmento</p>
-                <p className="text-xs text-muted-foreground">Sem custo e sempre disponível.</p>
+                <p className={noteClass}>Sem custo e sempre disponível.</p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => setCoverUrl("")} disabled={!coverUrl}>
-                <RotateCcw className="h-3.5 w-3.5" /> Usar padrão
+                <RotateCcw aria-hidden="true" className="h-4 w-4" /> Usar padrão
               </Button>
             </div>
           </div>
-          <div className={`mt-3 rounded-2xl border p-3 ${coverUrl ? "border-primary bg-primary/5" : "border-border"}`}>
-            <p className="mb-3 text-sm font-medium">Minha foto do estabelecimento</p>
-            <ImageUpload
-              value={coverUrl}
-              onChange={setCoverUrl}
-              folder="branding"
-              aspectRatio="landscape"
-            />
+          <div className={cn("mt-1.5 flex flex-col gap-2.5 rounded-[14px] border p-3", coverUrl ? "border-muted-foreground/60 bg-muted/40" : "border-border-strong")}>
+            <p className="text-sm font-medium">Minha foto do estabelecimento</p>
+            <div className="max-w-sm">
+              <ImageUpload
+                value={coverUrl}
+                onChange={setCoverUrl}
+                folder="branding"
+                aspectRatio="landscape"
+              />
+            </div>
             {coverUrl && (
-              <label className="mt-3 flex min-h-11 items-start gap-3 text-sm">
+              <label className="flex min-h-11 cursor-pointer items-start gap-2.5 text-sm">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-5 w-5 shrink-0"
+                  className={cn(checkboxClass, "mt-0.5")}
                   checked={coverShowName}
                   onChange={(e) => setCoverShowName(e.target.checked)}
                 />
                 <span>
                   Mostrar o nome do estabelecimento sobre a capa
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                  <span className={cn(noteClass, "mt-0.5 block")}>
                     Desmarque se a sua imagem já traz o nome, para não aparecer duas vezes.
                   </span>
                 </span>
               </label>
             )}
           </div>
-        </Field>
+        </div>
 
-        <Field label="Cor da marca">
-          <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <label htmlFor={colorId} className={labelClass}>Cor da marca</label>
+          <div className="flex min-w-0 items-center gap-2.5">
             <input
               type="color"
               value={color || "#2ECC8B"}
               onChange={(e) => setColor(e.target.value)}
               aria-label="Escolher cor da marca"
-              className="h-10 w-14 shrink-0 cursor-pointer rounded-md border border-input bg-background"
+              className="h-11 w-[52px] shrink-0 cursor-pointer rounded-[10px] border border-border-strong bg-background p-[3px] lg:h-10"
             />
             <Input
+              id={colorId}
               value={color}
               onChange={(e) => setColor(e.target.value)}
               placeholder="#2ECC8B"
-              className="font-mono"
+              className="font-mono tabular-nums"
             />
             {color && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setColor("")}>
+              <Button type="button" variant="outline" size="sm" onClick={() => setColor("")}>
                 Limpar
               </Button>
             )}
           </div>
-        </Field>
-      </Section>
+        </div>
+      </SettingsBlock>
 
-      <Section title="Contato e redes">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="WhatsApp">
+      <SettingsBlock title="Contato e redes">
+        <div className="grid gap-3.5 sm:grid-cols-2 sm:gap-4">
+          <SettingsField label="WhatsApp">
             <Input
               name="whatsapp"
               defaultValue={branding.whatsapp ?? ""}
               placeholder="(11) 90000-0000"
             />
-          </Field>
-          <Field label="Instagram">
+          </SettingsField>
+          <SettingsField label="Instagram">
             <Input
               name="instagram"
               defaultValue={branding.instagram ?? ""}
               placeholder="@seuespaco"
             />
-          </Field>
+          </SettingsField>
         </div>
-      </Section>
+      </SettingsBlock>
 
-      <Section title="Formas de pagamento aceitas">
-        <div className="flex flex-wrap gap-2">
+      <SettingsBlock title="Formas de pagamento aceitas">
+        <div role="group" aria-label="Formas de pagamento aceitas" className="flex flex-wrap gap-2">
           {Object.entries(PAYMENT_LABELS).map(([value, label]) => {
             const on = methods.includes(value);
             return (
@@ -249,85 +254,61 @@ export function BrandingForm({ branding }: { branding: Branding }) {
                 type="button"
                 onClick={() => toggleMethod(value)}
                 aria-pressed={on}
-                className={`min-h-11 rounded-full border px-3 py-1.5 text-[13px] transition ${
+                className={cn(
+                  "inline-flex min-h-11 items-center justify-center rounded-[10px] border px-3.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-9",
                   on
-                    ? "border-primary/50 bg-primary/10 text-foreground"
-                    : "border-border bg-card text-muted-foreground"
-                }`}
+                    ? "border-primary bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
+                    : "border-border-strong bg-transparent font-medium text-foreground hover:bg-card-hover",
+                )}
               >
                 {label}
               </button>
             );
           })}
         </div>
-      </Section>
+      </SettingsBlock>
 
-      <Section title="Informações importantes">
-        <textarea
-          name="importantInfo"
-          defaultValue={branding.importantInfo ?? ""}
-          rows={2}
-          maxLength={600}
-          placeholder="Estacionamento, tolerância de atraso, política de cancelamento…"
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </Section>
+      <SettingsBlock title="Informações importantes">
+        <SettingsField label="Informações importantes" hideLabel>
+          <textarea
+            name="importantInfo"
+            defaultValue={branding.importantInfo ?? ""}
+            rows={2}
+            maxLength={600}
+            placeholder="Estacionamento, tolerância de atraso, política de cancelamento…"
+            className={textareaClass}
+          />
+        </SettingsField>
+      </SettingsBlock>
 
       {error && (
-        <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</p>
+        <p className="rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm text-foreground">{error}</p>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
         <Button type="submit" disabled={pending}>
           {pending ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Salvando…
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> Salvando…
             </>
           ) : (
             "Salvar vitrine"
           )}
         </Button>
         {saved && (
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-success">
-            <Check className="h-4 w-4" /> Salvo
+          <span className="inline-flex items-center gap-1.5 text-sm text-success">
+            <Check aria-hidden="true" className="h-4 w-4" /> Salvo
           </span>
         )}
         <a
           href={`/book/${branding.slug}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-[13px] text-primary hover:underline"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-9"
         >
-          Ver minha página <ExternalLink className="h-3.5 w-3.5" />
+          Ver minha página <ExternalLink aria-hidden="true" className="h-4 w-4" />
         </a>
       </div>
     </form>
-  );
-}
-
-function Section({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h3 className="text-[13px] font-semibold">{title}</h3>
-      {hint && <p className="mb-4 mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      <div className={hint ? "space-y-3" : "mt-4 space-y-3"}>{children}</div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="mb-1 block text-[13px] font-medium">{label}</label>
-      {children}
-    </div>
   );
 }

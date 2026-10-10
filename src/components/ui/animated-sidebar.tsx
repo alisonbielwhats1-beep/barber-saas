@@ -284,8 +284,8 @@ export function AnimatedSidebarProvider({
         data-slot="sidebar-wrapper"
         data-state={desktopOpen ? "expanded" : "collapsed"}
         style={{
-          "--sidebar-width": "16rem",
-          "--sidebar-width-icon": "5.25rem",
+          "--sidebar-width": "14.25rem",
+          "--sidebar-width-icon": "3.5rem",
           ...style,
         }}
         className={cn("group/sidebar-wrapper flex min-h-svh w-full min-w-0", className)}
@@ -728,7 +728,7 @@ export const AnimatedSidebarMenuSub = forwardRef<HTMLUListElement, AnimatedSideb
             exit={context.reduce ? { opacity: 0 } : "closed"}
             transition={context.reduce ? { duration: 0.12 } : undefined}
             data-slot="sidebar-menu-sub"
-            className={cn("relative ml-5 mt-1 flex min-w-0 flex-col gap-0.5 border-l border-border pl-3", className)}
+            className={cn("relative mb-1 ml-[15px] mt-0.5 flex min-w-0 flex-col gap-px border-l border-border pl-2", className)}
           >
             {children}
           </motion.ul>
@@ -786,20 +786,22 @@ export function AnimatedSidebarMenuSubButton({
 
   const content = (
     <>
-      <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center">
-        {icon ?? <span className="size-1 rounded-full bg-current" />}
-      </span>
+      {icon ? (
+        <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center">
+          {icon}
+        </span>
+      ) : null}
       <span className="min-w-0 flex-1 truncate">{children}</span>
     </>
   );
 
   const interactiveClassName = cn(
-    "flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-[13px] outline-none",
+    "flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm outline-none",
     "text-muted-foreground transition-colors hover:bg-[hsl(var(--card-hover))] hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring",
     // No celular os toques e o texto crescem, como no resto do painel móvel.
-    context.isMobile && "min-h-12 text-sm",
-    isActive && "bg-[hsl(var(--selection))] font-medium text-[hsl(var(--selection-foreground))] hover:bg-[hsl(var(--selection))] hover:text-[hsl(var(--selection-foreground))]",
+    context.isMobile && "h-auto min-h-12",
+    isActive && "bg-muted font-medium text-foreground hover:bg-muted hover:text-foreground",
     disabled && "cursor-not-allowed opacity-40",
     className,
   );
@@ -841,6 +843,8 @@ export interface AnimatedSidebarMenuButtonProps {
   isActive?: boolean;
   ariaExpanded?: boolean;
   ariaControls?: string;
+  /** Item que abre uma janela (ex.: a Secretária). */
+  ariaHasPopup?: "dialog";
   disabled?: boolean;
   closeOnSelect?: boolean;
   onSelect?: () => void;
@@ -855,6 +859,7 @@ export function AnimatedSidebarMenuButton({
   isActive = false,
   ariaExpanded,
   ariaControls,
+  ariaHasPopup,
   disabled = false,
   closeOnSelect,
   onSelect,
@@ -882,15 +887,16 @@ export function AnimatedSidebarMenuButton({
 
   const content = (
     <>
-      {isActive ? (
+      {/* Área com submenu aberto: o destaque fica no item interno (padrão do protótipo); na barra de ícones, na área. */}
+      {isActive && (ariaExpanded === undefined || panel.collapsed) ? (
         <motion.span
           layoutId={context.layoutId}
           transition={context.reduce ? { duration: 0 } : SPRING_LAYOUT}
-          className="absolute inset-0 rounded-xl bg-[hsl(var(--selection))]"
+          className="absolute inset-0 rounded-md bg-muted"
         />
       ) : null}
       {icon ? (
-        <span aria-hidden="true" className="relative z-10 grid size-5 shrink-0 place-items-center">
+        <span aria-hidden="true" className={cn("relative z-10 grid size-4 shrink-0 place-items-center", isActive && "text-[hsl(var(--selection-foreground))]")}>
           {icon}
         </span>
       ) : null}
@@ -898,12 +904,12 @@ export function AnimatedSidebarMenuButton({
         initial={false}
         animate={{ opacity: panel.collapsed ? 0 : 1, x: panel.collapsed ? -4 : 0 }}
         transition={context.reduce ? REDUCED_TRANSITION : panel.collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION}
-        className={cn("relative z-10 min-w-0 flex-1 truncate", panel.collapsed && "pointer-events-none")}
+        className={cn("relative z-10 min-w-0 flex-1 truncate", panel.collapsed && "pointer-events-none absolute w-0 overflow-hidden")}
       >
         {children}
       </motion.span>
       {badge ? (
-        <span className={cn("z-10 shrink-0", panel.collapsed ? "absolute right-1 top-1" : "relative")}>{badge}</span>
+        <span className={cn("z-10 shrink-0", panel.collapsed ? "absolute -right-0.5 -top-0.5" : "relative")}>{badge}</span>
       ) : null}
       {ariaExpanded !== undefined ? (
         <motion.span
@@ -911,7 +917,7 @@ export function AnimatedSidebarMenuButton({
           initial={false}
           animate={{ opacity: panel.collapsed ? 0 : 1, rotate: expanded ? 90 : 0, x: panel.collapsed ? 4 : 0 }}
           transition={context.reduce ? { duration: 0 } : SPRING_LAYOUT}
-          className="relative z-10 grid size-4 shrink-0 place-items-center text-muted-foreground"
+          className={cn("relative z-10 grid size-4 shrink-0 place-items-center text-muted-foreground", panel.collapsed && "absolute w-0 overflow-hidden")}
         >
           <ChevronRight className="size-3.5" />
         </motion.span>
@@ -920,11 +926,13 @@ export function AnimatedSidebarMenuButton({
   );
 
   const interactiveClassName = cn(
-    "relative flex min-h-11 w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl px-4 text-left text-[13px] outline-none",
-    "text-muted-foreground transition-colors hover:text-foreground",
+    "relative flex h-8 w-full min-w-0 items-center gap-[9px] overflow-hidden rounded-md px-2 text-left text-sm outline-none",
+    "text-muted-foreground transition-colors hover:bg-[hsl(var(--card-hover))] hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring",
-    context.isMobile && "min-h-12 text-sm",
-    isActive && "font-medium text-[hsl(var(--selection-foreground))] hover:text-[hsl(var(--selection-foreground))]",
+    // Barra de ícones: alvo de 40px centrado, como no protótipo.
+    panel.collapsed && "mx-auto w-10 justify-center gap-0 px-0",
+    context.isMobile && "h-auto min-h-12",
+    isActive && "font-medium text-foreground hover:text-foreground",
     disabled && "cursor-not-allowed opacity-40",
     className,
   );
@@ -952,6 +960,7 @@ export function AnimatedSidebarMenuButton({
       aria-current={isActive ? "true" : undefined}
       aria-expanded={expanded}
       aria-controls={expanded ? ariaControls : undefined}
+      aria-haspopup={ariaHasPopup}
       aria-label={panel.collapsed ? textLabel : undefined}
       title={panel.collapsed ? textLabel : undefined}
       onClick={select}

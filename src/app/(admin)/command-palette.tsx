@@ -152,7 +152,9 @@ export function CommandPalette({ role }: { role: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setPaletteOpen}>
+      {/* A busca abre no alto da tela, com o teclado: nunca como folha inferior (comportamento de produção). */}
       <DialogContent
+        mobileSheet={false}
         className="top-[max(1rem,15dvh)] z-[100] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-y-0 flex-col gap-0 overflow-hidden rounded-2xl border-border-strong bg-elevated p-0 pr-0 shadow-premium print:hidden"
         onOpenAutoFocus={(event) => {
           event.preventDefault();

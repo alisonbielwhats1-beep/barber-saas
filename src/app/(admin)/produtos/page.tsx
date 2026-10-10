@@ -5,7 +5,7 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { ProductForm } from "./product-form";
 import { ProductsCatalog, type ProductCard } from "./products-catalog";
 import { Button } from "@/components/ui/button";
-import { PackageOpen, Plus } from "lucide-react";
+import { Crown, PackageOpen, Plus } from "lucide-react";
 import { canUsePlanFeature } from "@/lib/plan-entitlements";
 import { PlanUpgradeAction } from "@/components/plan-upgrade-action";
 
@@ -60,42 +60,59 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
     index: i,
   }));
 
+  const categoryCount = new Set(cards.map((p) => p.category).filter(Boolean)).size;
+
   return (
-    <div className="admin-directory-page space-y-3 pb-20 md:space-y-6 md:pb-0">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Catálogo
-          </p>
-          <h1 className="text-[26px] font-semibold tracking-tight">Produtos</h1>
+    <div className="flex min-w-0 flex-col gap-3.5 lg:gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold leading-tight tracking-tight lg:text-2xl">Produtos</h1>
+          {cards.length > 0 && (
+            <p className="mt-1 hidden text-sm text-muted-foreground lg:block">
+              {cards.length} {cards.length === 1 ? "produto" : "produtos"}
+              {categoryCount > 0 && ` · ${categoryCount} ${categoryCount === 1 ? "categoria" : "categorias"}`}
+            </p>
+          )}
         </div>
-        {inventoryEnabled && <ProductForm />}
-      </header>
+        {/* No celular o "+" fica ao lado da busca (dentro do catálogo); sem produtos, o botão daqui vale para todas as telas. */}
+        {inventoryEnabled && (
+          <ProductForm
+            trigger={
+              <Button className={cards.length > 0 ? "hidden lg:inline-flex" : undefined}>
+                <Plus aria-hidden="true" className="h-4 w-4" /> Novo produto
+              </Button>
+            }
+          />
+        )}
+      </div>
 
       {!inventoryEnabled && (
-        <section className="rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-[12px] text-muted-foreground">
-          <strong className="text-foreground">Estoque e produtos ficam disponíveis nos planos pagos.</strong>{" "}
-          Você ainda pode consultar o histórico existente; contrate um plano pago para cadastrar, editar ou movimentar produtos.
-          <PlanUpgradeAction role={ctx.role} className="mt-1" />
+        <section className="flex items-start gap-3 rounded-xl border border-border-strong bg-card px-3.5 py-3 text-sm">
+          <Crown aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 space-y-1">
+            <strong className="block font-semibold text-foreground">Estoque e produtos ficam disponíveis nos planos pagos.</strong>
+            <p className="text-muted-foreground">Você ainda pode consultar o histórico existente; contrate um plano pago para cadastrar, editar ou movimentar produtos.</p>
+            <PlanUpgradeAction role={ctx.role} />
+          </div>
         </section>
       )}
 
       {cards.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
-          <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
-            <PackageOpen className="h-7 w-7" />
+        <div className="flex flex-col items-center rounded-[14px] border border-border bg-card px-6 py-12 text-center">
+          <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-xl bg-muted text-foreground">
+            <PackageOpen className="h-6 w-6" />
           </span>
-          <h2 className="mt-4 text-lg font-semibold">Comece seu catálogo</h2>
-          <p className="mx-auto mt-1 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+          <h2 className="mt-4 text-base font-semibold">Comece seu catálogo</h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm leading-relaxed text-muted-foreground">
             Cadastre o primeiro produto para acompanhar estoque, margem e reposição em um só lugar.
           </p>
           {inventoryEnabled ? <ProductForm
             trigger={
-              <Button size="lg" className="mt-5">
-                <Plus className="h-4 w-4" /> Cadastrar primeiro produto
+              <Button className="mt-5">
+                <Plus aria-hidden="true" className="h-4 w-4" /> Cadastrar primeiro produto
               </Button>
             }
-          /> : <p className="mx-auto mt-5 max-w-sm text-[12px] text-primary">Contrate um plano pago para liberar o catálogo e o controle de estoque.</p>}
+          /> : <p className="mx-auto mt-5 max-w-sm text-sm text-muted-foreground">Contrate um plano pago para liberar o catálogo e o controle de estoque.</p>}
         </div>
       ) : (
         <ProductsCatalog initialFilter={filter === "restock" ? "restock" : "all"} enabled={inventoryEnabled} products={cards} movements={movements.map((movement) => ({

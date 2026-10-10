@@ -4,14 +4,17 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Check, Loader2, Percent, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 import {
   deletePricingRule,
   savePricingRule,
   togglePricingRule,
   type PricingRuleInput,
 } from "./actions";
+import { labelClass, selectClass, SettingsBlock, subPanelClass } from "./settings-ui";
 
 const WEEKDAYS = [
   "Domingo",
@@ -80,94 +83,85 @@ export function PricingRulesManager({ rules, canManage }: { rules: Rule[]; canMa
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-warning/10 text-warning">
-            <Percent aria-hidden="true" className="h-5 w-5" />
-          </span>
-          <div>
-            <h3 className="text-[13px] font-semibold">Preços especiais</h3>
-            <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-muted-foreground">
-              Aumente o valor dos serviços em domingos, feriados ou datas de alta procura. A regra da data exata substitui a regra do dia da semana.
-            </p>
-          </div>
-        </div>
-        {canManage && (
-          <Button type="button" size="sm" variant="outline" onClick={() => setOpen((value) => !value)}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Nova regra
-          </Button>
-        )}
-      </div>
-
+    <SettingsBlock
+      hint="Aumente o valor dos serviços em domingos, feriados ou datas de alta procura. A regra da data exata substitui a regra do dia da semana."
+      action={canManage && (
+        <Button type="button" size="sm" variant="outline" aria-expanded={open} className="max-lg:w-full" onClick={() => setOpen((value) => !value)}>
+          <Plus aria-hidden="true" className="h-4 w-4" />
+          Nova regra
+        </Button>
+      )}
+    >
+      <h3 className="sr-only">Preços especiais</h3>
       {open && canManage && (
-        <form onSubmit={submit} className="mt-4 grid gap-3 rounded-xl border border-border bg-surface-1 p-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="pricing-target-type" className="mb-1 block text-[12px] font-medium">Aplicar em</label>
+        <form onSubmit={submit} className={cn(subPanelClass, "grid gap-3.5 sm:grid-cols-2 sm:gap-4")}>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="pricing-target-type" className={labelClass}>Aplicar em</label>
             <select
               id="pricing-target-type"
               value={targetType}
               onChange={(event) => setTargetType(event.target.value as "WEEKDAY" | "DATE")}
-              className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+              className={selectClass}
             >
               <option value="WEEKDAY">Dia da semana</option>
               <option value="DATE">Data específica / feriado</option>
             </select>
           </div>
           {targetType === "WEEKDAY" ? (
-            <div>
-              <label htmlFor="pricing-weekday" className="mb-1 block text-[12px] font-medium">Dia</label>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="pricing-weekday" className={labelClass}>Dia</label>
               <select
                 id="pricing-weekday"
                 value={weekday}
                 onChange={(event) => setWeekday(event.target.value)}
-                className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className={selectClass}
               >
                 {WEEKDAYS.map((name, index) => <option key={name} value={index}>{name}</option>)}
               </select>
             </div>
           ) : (
-            <div>
-              <label htmlFor="pricing-date" className="mb-1 block text-[12px] font-medium">Data</label>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="pricing-date" className={labelClass}>Data</label>
               <Input id="pricing-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
             </div>
           )}
-          <div>
-            <label htmlFor="pricing-label" className="mb-1 block text-[12px] font-medium">Nome da regra</label>
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+            <label htmlFor="pricing-label" className={labelClass}>Nome da regra</label>
             <Input id="pricing-label" value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Ex.: Domingo premium" maxLength={80} required />
           </div>
-          <div>
-            <label htmlFor="pricing-adjustment-type" className="mb-1 block text-[12px] font-medium">Acréscimo</label>
-            <div className="flex gap-2">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+            <label htmlFor="pricing-adjustment-type" className={labelClass}>Acréscimo</label>
+            <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-4">
               <select
                 id="pricing-adjustment-type"
                 value={adjustmentType}
                 onChange={(event) => setAdjustmentType(event.target.value as "PERCENTAGE" | "FIXED_CENTS")}
-                className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
+                className={selectClass}
               >
                 <option value="PERCENTAGE">Percentual</option>
                 <option value="FIXED_CENTS">Valor fixo por serviço</option>
               </select>
-              <Input
-                type="number"
-                min={0}
-                max={adjustmentType === "PERCENTAGE" ? 100 : 1000}
-                step={adjustmentType === "PERCENTAGE" ? 1 : 0.01}
-                value={adjustmentValue}
-                onChange={(event) => setAdjustmentValue(event.target.value)}
-                aria-label={adjustmentType === "PERCENTAGE" ? "Percentual do acréscimo" : "Valor fixo do acréscimo"}
-                required
-              />
-              <span className="flex min-h-11 items-center text-sm text-muted-foreground">
-                {adjustmentType === "PERCENTAGE" ? "%" : "R$"}
-              </span>
+              <div className="flex min-w-0 items-stretch overflow-hidden rounded-[10px] border border-border-strong bg-background focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/25">
+                {adjustmentType === "FIXED_CENTS" && <span aria-hidden="true" className="grid place-items-center border-r border-border-strong px-3 text-sm text-muted-foreground">R$</span>}
+                <Input
+                  type="number"
+                  min={0}
+                  max={adjustmentType === "PERCENTAGE" ? 100 : 1000}
+                  step={adjustmentType === "PERCENTAGE" ? 1 : 0.01}
+                  value={adjustmentValue}
+                  onChange={(event) => setAdjustmentValue(event.target.value)}
+                  aria-label={adjustmentType === "PERCENTAGE" ? "Percentual do acréscimo" : "Valor fixo do acréscimo"}
+                  className="rounded-none border-0 tabular-nums focus-visible:ring-0"
+                  required
+                />
+                {adjustmentType === "PERCENTAGE" && <span aria-hidden="true" className="grid place-items-center border-l border-border-strong px-3 text-sm text-muted-foreground">%</span>}
+              </div>
             </div>
           </div>
-          {error && <p className="text-[12px] text-destructive sm:col-span-2">{error}</p>}
-          <div className="flex gap-2 sm:col-span-2">
+          {error && <p role="alert" className="text-sm text-danger sm:col-span-2">{error}</p>}
+          <div className="flex flex-wrap gap-2.5 sm:col-span-2">
             <Button type="submit" size="sm" disabled={pending}>
-              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              {pending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Check aria-hidden="true" className="h-4 w-4" />}
               Salvar regra
             </Button>
             <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
@@ -176,11 +170,15 @@ export function PricingRulesManager({ rules, canManage }: { rules: Rule[]; canMa
       )}
 
       {rules.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-border p-4 text-[12px] text-muted-foreground">
-          Nenhuma regra cadastrada. Sem regra, todos os serviços continuam com o preço normal.
-        </p>
+        <div className="flex flex-col items-center gap-2.5 rounded-[14px] border border-dashed border-border-strong px-4 py-5 text-center">
+          <span className="grid h-10 w-10 place-items-center rounded-full bg-muted text-muted-foreground"><Percent aria-hidden="true" className="h-4 w-4" /></span>
+          <p className="text-sm text-muted-foreground">
+            <span className="block font-medium text-foreground">Nenhuma regra cadastrada.</span>
+            Sem regra, todos os serviços continuam com o preço normal.
+          </p>
+        </div>
       ) : (
-        <ul className="mt-4 space-y-2">
+        <ul className="space-y-2">
           {rules.map((rule) => {
             const target = rule.targetType === "WEEKDAY"
               ? WEEKDAYS[rule.weekday ?? 0]
@@ -189,37 +187,37 @@ export function PricingRulesManager({ rules, canManage }: { rules: Rule[]; canMa
               ? `+${rule.adjustmentValue}%`
               : `+R$ ${(rule.adjustmentValue / 100).toFixed(2).replace(".", ",")}`;
             return (
-              <li key={rule.id} className={`flex flex-col gap-3 rounded-xl border px-3 py-3 sm:flex-row sm:items-center sm:justify-between ${rule.active ? "border-border bg-surface-1" : "border-border/60 bg-muted/20 opacity-60"}`}>
+              <li key={rule.id} className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-border bg-background px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
-                  <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <CalendarDays aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-medium">{rule.label} <span className="font-semibold text-primary">{value}</span></p>
+                    <p className={cn("text-sm font-medium [overflow-wrap:anywhere]", !rule.active && "text-muted-foreground")}>{rule.label} <span className="whitespace-nowrap font-semibold tabular-nums">{value}</span></p>
                     <p className="text-xs text-muted-foreground">{target} · {rule.active ? "Ativa" : "Desativada"}</p>
                   </div>
                 </div>
                 {canManage && (
                   <div className="flex shrink-0 items-center gap-1">
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
+                      variant="ghost"
                       disabled={pending}
                       onClick={() => run(() => togglePricingRule(rule.id, !rule.active), rule.active ? "Regra desativada" : "Regra ativada")}
-                      className="min-h-11 rounded-lg px-3 text-xs font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
                     >
                       {rule.active ? "Desativar" : "Ativar"}
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <IconButton
+                      label={`Remover regra ${rule.label}`}
                       disabled={pending}
                       onClick={() => {
                         if (window.confirm("Remover esta regra de preço?")) {
                           run(() => deletePricingRule(rule.id), "Regra removida");
                         }
                       }}
-                      aria-label={`Remover regra ${rule.label}`}
-                      className="grid min-h-11 min-w-11 place-items-center rounded-lg text-muted-foreground hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+                      className="hover:bg-danger/10 hover:text-danger"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <Trash2 aria-hidden="true" className="h-4 w-4" />
+                    </IconButton>
                   </div>
                 )}
               </li>
@@ -227,6 +225,6 @@ export function PricingRulesManager({ rules, canManage }: { rules: Rule[]; canMa
           })}
         </ul>
       )}
-    </div>
+    </SettingsBlock>
   );
 }

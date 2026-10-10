@@ -9,7 +9,9 @@ import { CalendarOff, Plus, Trash2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { cn } from "@/lib/utils";
 import { createSalonClosure, deleteSalonClosure } from "../agenda/actions";
+import { labelClass, SettingsBlock, subPanelClass } from "./settings-ui";
 
 export type Closure = {
   id: string;
@@ -62,43 +64,39 @@ export function ClosuresManager({
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <CalendarOff className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-[13px] font-semibold">Fechamentos por data</h3>
-        </div>
-        {canManage && (
-          <Button type="button" size="sm" variant="outline" disabled={pending} className="min-h-11 rounded-full px-4" onClick={() => setOpen((o) => !o)}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Fechar um dia
-          </Button>
-        )}
-      </div>
-      <p className="mb-4 text-[12px] text-muted-foreground">
+    <SettingsBlock
+      hint={<>
         Feriado, reforma, viagem — impede novo agendamento (do cliente e do admin) no período. Não
         cancela reservas que já existiam antes do bloqueio.
-        {" "}Para almoço ou outra pausa semanal, use <a href="/agenda" className="underline">Pausa recorrente na agenda</a>.
-      </p>
+        {" "}Para almoço ou outra pausa semanal, use <a href="/agenda" className="font-medium text-foreground underline underline-offset-4">Pausa recorrente na agenda</a>.
+      </>}
+      action={canManage && (
+        <Button type="button" size="sm" variant="outline" aria-expanded={open} disabled={pending} className="max-lg:w-full" onClick={() => setOpen((o) => !o)}>
+          <Plus aria-hidden="true" className="h-4 w-4" />
+          Fechar um dia
+        </Button>
+      )}
+    >
+      <h3 className="sr-only">Fechamentos por data</h3>
 
       <div hidden={!open}>
-        <form ref={formRef} onSubmit={onSubmit} aria-busy={pending} className="mb-4 grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="closures-manager-startDate" className="mb-1 block text-[12px] font-medium">De</label>
+        <form ref={formRef} onSubmit={onSubmit} aria-busy={pending} className={cn(subPanelClass, "grid gap-3.5 sm:grid-cols-2 sm:gap-4")}>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="closures-manager-startDate" className={labelClass}>De<span aria-hidden="true"> *</span></label>
             <Input id="closures-manager-startDate" name="startDate" type="date" required />
           </div>
-          <div>
-            <label htmlFor="closures-manager-endDate" className="mb-1 block text-[12px] font-medium">Até</label>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="closures-manager-endDate" className={labelClass}>Até</label>
             <Input id="closures-manager-endDate" name="endDate" type="date" />
           </div>
-          <div className="sm:col-span-2">
-            <label htmlFor="closures-manager-reason" className="mb-1 block text-[12px] font-medium">Motivo (opcional)</label>
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+            <label htmlFor="closures-manager-reason" className={labelClass}>Motivo (opcional)</label>
             <Input id="closures-manager-reason" name="reason" placeholder="Ex.: Feriado de Corpus Christi" maxLength={200} />
           </div>
-          {error && <p role="alert" className="text-[12px] text-destructive sm:col-span-2">{error}</p>}
-          <div className="flex gap-2 sm:col-span-2">
+          {error && <p role="alert" className="text-sm text-danger sm:col-span-2">{error}</p>}
+          <div className="flex flex-wrap gap-2.5 sm:col-span-2">
             <Button type="submit" size="sm" disabled={pending}>
-              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Bloquear"}
+              {pending ? <Loader2 aria-label="Salvando" className="h-4 w-4 animate-spin" /> : "Bloquear"}
             </Button>
             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setOpen(false)}>
               Recolher
@@ -108,7 +106,10 @@ export function ClosuresManager({
       </div>
 
       {closures.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">Nenhum bloqueio futuro cadastrado.</p>
+        <div className="flex flex-col items-center gap-2.5 rounded-[14px] border border-dashed border-border-strong px-4 py-5 text-center">
+          <span className="grid h-10 w-10 place-items-center rounded-full bg-muted text-muted-foreground"><CalendarOff aria-hidden="true" className="h-4 w-4" /></span>
+          <p className="text-sm font-medium">Nenhum bloqueio futuro cadastrado.</p>
+        </div>
       ) : (
         <ul className="space-y-2">
           {closures.map((c) => {
@@ -120,15 +121,15 @@ export function ClosuresManager({
             return (
               <li
                 key={c.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface-1 px-3 py-2"
+                className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-2.5"
               >
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium">
+                  <p className="text-sm font-medium">
                     {sameDay
                       ? formatInTimeZone(start, timezone, "d 'de' MMMM", { locale: ptBR })
                       : `${formatInTimeZone(start, timezone, "d MMM", { locale: ptBR })} – ${formatInTimeZone(end, timezone, "d MMM", { locale: ptBR })}`}
                   </p>
-                  {c.reason && <p className="truncate text-xs text-muted-foreground">{c.reason}</p>}
+                  {c.reason && <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{c.reason}</p>}
                 </div>
                 {canManage && (
                   <IconButton
@@ -138,7 +139,7 @@ export function ClosuresManager({
                     onClick={() => run(() => deleteSalonClosure(c.id))}
                     className="shrink-0 hover:bg-danger/10 hover:text-danger"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 aria-hidden="true" className="h-4 w-4" />
                   </IconButton>
                 )}
               </li>
@@ -146,6 +147,6 @@ export function ClosuresManager({
           })}
         </ul>
       )}
-    </div>
+    </SettingsBlock>
   );
 }

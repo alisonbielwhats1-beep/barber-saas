@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 vi.mock('../../app/(admin)/servicos/secretaria/secretary-chat', () => ({
   SecretaryChat: ({ onNavigate, active }: { onNavigate?: () => void; active?: boolean }) => <div data-active={String(active)}>
@@ -15,8 +15,10 @@ import { SecretaryDock } from '../../app/(admin)/servicos/secretaria/secretary-d
 function viewport(desktop: boolean) {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: desktop, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
 }
+/** The menu item and the phone's tab open her with this event (there is no floating button). */
+const openSecretary = () => act(() => { window.dispatchEvent(new Event('everflair:secretary-open')); });
 let shell: HTMLDivElement;
-beforeEach(() => { shell = document.createElement('div'); shell.className = 'admin-shell'; document.body.append(shell); });
+beforeEach(() => { shell = document.createElement('div'); shell.className = 'admin-shell'; shell.id = 'main-content'; document.body.append(shell); });
 afterEach(() => { cleanup(); shell.remove(); vi.unstubAllGlobals(); });
 
 describe('dock and links', () => {
@@ -24,7 +26,7 @@ describe('dock and links', () => {
     viewport(desktop);
     const user = userEvent.setup();
     render(<SecretaryDock voiceEnabled={false} />);
-    await user.click(screen.getByRole('button', { name: 'Abrir Secretária' }));
+    openSecretary();
     const dialog = screen.getByRole('dialog', { name: 'Secretária' });
     expect(dialog).toHaveAttribute('data-state', 'open');
     expect(Boolean(shell.inert)).toBe(!desktop);
@@ -34,7 +36,7 @@ describe('dock and links', () => {
     expect(Boolean(shell.inert)).toBe(false);
     // Still mounted (hidden): reopening shows the same conversation.
     expect(document.querySelector('[data-active="false"]')).not.toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Abrir Secretária' }));
+    openSecretary();
     expect(dialog).toHaveAttribute('data-state', 'open');
     expect(screen.getByLabelText('Mensagem')).toHaveValue('rascunho');
   });

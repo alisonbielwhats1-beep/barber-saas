@@ -1,3 +1,4 @@
+import { agendaQuickAction } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
@@ -24,7 +25,6 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await page.goto("/clientes");
     await page.getByLabel("Lista de clientes").locator("button").filter({ hasText: guest.name }).click();
     const detail = page.getByRole("dialog");
-    await detail.getByText("Informações e fidelidade", {exact:true}).click();
     await expect(detail.getByText("Conta criada · acesso ao aplicativo", { exact: true })).toBeVisible();
     await expect(detail.getByText("Sem conta criada", { exact: true }).first()).toBeVisible();
     await detail.screenshot({ path: test.info().outputPath("duplicatas-conta-sintetica.png") });
@@ -34,7 +34,7 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await merge.getByRole("button", { name: "Confirmar mesclagem", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.getByLabel("Lista de clientes").locator("button").filter({ hasText: hidden.name }).click();
-    await page.getByRole("tab", {name:"Preferências",exact:true}).click();
+    await page.getByRole("button", { name: "Mais ações do cliente", exact: true }).click();
     await page.getByRole("button", { name: "Excluir da lista", exact: true }).click();
     await page.getByRole("button", { name: "Confirmar exclusão da lista" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -63,7 +63,7 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await week.getByRole("button").first().click();
     await expect(page).toHaveURL(/date=2026-09-06/);
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
-    await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
+    await agendaQuickAction(page, /Novo agendamento/).click();
     const clients = page.getByLabel("Clientes encontrados", { exact: true });
     await expect(clients.getByRole("button", { name: new RegExp(account.name) })).toHaveCount(1);
     await expect(clients.getByRole("button", { name: new RegExp(guest.name) })).toHaveCount(0);

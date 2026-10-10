@@ -58,11 +58,11 @@ export function PortfolioForm({
   return (
     <Dialog pending={pending} dirtyKey={imageUrl} open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button><Plus className="h-4 w-4" /> Adicionar foto</Button>
+        <Button><Plus aria-hidden="true" className="h-4 w-4" /> Adicionar foto</Button>
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nova foto do portfolio</DialogTitle>
+          <DialogTitle>Nova foto do portfólio</DialogTitle>
           <DialogDescription>Faça upload do trabalho realizado.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4">
@@ -82,13 +82,13 @@ export function PortfolioForm({
           <div>
             <label className="mb-1 block text-sm font-medium">Feito por</label>
             {lockedProfessional ? (
-              <div className="flex h-11 items-center rounded-md border border-input bg-muted px-3 text-sm">
+              <div className="flex min-h-11 items-center rounded-[10px] border border-border-strong bg-muted px-3 text-base text-muted-foreground lg:min-h-10 lg:text-sm">
                 {lockedProfessional.name}
               </div>
             ) : (
               <select aria-label="Feito por"
                 name="professionalId"
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="flex min-h-11 w-full rounded-[10px] border border-border-strong bg-background px-3 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 lg:min-h-10 lg:text-sm"
               >
                 <option value="">Do salão (sem atribuição)</option>
                 {professionals.map((p) => (
@@ -97,7 +97,7 @@ export function PortfolioForm({
               </select>
             )}
           </div>
-          {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-[10px] bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
           <DialogFooter>
             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
             <Button type="submit" disabled={pending}>{pending ? "Enviando…" : "Publicar"}</Button>

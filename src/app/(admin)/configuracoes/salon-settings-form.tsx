@@ -1,15 +1,15 @@
 "use client";
 import { useFormOperation } from "../use-form-operation";
 
-import { Children, cloneElement, isValidElement, useId, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FormSection } from "../form-section";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { updateSalonSettings } from "./actions";
 import { MAX_PUBLIC_BOOKING_LEAD_DAYS } from "@/lib/scheduling";
+import { noteClass, selectClass, SettingsBlock, SettingsField } from "./settings-ui";
 
 type Salon = {
   name: string;
@@ -37,6 +37,9 @@ const TIMEZONES = [
   "Europe/Lisbon",
   "UTC",
 ];
+
+/** Visual mark of a required field; the accessible name stays the plain label. */
+const Required = () => <span aria-hidden="true"> *</span>;
 
 export function SalonSettingsForm({ salon }: { salon: Salon }) {
   const router = useRouter();
@@ -77,27 +80,27 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <Section title="Identidade do salão">
-        <Field label="Nome do salão">
+    <form onSubmit={onSubmit} className="space-y-3.5 lg:space-y-4">
+      <SettingsBlock title="Identidade do salão">
+        <SettingsField label={<>Nome do salão<Required /></>}>
           <Input name="name" defaultValue={salon.name} required />
-        </Field>
-        <Field label="Endereço">
+        </SettingsField>
+        <SettingsField label="Endereço">
           <Input name="address" defaultValue={salon.address ?? ""} placeholder="Rua, número — bairro, cidade" />
-        </Field>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Telefone / WhatsApp">
+        </SettingsField>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4">
+          <SettingsField label="Telefone / WhatsApp">
             <Input name="phone" type="tel" autoComplete="tel" defaultValue={salon.phone ?? ""} placeholder="(11) 90000-0000" />
-          </Field>
-          <Field label="Moeda">
-            <select name="currency" defaultValue={salon.currency} className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
+          </SettingsField>
+          <SettingsField label="Moeda">
+            <select name="currency" defaultValue={salon.currency} className={selectClass}>
               <option value="BRL">Real (R$)</option>
               <option value="USD">Dólar (US$)</option>
               <option value="EUR">Euro (€)</option>
             </select>
-          </Field>
+          </SettingsField>
         </div>
-        <Field label="Fuso horário">
+        <SettingsField label={<>Fuso horário<Required /></>} hint="Use um identificador IANA. Agenda, dashboard e avisos seguirão este fuso.">
           <Input
             name="timezone"
             list="salon-timezones"
@@ -111,86 +114,66 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
               <option key={tz} value={tz}>{tz}</option>
             ))}
           </datalist>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Use um identificador IANA. Agenda, dashboard e avisos seguirão este fuso.
-          </p>
-        </Field>
-      </Section>
+        </SettingsField>
+      </SettingsBlock>
 
-      <FormSection title="Política de cancelamento">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Antecedência mínima (horas)">
-            <Input name="cancelPolicyHours" type="number" min={0} max={168} defaultValue={salon.cancelPolicyHours} />
-          </Field>
-          <Field label="Taxa por não comparecimento (R$)">
-            <Input name="noShowFee" type="number" min={0} step="0.01" defaultValue={(salon.noShowFeeCents / 100).toFixed(2)} />
-          </Field>
+      <SettingsBlock title="Política de cancelamento">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4">
+          <SettingsField label="Antecedência mínima (horas)">
+            <Input name="cancelPolicyHours" type="number" min={0} max={168} defaultValue={salon.cancelPolicyHours} className="tabular-nums" />
+          </SettingsField>
+          <SettingsField label="Taxa por não comparecimento (R$)">
+            <Input name="noShowFee" type="number" min={0} step="0.01" defaultValue={(salon.noShowFeeCents / 100).toFixed(2)} className="tabular-nums" />
+          </SettingsField>
         </div>
-      </FormSection>
+      </SettingsBlock>
 
-      <FormSection title="Janela de agendamento online">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Antecedência mínima (minutos)">
+      <SettingsBlock title="Janela de agendamento online">
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
+          <SettingsField label="Antecedência mínima (minutos)">
             <Input
               name="minBookingLeadMinutes"
               type="number"
               min={0}
               max={10080}
               defaultValue={salon.minBookingLeadMinutes}
+              className="tabular-nums"
             />
-          </Field>
-          <Field label="Até quantos dias no futuro">
+          </SettingsField>
+          <SettingsField label="Até quantos dias no futuro">
             <Input
               name="maxBookingLeadDays"
               type="number"
               min={1}
               max={MAX_PUBLIC_BOOKING_LEAD_DAYS}
               defaultValue={Math.min(salon.maxBookingLeadDays, MAX_PUBLIC_BOOKING_LEAD_DAYS)}
+              className="tabular-nums"
             />
-          </Field>
-          <Field label="Intervalo entre atendimentos (minutos)">
-            <Input name="bufferMinutes" type="number" min={0} max={120} defaultValue={salon.bufferMinutes} />
-          </Field>
+          </SettingsField>
+          <SettingsField label="Intervalo entre atendimentos (minutos)">
+            <Input name="bufferMinutes" type="number" min={0} max={120} defaultValue={salon.bufferMinutes} className="tabular-nums" />
+          </SettingsField>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className={noteClass}>
           Controla o que o cliente vê ao marcar sozinho pela página pública. Por segurança, o app
           limita a janela pública a no máximo 60 dias. O intervalo entre
           atendimentos reserva um tempo de preparo/limpeza para cada profissional entre um
           horário e o próximo, tanto no aplicativo do cliente quanto no painel.
         </p>
-      </FormSection>
+      </SettingsBlock>
 
-      {error && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</p>}
+      {error && <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm text-foreground">{error}</p>}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
         <Button type="submit" disabled={pending}>
-          {pending ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</> : "Salvar alterações"}
+          {pending ? <><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> Salvando…</> : "Salvar alterações"}
         </Button>
         {saved && (
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-success">
-            <Check className="h-4 w-4" /> Salvo
+          <span className="inline-flex items-center gap-1.5 text-sm text-success">
+            <Check aria-hidden="true" className="h-4 w-4" /> Salvo
           </span>
         )}
       </div>
     </form>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-3">
-      <h3 className="mb-4 text-[13px] font-semibold">{title}</h3>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  const id = useId();
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-[13px] font-medium">{label}</label>
-      {Children.toArray(children).map((child, index) => index === 0 && isValidElement<{ id?: string }>(child) ? cloneElement(child, { id }) : child)}
-    </div>
   );
 }

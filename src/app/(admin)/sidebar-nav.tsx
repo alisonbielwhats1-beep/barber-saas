@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { Fragment, useEffect, useId, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Bell,
   CalendarClock,
+  Crown,
   CalendarDays,
   ChartNoAxesCombined,
   Layers3,
   Megaphone,
   Settings,
   ShieldCheck,
+  Sparkles,
   Users,
   UsersRound,
   type LucideIcon,
@@ -24,6 +26,7 @@ import {
   AnimatedSidebarMenuSubItem,
 } from "@/components/ui/animated-sidebar";
 import { UnreadBadge } from "@/components/unread-badge";
+import { openSecretary } from "./secretary-open";
 import {
   DASHBOARD_ROLES,
   FINANCIAL_ROLES,
@@ -53,11 +56,11 @@ export const DESKTOP_AREAS: DesktopArea[] = [
   { href: "/notificacoes", label: "Notificações", icon: Bell, activePaths: ["/notificacoes"] },
 ];
 
-function matchesPath(pathname: string, path: string) {
+export function matchesPath(pathname: string, path: string) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-function canSee(item: { roles?: readonly string[] }, role: string) {
+export function canSee(item: { roles?: readonly string[] }, role: string) {
   return !item.roles || item.roles.includes(role);
 }
 
@@ -71,11 +74,17 @@ export function SidebarNav({
   role,
   unreadNotifications = 0,
   isPlatformAdmin = false,
+  secretary = false,
+  planHref = null,
 }: {
   id?: string;
   role: string;
   unreadNotifications?: number;
   isPlatformAdmin?: boolean;
+  /** "Secretária" logo depois da Agenda; abre o painel dela (que escuta o evento). */
+  secretary?: boolean;
+  /** "Plano e assinatura" no grupo de conta (só dono). */
+  planHref?: string | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -92,7 +101,7 @@ export function SidebarNav({
   }, [activeGroup]);
 
   return (
-    <nav id={id} aria-label="Navegação principal" className="scrollbar-dark min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
+    <nav id={id} aria-label="Navegação principal" className="scrollbar-dark min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-1.5 pt-1">
       <AnimatedSidebarMenu>
         {areas.map((area) => {
           const Icon = area.icon;
@@ -101,13 +110,14 @@ export function SidebarNav({
           const active = area === activeArea;
           const submenuId = `${menuId}-${area.label}`;
           return (
-            <AnimatedSidebarMenuItem key={area.href}>
+            <Fragment key={area.href}>
+            <AnimatedSidebarMenuItem>
               <AnimatedSidebarMenuButton
                 href={links.length ? undefined : area.href}
                 isActive={active}
                 ariaExpanded={links.length ? openSection === area.label : undefined}
                 ariaControls={submenuId}
-                icon={<Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />}
+                icon={<Icon className="h-4 w-4" strokeWidth={1.8} />}
                 badge={area.href === "/notificacoes" ? <UnreadBadge count={unreadNotifications} /> : undefined}
                 onSelect={() => {
                   if (links.length) setOpenSection((current) => (current === area.label ? null : area.label));
@@ -127,26 +137,48 @@ export function SidebarNav({
                 </AnimatedSidebarMenuSub>
               ) : null}
             </AnimatedSidebarMenuItem>
+            {secretary && area.href === "/agenda" && (
+              <AnimatedSidebarMenuItem>
+                <AnimatedSidebarMenuButton
+                  className="secretary-nav-item"
+                  ariaHasPopup="dialog"
+                  icon={<Sparkles className="h-4 w-4 text-[hsl(var(--selection-foreground))]" strokeWidth={1.8} />}
+                  onSelect={openSecretary}
+                >
+                  Secretária
+                </AnimatedSidebarMenuButton>
+              </AnimatedSidebarMenuItem>
+            )}
+            </Fragment>
           );
         })}
       </AnimatedSidebarMenu>
 
-      {MANAGEMENT_ROLES.some((allowedRole) => allowedRole === role) && (
-        <div className="mt-3 border-t border-border pt-3">
+      {(MANAGEMENT_ROLES.some((allowedRole) => allowedRole === role) || planHref) && (
+        <div className="mt-2 border-t border-border pt-2">
           <AnimatedSidebarMenu>
-            <AnimatedSidebarMenuItem>
-              <AnimatedSidebarMenuButton href="/configuracoes" isActive={matchesPath(pathname, "/configuracoes")} icon={<Settings className="h-[18px] w-[18px]" strokeWidth={1.8} />}>
-                Configurações
-              </AnimatedSidebarMenuButton>
-            </AnimatedSidebarMenuItem>
+            {MANAGEMENT_ROLES.some((allowedRole) => allowedRole === role) && (
+              <AnimatedSidebarMenuItem>
+                <AnimatedSidebarMenuButton href="/configuracoes" isActive={matchesPath(pathname, "/configuracoes")} icon={<Settings className="h-4 w-4" strokeWidth={1.8} />}>
+                  Configurações
+                </AnimatedSidebarMenuButton>
+              </AnimatedSidebarMenuItem>
+            )}
+            {planHref && (
+              <AnimatedSidebarMenuItem>
+                <AnimatedSidebarMenuButton href={planHref} isActive={matchesPath(pathname, "/assinatura")} icon={<Crown className="h-4 w-4" strokeWidth={1.8} />}>
+                  Plano e assinatura
+                </AnimatedSidebarMenuButton>
+              </AnimatedSidebarMenuItem>
+            )}
           </AnimatedSidebarMenu>
         </div>
       )}
       {isPlatformAdmin && (
-        <div className="pt-1">
+        <div className="pt-0.5">
           <AnimatedSidebarMenu>
             <AnimatedSidebarMenuItem>
-              <AnimatedSidebarMenuButton href="/plataforma/solicitacoes" isActive={matchesPath(pathname, "/plataforma")} icon={<ShieldCheck className="h-[18px] w-[18px]" strokeWidth={1.8} />}>
+              <AnimatedSidebarMenuButton href="/plataforma/solicitacoes" isActive={matchesPath(pathname, "/plataforma")} icon={<ShieldCheck className="h-4 w-4" strokeWidth={1.8} />}>
                 Administração
               </AnimatedSidebarMenuButton>
             </AnimatedSidebarMenuItem>
@@ -157,9 +189,9 @@ export function SidebarNav({
   );
 }
 
-type ContextLink = { href: string; label: string; path?: string; segment?: string; status?: string; roles?: readonly string[] };
+export type ContextLink = { href: string; label: string; path?: string; segment?: string; status?: string; roles?: readonly string[] };
 
-const CONTEXT_AREAS: Array<{ title: string; paths: readonly string[]; links: ContextLink[] }> = [
+export const CONTEXT_AREAS: Array<{ title: string; paths: readonly string[]; links: ContextLink[] }> = [
   {
     title: "Clientes",
     paths: ["/clientes"],

@@ -8,12 +8,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
-  CalendarRange,
-  Grid3x3,
-  List,
   Search,
   Users,
-  SlidersHorizontal,
+  ListFilter,
   Loader2,
   Bell,
   AlertTriangle,
@@ -50,22 +47,62 @@ import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availabilit
 import type { AgendaPrefill } from "./agenda-deep-link";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedule-visibility";
 import { AgendaQuickActions } from "./agenda-quick-actions";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { WeeklyPausePanel } from "./weekly-pause-panel";
 import { minuteAtSlotPointer } from "./agenda-slot-pointer";
 import { AgendaWeekStrip } from "./agenda-week-strip";
 import { AgendaTimeScale } from "./agenda-time-scale";
 import { AgendaMobileGuide } from "./agenda-mobile-guide";
+import { Button } from "@/components/ui/button";
 import "./agenda-workspace.css";
 
 const DAY_START = 8 * 60;
 const SLOT_MIN = 30;
 const PX_PER_MIN = 1.7;
+// The drop position of a dragged booking is measured from the top of its column, header included: keep this height.
 const HEADER_H = 64;
 
 type ViewKind = "day" | "week" | "month" | "list";
+
+/** Situation as coloured text on the cards (the label always goes with it; colour is never the only signal). */
+const STATUS_TEXT: Record<string, string> = {
+  PENDING: "text-warning",
+  CONFIRMED: "text-muted-foreground",
+  IN_PROGRESS: "text-[hsl(var(--selection-foreground))]",
+  COMPLETED: "text-success",
+  NO_SHOW: "text-danger",
+  CANCELLED: "text-muted-foreground",
+};
+
+const WEEKDAY_SHORT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** Period title: long form ("5 – 11 de outubro", "Outubro de 2026") and a short one for narrow bars ("5 – 11 out", "Out 2026"). */
+function periodLabels(view: ViewKind, day: Date) {
+  if (view === "day") {
+    return { full: format(day, "d 'de' MMMM", { locale: ptBR }), short: format(day, "d MMM", { locale: ptBR }) };
+  }
+  if (view === "week") {
+    const first = startOfWeek(day, { weekStartsOn: 1 });
+    const last = endOfWeek(day, { weekStartsOn: 1 });
+    if (isSameMonth(first, last)) {
+      return {
+        full: `${format(first, "d")} – ${format(last, "d 'de' MMMM", { locale: ptBR })}`,
+        short: `${format(first, "d")} – ${format(last, "d MMM", { locale: ptBR })}`,
+      };
+    }
+    const across = `${format(first, "d MMM", { locale: ptBR })} – ${format(last, "d MMM", { locale: ptBR })}`;
+    return { full: across, short: across };
+  }
+  return {
+    full: capitalize(format(day, "MMMM 'de' yyyy", { locale: ptBR })),
+    short: capitalize(format(day, "MMM yyyy", { locale: ptBR })),
+  };
+}
 
 export type WaitlistEntryView = {
   id: string;
@@ -220,7 +257,13 @@ export function AgendaBoard({
   const [proFilter, setProFilter] = useState<string[]>(() => roster.some(pro => pro.id === initialProfessionalId) ? [initialProfessionalId!] : []);
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  // Side calendar (wide screens): open next to the Day and Week grids; Month and List already show the month, so it starts closed there.
+  const [sidePanel, setSidePanel] = useState({ grid: true, plain: false });
+  const plainView = view === "month" || view === "list";
+  const calendarOpen = plainView ? sidePanel.plain : sidePanel.grid;
+  const setCalendarOpen = (open: boolean) => setSidePanel(current => plainView ? { ...current, plain: open } : { ...current, grid: open });
+  const [noticesOpen, setNoticesOpen] = useState(false);
+  const noticesOpener = useRef<HTMLButtonElement | null>(null);
   const [operationsOpen, setOperationsOpen] = useState(false);
   const [pauseLaunch, setPauseLaunch] = useState<string>();
   const [mobileCalendarOpen, setMobileCalendarOpen] = useState(false);
@@ -372,89 +415,76 @@ export function AgendaBoard({
     });
   }
 
-  const rangeLabel =
-    view === "week"
-      ? `${format(startOfWeek(dateObj, { weekStartsOn: 1 }), "d MMM", { locale: ptBR })} – ${format(endOfWeek(dateObj, { weekStartsOn: 1 }), "d MMM", { locale: ptBR })}`
-      : view === "month" || view === "list"
-        ? format(dateObj, "MMMM yyyy", { locale: ptBR })
-        : format(dateObj, "d 'de' MMMM", { locale: ptBR });
+  const period = periodLabels(view, dateObj);
+  const periodKicker = view === "day" ? format(dateObj, "EEEE", { locale: ptBR }) : view === "week" ? "semana" : view === "month" ? "mês" : "lista";
   const navigationUnit = view === "week" ? "semana" : view === "month" || view === "list" ? "mês" : "dia";
+  const dayCount = dayAppts.filter(appointment => appointment.status !== "CANCELLED").length;
+  const dayCountLabel = `${dayCount} ${dayCount === 1 ? "agendamento" : "agendamentos"}`;
+  const timezoneLabel = formatInTimeZone(new Date(`${date}T12:00:00.000Z`), timezone, "O");
+  const hasNotices = awaitingAcceptance > 0 || cancelledWithQueue > 0;
+  const viewOptions: { value: ViewKind; label: string }[] = [
+    { value: "day", label: "Dia" },
+    { value: "week", label: "Semana" },
+    { value: "month", label: "Mês" },
+    { value: "list", label: "Lista" },
+  ];
   function selectCalendarDate(next: string) {
     startTransition(() => router.push(`/agenda?date=${next}`, { scroll: false }));
     setMobileCalendarOpen(false);
   }
+  /** Side list: a ticked box shows that professional. Unticking keeps at least one column, as the filter chips do. */
+  function toggleShown(id: string, show: boolean) {
+    setProFilter(current => {
+      const visible = current.length === 0 ? professionals.map(pro => pro.id) : current;
+      const next = show ? Array.from(new Set([...visible, id])) : visible.filter(item => item !== id);
+      if (next.length === 0) return current;
+      return next.length === professionals.length ? [] : next;
+    });
+  }
+  const noticesButton = (className: string) => (
+    <button type="button" onClick={event => { noticesOpener.current = event.currentTarget; setNoticesOpen(true); }} aria-label="Avisos do período" aria-haspopup="dialog" className={`agenda-icon-btn relative ${className}`}>
+      <Bell aria-hidden="true" size={18} />
+      <span aria-hidden="true" className="absolute right-2 top-2 h-2 w-2 rounded-full bg-foreground ring-2 ring-background" />
+    </button>
+  );
 
   return (
     <div className="agenda-workspace" aria-busy={pending}>
       <header className="agenda-toolbar">
-        <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="agenda-optional-control hidden min-h-11 rounded-lg border border-border px-2 text-xs sm:block">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
-        <div className="agenda-optional-control hidden sm:block"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
-        <div className="flex min-w-0 items-center gap-2 sm:hidden">
-          <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
-          <h1><button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
-            <span className="block whitespace-nowrap">{format(dateObj, "MMMM yyyy", { locale: ptBR })}</span>
-
-          </button></h1>
-          <button type="button" onClick={() => goDate(1)} aria-label={`Ir para próximo ${navigationUnit}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronRight aria-hidden="true" size={16} /></button>
+        {/* Phone: the period opens the calendar; the arrows move one day, week or month. */}
+        <div className="agenda-phone-nav">
+          <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="agenda-icon-btn grid"><ChevronLeft aria-hidden="true" size={18} /></button>
+          <h1 className="min-w-0 flex-1">
+            <button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="agenda-phone-title">
+              <span className="flex min-w-0 max-w-full items-center gap-1 text-base font-semibold">
+                <span className="agenda-period"><span className="agenda-period-full">{period.full}</span><span className="agenda-period-short">{period.short}</span></span>
+                <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </span>
+              <span className="block max-w-full truncate text-xs font-normal text-muted-foreground">{view === "day" ? `${periodKicker} · ${dayCountLabel}` : periodKicker}</span>
+            </button>
+          </h1>
+          <button type="button" onClick={() => goDate(1)} aria-label={`Ir para próximo ${navigationUnit}`} className="agenda-icon-btn grid"><ChevronRight aria-hidden="true" size={18} /></button>
         </div>
+        {/* Computer: calendar, arrows, period and "Hoje" on the left; tools, views and "Novo" on the right. */}
         <div className="agenda-date-controls">
-          <button type="button" aria-label={calendarOpen ? "Recolher calendário" : "Abrir calendário"} aria-expanded={calendarOpen} aria-controls="agenda-date-panel" onClick={() => setCalendarOpen(!calendarOpen)} className="hidden h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-card text-[hsl(var(--selection-foreground))] xl:grid"><CalendarDays size={18} /></button>
-          <button ref={mobileCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-card xl:hidden"><CalendarDays size={18} /></button>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 p-1">
-            <button
-              type="button"
-              onClick={() => goDate(-1)}
-              aria-label={`Ir para ${navigationUnit} anterior`}
-              className="grid min-h-11 min-w-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground"
-            >
-              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={goToday}
-              aria-label="Ir para hoje"
-              className="min-h-11 rounded-lg px-3 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Hoje
-            </button>
-            <button
-              type="button"
-              onClick={() => goDate(1)}
-              aria-label={`Ir para próximo ${navigationUnit}`}
-              className="grid min-h-11 min-w-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground"
-            >
-              <ChevronRight aria-hidden="true" className="h-4 w-4" />
-            </button>
+          <button type="button" aria-label={calendarOpen ? "Recolher calendário" : "Abrir calendário"} aria-expanded={calendarOpen} aria-controls="agenda-date-panel" onClick={() => setCalendarOpen(!calendarOpen)} className="agenda-icon-btn hidden xl:grid"><CalendarDays aria-hidden="true" size={18} /></button>
+          <button ref={mobileCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="agenda-icon-btn grid xl:hidden"><CalendarDays aria-hidden="true" size={18} /></button>
+          <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="agenda-icon-btn grid"><ChevronLeft aria-hidden="true" size={18} /></button>
+          <div className="agenda-date-title" title={period.full}>
+            <p className="first-letter:uppercase">{periodKicker}</p>
+            <h1>{period.full}</h1>
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              {format(dateObj, "EEEE", { locale: ptBR })}
-            </p>
-            <h1 className="text-base font-semibold tracking-tight first-letter:uppercase sm:text-xl">{rangeLabel}</h1>
-          </div>
-          {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <button type="button" onClick={() => goDate(1)} aria-label={`Ir para próximo ${navigationUnit}`} className="agenda-icon-btn grid"><ChevronRight aria-hidden="true" size={18} /></button>
+          <Button type="button" variant="outline" size="sm" onClick={goToday} aria-label="Ir para hoje">Hoje</Button>
+          {pending && <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
         </div>
 
         <div className="agenda-view-controls">
           <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!prefill?.linked} />
-          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
-          <p>
-            {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
-            {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
-            {cancelledWithQueue > 0 && `${cancelledWithQueue} fila(s) têm horário liberado para promoção manual.`}
-          </p>
-          {awaitingAcceptance > 0 && (
-            <Link href="/notificacoes" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">
-              Ver central de avisos
-            </Link>
-          )}
-</div></DialogContent></Dialog>}
-          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-describedby={activeFilterCount > 0 ? "agenda-active-filters" : undefined} aria-haspopup="dialog" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} aria-hidden="true" />{activeFilterCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">{activeFilterCount}</span>}</button>
-          <div role="group" aria-label="Visualização da agenda" className="hidden items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1 sm:flex">
-            <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
-            <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
-            <ViewBtn active={view === "month"} onClick={() => setView("month")} icon={Grid3x3} label="Mês" />
-            <ViewBtn active={view === "list"} onClick={() => setView("list")} icon={List} label="Lista" />
+          {hasNotices && noticesButton("hidden sm:grid")}
+          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-describedby={activeFilterCount > 0 ? "agenda-active-filters" : undefined} aria-haspopup="dialog" className="agenda-icon-btn relative grid"><ListFilter size={18} aria-hidden="true" />{activeFilterCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-xs font-semibold tabular-nums text-primary-foreground">{activeFilterCount}</span>}</button>
+          <div role="group" aria-label="Visualização da agenda" className="agenda-view-rail hidden sm:flex">
+            {viewOptions.map(option => <ViewBtn key={option.value} active={view === option.value} onClick={() => setView(option.value)} label={option.label} />)}
           </div>
           <AgendaQuickActions
             triggerRef={quickActionTrigger}
@@ -472,72 +502,126 @@ export function AgendaBoard({
       </header>
 
       {view === "day" && <AgendaWeekStrip date={date} today={today} onSelect={goToDay} />}
-      <div role="group" aria-label="Visualização da agenda" className="agenda-mobile-views flex gap-2 sm:hidden">
-        {([['day','Dia'],['week','Semana'],['month','Mês'],['list','Lista']] as const).map(([kind,label]) => <button key={kind} type="button" aria-pressed={view === kind} onClick={() => setView(kind)} className="min-h-11 flex-1 rounded-full text-[13px] font-medium">{label}</button>)}
+      <div className="agenda-mobile-views">
+        <SegmentedControl ariaLabel="Visualização da agenda" value={view} onChange={setView} className="min-w-0 flex-1" options={viewOptions} />
+        {hasNotices && noticesButton("grid shrink-0")}
       </div>
 
       {activeFilterCount > 0 && (
-        <div className="flex shrink-0 items-center gap-2 rounded-lg bg-surface-1 px-3 text-xs">
+        <div className="agenda-banner">
           <p id="agenda-active-filters" className="min-w-0 flex-1 break-words">
-            <span className="font-medium">{activeFilterCount} filtro{activeFilterCount > 1 ? "s" : ""} ativo{activeFilterCount > 1 ? "s" : ""}</span>
-            <span className="text-muted-foreground"> · {filterSummary}</span>
+            <span className="font-medium text-foreground">{activeFilterCount} filtro{activeFilterCount > 1 ? "s" : ""} ativo{activeFilterCount > 1 ? "s" : ""}</span>
+            <span> · {filterSummary}</span>
           </p>
-          <button type="button" onClick={() => { clearFilters(); filterTrigger.current?.focus(); }} className="min-h-11 shrink-0 px-2 font-medium text-primary">Limpar filtros</button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => { clearFilters(); filterTrigger.current?.focus(); }} className="shrink-0">Limpar filtros</Button>
         </div>
+      )}
+      {blockMode && view === "day" && (
+        <div role="status" className="agenda-banner">
+          <p className="min-w-0 flex-1"><span className="sm:hidden">Toque no início e no fim do intervalo. Escape cancela.</span><span className="hidden sm:inline">Clique no início e no fim do intervalo, ou arraste na grade em passos de 5 minutos. Escape cancela.</span></p>
+          <Button type="button" variant="outline" size="sm" onClick={() => setBlockMode(false)} className="shrink-0">Sair da seleção de bloqueio</Button>
+        </div>
+      )}
+      {actionError && (
+        <p role="alert" className="flex shrink-0 items-start gap-2 rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger"><AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />{actionError}</p>
       )}
 
       <div className="agenda-body">
-        {calendarOpen && <aside id="agenda-date-panel" aria-label="Navegar por datas" className="sticky top-0 hidden w-64 shrink-0 xl:block"><DateNavigator date={date} today={today} onSelect={selectCalendarDate} /></aside>}
+        {calendarOpen && (
+          <aside id="agenda-date-panel" aria-label="Navegar por datas" className="agenda-side">
+            <DateNavigator date={date} today={today} onSelect={selectCalendarDate} />
+            {professionals.length > 1 && (
+              <fieldset className="min-w-0">
+                <legend className="mb-1 px-0.5 text-xs font-semibold uppercase tracking-[.04em] text-muted-foreground">Profissionais</legend>
+                {professionals.map(pro => (
+                  <label key={pro.id} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-0.5 text-sm font-medium">
+                    <input type="checkbox" checked={shownPros.some(shown => shown.id === pro.id)} onChange={event => toggleShown(pro.id, event.target.checked)} className="h-4 w-4 shrink-0 accent-[hsl(var(--muted-foreground))]" />
+                    <ProAvatar pro={pro} size={24} />
+                    <span className="min-w-0 truncate" title={pro.name}>{pro.name}</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
+          </aside>
+        )}
         <div className="agenda-content">
 
+      <Dialog open={noticesOpen} onOpenChange={setNoticesOpen}>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); noticesOpener.current?.focus(); }}>
+          <DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
+            <p>
+              {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
+              {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
+              {cancelledWithQueue > 0 && `${cancelledWithQueue} fila(s) têm horário liberado para promoção manual.`}
+            </p>
+            {awaitingAcceptance > 0 && (
+              <Button asChild variant="outline" className="w-full sm:w-auto">
+                <Link href="/notificacoes">Ver central de avisos</Link>
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
         <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
-      <div className="space-y-4">
-        <div className="agenda-filter-extras space-y-3 sm:hidden">
+      <div className="space-y-5">
+        <div className="agenda-filter-extras space-y-3 lg:hidden">
           <AgendaColorSelect value={colorMode} onChange={setColorMode} />
-          <button type="button" aria-pressed={view === "month"} onClick={() => {setView("month"); setFiltersOpen(false);}} className="min-h-11 rounded-lg border border-border px-3 text-sm">Visualização mensal</button>
-          <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 w-full rounded-lg border border-border px-3 text-left text-sm">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
+          <button type="button" aria-pressed={view === "month"} onClick={() => {setView("month"); setFiltersOpen(false);}} className="min-h-11 rounded-[10px] border border-border-strong px-3 text-sm font-medium aria-pressed:bg-primary aria-pressed:text-primary-foreground">Visualização mensal</button>
+          <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 w-full rounded-[10px] border border-border-strong px-3 text-left text-sm font-medium">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
         </div>
-        <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
-          <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+        <div className="flex min-h-11 items-center gap-2 rounded-[10px] border border-border-strong bg-background px-3 focus-within:ring-2 focus-within:ring-ring lg:min-h-10">
+          <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
+            type="search" inputMode="search" enterKeyHint="search" autoComplete="off"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Buscar cliente ou telefone"
-            placeholder="Buscar cliente ou telefone…"
-            className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-44"
+            placeholder="Buscar cliente ou telefone"
+            className="min-w-0 flex-1 bg-transparent text-base placeholder:text-muted-foreground focus:outline-none sm:text-sm"
           />
         </div>
-        <div id="agenda-filters" className="flex flex-wrap items-center gap-2">
-        <FilterChip active={proFilter.length === 0} onClick={() => setProFilter([])} icon={Users}>
-          Todos profissionais
-        </FilterChip>
-        {professionals.map((p) => (
-          <FilterChip key={p.id} active={proFilter.includes(p.id)} onClick={() => setProFilter(current => current.includes(p.id) ? current.filter(id => id !== p.id) : [...current, p.id])} dot={p.colorHex ?? "#2ECC8B"}>
-            {p.name}
-          </FilterChip>
-        ))}
-        <span className="mx-1 h-4 w-px bg-border" />
-        <FilterChip active={statusFilter === "not_cancelled"} onClick={() => setStatusFilter("not_cancelled")}>
-          Agenda
-        </FilterChip>
-        <FilterChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
-          Todos status
-        </FilterChip>
-        {STATUS_ORDER.map((s) => (
-          <FilterChip key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)} dot={STATUS[s].color}>
-            {STATUS[s].label}
-          </FilterChip>
-        ))}
+        <div id="agenda-filters" className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Profissionais</p>
+            <div className="flex flex-wrap gap-2">
+              <FilterChip active={proFilter.length === 0} onClick={() => setProFilter([])} icon={Users}>
+                Todos profissionais
+              </FilterChip>
+              {professionals.map((p) => (
+                <FilterChip key={p.id} active={proFilter.includes(p.id)} onClick={() => setProFilter(current => current.includes(p.id) ? current.filter(id => id !== p.id) : [...current, p.id])} dot={p.colorHex ?? "#2ECC8B"}>
+                  {p.name}
+                </FilterChip>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Situação</p>
+            <div className="flex flex-wrap gap-2">
+              <FilterChip active={statusFilter === "not_cancelled"} onClick={() => setStatusFilter("not_cancelled")}>
+                Agenda
+              </FilterChip>
+              <FilterChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
+                Todos status
+              </FilterChip>
+              {STATUS_ORDER.map((s) => (
+                <FilterChip key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)} dot={STATUS[s].color}>
+                  {STATUS[s].label}
+                </FilterChip>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">“Agenda” esconde os cancelados, menos os que têm fila de espera.</p>
+          </div>
         </div>
       </div>
 
-
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" disabled={activeFilterCount === 0} onClick={clearFilters} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Limpar filtros</button>
-            <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda</button>
+            <Button type="button" variant="outline" disabled={activeFilterCount === 0} onClick={clearFilters}>Limpar filtros</Button>
+            <Button type="button" onClick={() => setFiltersOpen(false)}>Ver agenda</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -550,16 +634,11 @@ export function AgendaBoard({
       </Dialog>
       {canManageAvailability && (availabilityLaunch || blockSelection) && <AvailabilityPanel canCancelAppointments={canCancel} dialogOnly restoreFocus={restoreQuickActionFocus} key={blockSelection?.key ?? availabilityLaunch?.key} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} selection={blockSelection} initialPreset={availabilityLaunch?.preset} />}
       {canCancel && pauseLaunch && <WeeklyPausePanel key={pauseLaunch} professionals={professionals} initialOpen hideTrigger restoreFocus={restoreQuickActionFocus} />}
-      {blockMode && view === "day" && <div className="flex shrink-0 items-center justify-between gap-2 rounded-lg bg-muted px-3 text-xs"><p>Toque no início e no fim do intervalo. Escape cancela.</p><button type="button" onClick={() => setBlockMode(false)} className="min-h-11 shrink-0 px-2 font-medium">Sair da seleção de bloqueio</button></div>}
-      {actionError && (
-        <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{actionError}</p>
-      )}
-
 
       {view === "day" && shownPros.length > 2 && <p className="sr-only">{shownPros.length} profissionais · role a grade para os lados para ver a equipe.</p>}
       <div className="agenda-canvas">
       {professionals.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
           Cadastre profissionais para ver a agenda.
         </div>
       ) : view === "day" ? (
@@ -571,6 +650,7 @@ export function AgendaBoard({
           professionals={shownPros}
           appointments={dayAppts}
           timezone={timezone}
+          timezoneLabel={timezoneLabel}
           nowMin={nowMin}
           onOpenSlot={openSlot}
           onOpenBlock={canManageAvailability ? setSelectedAvailabilityBlock : undefined}
@@ -589,6 +669,7 @@ export function AgendaBoard({
           blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))}
           professionals={shownPros}
           dateObj={dateObj}
+          date={date}
           firstProId={shownPros[0]?.id ?? ""}
           appointments={filteredAll}
           timezone={timezone}
@@ -616,6 +697,13 @@ export function AgendaBoard({
       </div>
         </div>
       </div>
+      <footer className="agenda-footer agenda-optional-control">
+        <p className="min-w-0 truncate">{view === "day" ? `${dayCountLabel} · ${timezone}` : timezone}</p>
+        <div className="flex shrink-0 items-center gap-2">
+          {(view === "day" || view === "week") && <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 rounded-[10px] px-2 text-sm font-semibold text-foreground hover:bg-card-hover lg:min-h-9">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>}
+          <AgendaColorSelect variant="toolbar" value={colorMode} onChange={setColorMode} />
+        </div>
+      </footer>
       <Dialog open={mobileCalendarOpen} onOpenChange={setMobileCalendarOpen}>
         <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); (window.matchMedia("(max-width: 639px)").matches ? compactCalendarTrigger : mobileCalendarTrigger).current?.focus(); }} className="max-h-[calc(100dvh-2rem)] w-[calc(100%_-_2rem)] max-w-sm overflow-y-auto p-4">
           <DialogHeader className="pr-10"><DialogTitle>Escolher data</DialogTitle></DialogHeader>
@@ -738,6 +826,7 @@ function DayView({
   professionals,
   appointments,
   timezone,
+  timezoneLabel,
   nowMin,
   onOpenSlot,
   onOpenBlock,
@@ -752,6 +841,7 @@ function DayView({
   professionals: Professional[];
   appointments: Appointment[];
   timezone: string;
+  timezoneLabel: string;
   nowMin: number | null;
   onOpenSlot: (proId: string, minutes: number, dayStr?: string) => void;
   onOpenBlock?: (block: AvailabilityBlock) => void;
@@ -855,9 +945,9 @@ function DayView({
 
   return (
     <div ref={gridRef} className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
-      <div className="flex w-full" style={{ minWidth: `calc(56px + ${professionals.length} * var(--agenda-column-min, 148px))` }} ref={bodyRef}>
-        <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-surface-1">
-          <div style={{ height: HEADER_H }} className="sticky top-0 z-30 border-b border-border bg-surface-1" />
+      <div className="relative flex w-full" style={{ minWidth: `calc(56px + ${professionals.length} * var(--agenda-column-min, 148px))` }} ref={bodyRef}>
+        <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-card">
+          <div style={{ height: HEADER_H }} className="sticky top-0 z-30 flex items-center justify-end border-b border-border bg-card pr-2 text-xs text-muted-foreground">{timezoneLabel}</div>
           <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
         </div>
 
@@ -866,11 +956,9 @@ function DayView({
           const placements = appointmentPlacements(proAppts, timezone, blocks.filter(b => b.professionalId === pro.id), date);
           return (
             <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: `max(var(--agenda-column-min, 148px), ${Math.max(0, ...[...placements.values()].filter(p => p.columns > 1).map(p => p.columns * 112))}px)` }}>
-              <div data-professional-color={pro.colorHex} style={{ height: HEADER_H, borderBottom: `3px solid ${pro.colorHex}` }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-card px-3">
-                <span style={{ borderColor: pro.colorHex ?? undefined }} className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border-2 bg-muted text-xs font-semibold text-foreground">
-                  {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{initials(pro.name)}</span>} /> : initials(pro.name)}
-                </span>
-                <span className="w-full truncate text-center text-xs font-medium" title={pro.name}>{pro.name}</span>
+              <div style={{ height: HEADER_H }} className="sticky top-0 z-10 flex min-w-0 items-center gap-2 border-b border-border bg-card px-2.5">
+                <ProAvatar pro={pro} size={28} marker />
+                <span className="min-w-0 truncate text-sm font-semibold" title={pro.name}>{pro.name}</span>
               </div>
 
               <div className="relative" style={{ height: totalH }}>
@@ -883,27 +971,40 @@ function DayView({
                     onKeyDown={e => { if (e.key === "Escape") { selection.current = null; setSelectionView(null); } }}
                     onClick={e => { if (suppressClick.current) { suppressClick.current = false; return; } const minute = e.detail === 0 ? m : pointerMinute(e, m); if (blockMode) selectInterval(pro.id, minute, !!selection.current, e.detail === 0 ? SLOT_MIN : 5); else onOpenSlot(pro.id, minute); }}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
-                    className={`agenda-half-hour block w-full border-t transition hover:bg-primary/5 ${m % 60 === 0 ? "border-border" : "border-dashed border-border/60"}`}
+                    className={`agenda-half-hour block w-full border-t transition-colors hover:bg-foreground/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${m % 60 === 0 ? "border-border" : "agenda-quarter-line"} ${blockMode ? "cursor-crosshair" : ""}`}
                     aria-label={`${blockMode ? "Selecionar bloqueio" : "Agendar"} ${minutesToHHMM(m)} com ${pro.name}`}
                   />
                 ))}
-                {selectionView?.proId === pro.id && <div className="pointer-events-none absolute inset-x-0 z-20 border-2 border-danger bg-danger/20" style={{ top: (Math.min(selectionView.start, selectionView.end) - dayStart) * PX_PER_MIN, height: (Math.abs(selectionView.end - selectionView.start) + selectionView.step) * PX_PER_MIN }} />}
+                {selectionView?.proId === pro.id && <div className="pointer-events-none absolute inset-x-[3px] z-20 rounded-md border-2 border-foreground/70 bg-foreground/10" style={{ top: (Math.min(selectionView.start, selectionView.end) - dayStart) * PX_PER_MIN, height: (Math.abs(selectionView.end - selectionView.start) + selectionView.step) * PX_PER_MIN }} />}
 
                 {unavailableScheduleIntervals(pro.workingHours ?? [], date, dayStart, dayEnd).map((interval) => {
                   const height = (interval.endMinutes - interval.startMinutes) * PX_PER_MIN;
+                  const range = `${minutesToHHMM(interval.startMinutes)}–${minutesToHHMM(interval.endMinutes)}`;
+                  // A gap between two working periods is a pause; before the first and after the last, it is off hours.
+                  const pause = interval.startMinutes > dayStart && interval.endMinutes < dayEnd;
+                  if (pause) {
+                    return (
+                      <div
+                        key={`schedule-${interval.startMinutes}-${interval.endMinutes}`}
+                        role="note"
+                        aria-label={`Pausa de ${pro.name}: ${range}`}
+                        className="agenda-pause pointer-events-none absolute inset-x-1 z-[1] overflow-hidden"
+                        style={{ top: (interval.startMinutes - dayStart) * PX_PER_MIN + 2, height: Math.max(4, height - 4) }}
+                      >
+                        {height >= 24 && <span className="block truncate font-medium text-foreground">Pausa</span>}
+                        {height >= 40 && <span className="block truncate tabular-nums">{minutesToHHMM(interval.startMinutes)} – {minutesToHHMM(interval.endMinutes)}</span>}
+                      </div>
+                    );
+                  }
                   return (
                     <div
                       key={`schedule-${interval.startMinutes}-${interval.endMinutes}`}
                       role="note"
-                      aria-label={`Fora do expediente de ${pro.name}: ${minutesToHHMM(interval.startMinutes)}–${minutesToHHMM(interval.endMinutes)}`}
-                      className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-border/70 bg-muted/45 px-2 py-1 text-xs text-muted-foreground"
-                      style={{
-                        top: (interval.startMinutes - dayStart) * PX_PER_MIN,
-                        height,
-                        backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .28) 6px, hsl(var(--border) / .28) 7px)",
-                      }}
+                      aria-label={`Fora do expediente de ${pro.name}: ${range}`}
+                      className="agenda-off-hours pointer-events-none absolute inset-x-0 overflow-hidden px-2 py-1.5 text-xs text-muted-foreground"
+                      style={{ top: (interval.startMinutes - dayStart) * PX_PER_MIN, height }}
                     >
-                      {height >= 34 && <span className="rounded bg-card/90 px-1">Fora do expediente</span>}
+                      {height >= 34 && "Fora do expediente"}
                     </div>
                   );
                 })}
@@ -915,15 +1016,8 @@ function DayView({
                   const start = Math.max(dayStart, firstDate < date ? 0 : minutesOf(block.startAt, timezone));
                   const end = Math.min(dayEnd, lastDate > date ? 1440 : minutesOf(block.endAt, timezone));
                   if (end <= start) return null;
-                  return <AvailabilityBlockTrigger key={block.id} block={block} professionalName={pro.name} timezone={timezone} onOpen={onOpenBlock} className="absolute z-[1] px-2 py-1 text-xs" style={{ left: `${placements.get(`block:${block.id}`)?.leftPct ?? 0}%`, width: `${placements.get(`block:${block.id}`)?.widthPct ?? 100}%`, top: (start - dayStart) * PX_PER_MIN, height: (end - start) * PX_PER_MIN }} />;
+                  return <AvailabilityBlockTrigger key={block.id} block={block} professionalName={pro.name} timezone={timezone} onOpen={onOpenBlock} className="absolute z-[1]" style={{ left: `calc(${placements.get(`block:${block.id}`)?.leftPct ?? 0}% + 3px)`, width: `calc(${placements.get(`block:${block.id}`)?.widthPct ?? 100}% - 6px)`, top: (start - dayStart) * PX_PER_MIN + 1, height: Math.max(22, (end - start) * PX_PER_MIN - 2) }} />;
                 })}
-
-                {nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
-                  <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowMin - dayStart) * PX_PER_MIN }}>
-                    <span className="h-2 w-2 rounded-full bg-danger" />
-                    <span className="h-px flex-1 bg-danger" />
-                  </div>
-                )}
 
                 {proAppts.map((a) => {
                   const startMin = minutesOf(a.startAt, timezone);
@@ -938,6 +1032,13 @@ function DayView({
                     conflict: false,
                   };
                   const isDragging = drag?.id === a.id && drag.started;
+                  const time = formatInTimeZone(new Date(a.startAt), timezone, "HH:mm");
+                  const narrow = placement.widthPct < 100;
+                  const color = a.professionalColor ?? "#6B9FA8";
+                  const queueTitle = a.waitlistCount > 0 ? `${a.waitlistCount} na fila de espera${a.waitlistNext ? ` — próximo: ${a.waitlistNext}` : ""}` : undefined;
+                  const reschedule = a.pendingReschedule ? (a.pendingReschedule.status === "REJECTED" ? "Alteração recusada" : "Aguardando aceite") : null;
+                  const extra = [a.status !== "CONFIRMED" ? cfg.label : null, a.waitlistCount > 0 ? `${a.waitlistCount} na fila` : null, reschedule].filter(Boolean).join(" · ");
+                  const warn = a.isOverbooked || placement.conflict;
                   return (
                     <button
                       type="button"
@@ -946,53 +1047,42 @@ function DayView({
                       onClick={() => {
                         if (!drag?.started) onOpenDetail(a);
                       }}
-                      aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${pro.name}, ${cfg.label}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
+                      aria-label={`${a.clientName}, ${a.serviceName}, ${time}, ${pro.name}, ${cfg.label}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
                       data-appointment-professional={a.professionalId} data-colorful-appointment
+                      data-narrow={narrow || undefined}
                       title={placement.conflict && !a.isOverbooked ? "Conflito de horário detectado — revise este atendimento" : undefined}
-                      className={`group absolute z-[2] overflow-hidden cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
+                      className={`agenda-ev group absolute z-[2] cursor-pointer touch-pan-y select-none focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
+                        height < 44 ? "agenda-ev-tight" : ""
+                      } ${a.status === "CANCELLED" ? "agenda-ev-cancelled" : ""} ${warn ? "pr-6" : ""} ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
                       } ${
-                        isDragging ? "z-30 opacity-70 ring-2 ring-primary" : "hover:shadow-md"
+                        isDragging ? "z-30 opacity-50 ring-2 ring-foreground" : ""
                       }`}
                       style={{
-                        top,
-                        height,
-                        left: `calc(${placement.leftPct}% + 4px)`,
-                        width: `calc(${placement.widthPct}% - 8px)`,
+                        top: top + 1,
+                        height: height - 2,
+                        left: `calc(${placement.leftPct}% + 3px)`,
+                        width: `calc(${placement.widthPct}% - 6px)`,
+                        background: `color-mix(in srgb, ${color} 14%, hsl(var(--card)))`,
+                        borderColor: `color-mix(in srgb, ${color} 28%, hsl(var(--border-strong)))`,
                         borderLeftColor: a.professionalColor,
-                        background: `color-mix(in srgb, ${a.professionalColor} 60%, white)`,
                       }}
                     >
-                      <p className="flex items-center gap-1.5 font-semibold text-foreground"><span aria-hidden="true" title={cfg.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: cfg.color }} /><span className="truncate">{a.clientName}</span></p>
-                      {height >= 42 && <p className="truncate text-xs text-foreground/85">{a.serviceName}</p>}
-                      {height >= 90 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-xs font-medium ${cfg.badgeClass}`}>{cfg.label}</span>}
-                      {a.pendingReschedule && (
-                        <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-xs font-semibold text-warning">
-                          {a.pendingReschedule.status === "REJECTED" ? "Alteração recusada" : "Aguardando aceite"}
-                        </span>
-                      )}
-                      {height >= 70 && (
-                        <p className="mt-0.5 truncate text-xs font-medium text-foreground">
-                          {formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} · {formatMoney(a.priceCents)}
-                        </p>
-                      )}
-                      {a.waitlistCount > 0 && (
-                        <span
-                          title={`${a.waitlistCount} na fila de espera${a.waitlistNext ? ` — próximo: ${a.waitlistNext}` : ""}`}
-                          className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-black"
-                        >
-                          <Users className="h-2.5 w-2.5" />
-                          {a.waitlistCount}
-                        </span>
-                      )}
-                      {(a.isOverbooked || placement.conflict) && (
+                      <span className="agenda-ev-l1">
+                        <span className="agenda-ev-name">{narrow ? a.clientName.split(" ")[0] : a.clientName}</span>
+                        {a.waitlistCount > 0 && height <= 52 && <span title={queueTitle} className="inline-flex shrink-0 items-center gap-0.5 text-warning"><Users aria-hidden="true" className="h-3 w-3" />{a.waitlistCount}</span>}
+                        <span className="agenda-ev-time">{time}</span>
+                      </span>
+                      {height > 36 && <span className="agenda-ev-l2"><span className="agenda-ev-time-inline">{time} · </span>{a.serviceName}</span>}
+                      {extra && height > 52 && <span title={queueTitle} className={`agenda-ev-l3 ${a.status !== "CONFIRMED" ? STATUS_TEXT[a.status] ?? "text-muted-foreground" : "text-warning"}`}>{extra}</span>}
+                      {warn && (
                         <span
                           title={a.isOverbooked
                             ? "Overbooking deliberado — encaixado apesar de conflito de horário"
                             : "Conflito de horário detectado — revise este atendimento"}
-                          className="absolute left-1 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-danger text-white"
+                          className="absolute right-1.5 top-1 text-danger"
                         >
-                          <AlertTriangle className="h-2.5 w-2.5" />
+                          <AlertTriangle aria-hidden="true" className="h-3 w-3" />
                         </span>
                       )}
                     </button>
@@ -1002,6 +1092,9 @@ function DayView({
             </div>
           );
         })}
+        {nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
+          <div aria-hidden="true" className="agenda-now-line" style={{ top: HEADER_H + (nowMin - dayStart) * PX_PER_MIN, left: 56 }} />
+        )}
       </div>
     </div>
   );
@@ -1014,6 +1107,7 @@ function WeekView({
   blocks,
   professionals,
   dateObj,
+  date,
   firstProId,
   appointments,
   timezone,
@@ -1028,6 +1122,7 @@ function WeekView({
   blocks: AvailabilityBlock[];
   professionals: Professional[];
   dateObj: Date;
+  date: string;
   firstProId: string;
   appointments: Appointment[];
   timezone: string;
@@ -1046,13 +1141,14 @@ function WeekView({
   const slots: number[] = [];
   for (let m = dayStart; m < dayEnd; m += SLOT_MIN) slots.push(m);
   const totalH = (dayEnd - dayStart) * PX_PER_MIN;
-  const colW = 150;
+  // Computer: 150px days (and 112px per overlapping lane) that scroll sideways; phone: the 7 days share the width (CSS sets both to 0).
+  const colW = "var(--agenda-week-col, 150px)";
 
   return (
     <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
-      <div className="flex w-full" style={{ minWidth: 56 + days.length * colW }}>
-        <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-surface-1">
-          <div style={{ height: HEADER_H }} className="sticky top-0 z-30 border-b border-border bg-surface-1" />
+      <div className="flex w-full" style={{ minWidth: `calc(56px + ${days.length} * ${colW})` }}>
+        <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-card">
+          <div style={{ height: HEADER_H }} className="sticky top-0 z-30 border-b border-border bg-card" />
           <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
         </div>
 
@@ -1065,19 +1161,21 @@ function WeekView({
           );
           const placements = appointmentPlacements(dayAppts, timezone, blocks, dStr);
           return (
-            <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: Math.max(colW, ...[...placements.values()].map(p => p.columns * 112)) }}>
+            <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: `max(${colW}, calc(${Math.max(1, ...[...placements.values()].map(p => p.columns))} * var(--agenda-week-lane, 112px)))` }}>
               <button
+                type="button"
                 onClick={() => onOpenDay(dStr)}
                 style={{ height: HEADER_H }}
-                className={`sticky top-0 z-10 flex w-full flex-col items-center justify-center border-b border-border transition hover:bg-card-hover ${
-                  isToday ? "bg-primary/10" : "bg-card"
+                className={`sticky top-0 z-10 flex w-full flex-col items-center justify-center gap-0.5 border-b border-border transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+                  dStr === date ? "bg-muted" : "bg-card"
                 }`}
               >
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {format(day, "EEE", { locale: ptBR })}
+                <span className="text-xs font-semibold uppercase tracking-[.02em] text-muted-foreground">
+                  {WEEKDAY_SHORT[day.getDay()]}
                 </span>
-                <span className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}>
+                <span className="flex items-center gap-1 text-sm font-semibold tabular-nums">
                   {format(day, "d")}
+                  {isToday && <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[hsl(var(--selection-solid))]" />}
                 </span>
               </button>
 
@@ -1089,15 +1187,12 @@ function WeekView({
                     onClick={() => onOpenSlot(firstProId, m, dStr)}
                     aria-label={`Agendar ${dStr} às ${minutesToHHMM(m)}`}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
-                    className={`agenda-half-hour block w-full border-t transition hover:bg-primary/5 ${m % 60 === 0 ? "border-border" : "border-dashed border-border/60"}`}
+                    className={`agenda-half-hour block w-full border-t transition-colors hover:bg-foreground/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${m % 60 === 0 ? "border-border" : "agenda-quarter-line"}`}
                   />
                 ))}
 
                 {isToday && nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
-                  <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowMin - dayStart) * PX_PER_MIN }}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-danger" />
-                    <span className="h-px flex-1 bg-danger" />
-                  </div>
+                  <div aria-hidden="true" className="agenda-now-line" style={{ top: (nowMin - dayStart) * PX_PER_MIN, left: 0 }} />
                 )}
 
                 {dayAppts.map((a) => {
@@ -1112,29 +1207,32 @@ function WeekView({
                     widthPct: 100,
                     conflict: false,
                   };
+                  const conflict = placement.conflict;
                   return (
                     <button
+                      type="button"
                       key={a.id}
                       onClick={() => onOpenDetail(a)}
-                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${professionals.find(p => p.id === a.professionalId)?.name ?? "Profissional"}, ${cfg.label}${placement.conflict ? ", conflito de horário" : ""}`}
+                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${professionals.find(p => p.id === a.professionalId)?.name ?? "Profissional"}, ${cfg.label}${conflict ? ", conflito de horário" : ""}`}
                       data-appointment-professional={a.professionalId} data-colorful-appointment
-                      title={placement.conflict ? "Conflito de horário detectado — revise este atendimento" : undefined}
-                      className={`absolute z-[2] overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-xs shadow-sm transition hover:shadow-md ${
-                        placement.conflict ? "ring-1 ring-danger/60" : ""
+                      title={conflict ? "Conflito de horário detectado — revise este atendimento" : undefined}
+                      className={`agenda-ev agenda-ev-week absolute z-[2] focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${a.status === "CANCELLED" ? "agenda-ev-cancelled" : ""} ${
+                        conflict ? "pr-5 ring-1 ring-danger/60" : ""
                       }`}
                       style={{
-                        top,
-                        height,
-                        left: `calc(${placement.leftPct}% + 3px)`,
-                        width: `calc(${placement.widthPct}% - 6px)`,
+                        top: top + 1,
+                        height: height - 2,
+                        left: `calc(${placement.leftPct}% + var(--agenda-week-gap, 2px))`,
+                        width: `calc(${placement.widthPct}% - 2 * var(--agenda-week-gap, 2px))`,
+                        background: `color-mix(in srgb, ${a.professionalColor ?? "#6B9FA8"} 22%, hsl(var(--card)))`,
+                        borderColor: `color-mix(in srgb, ${a.professionalColor ?? "#6B9FA8"} 28%, hsl(var(--border-strong)))`,
                         borderLeftColor: a.professionalColor,
-                        background: `color-mix(in srgb, ${a.professionalColor} 60%, white)`,
                       }}
                     >
-                      <p className="truncate font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</p>
-                      {height > 30 && <p className="truncate text-foreground/85">{a.serviceName}</p>}
-                      {height >= 70 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-xs ${cfg.badgeClass}`}>{cfg.label}</span>}
-                      {placement.conflict && <AlertTriangle className="absolute right-1 top-1 h-3 w-3 text-danger" aria-label="Conflito de horário" />}
+                      <span className="agenda-ev-l1"><span className="agenda-ev-name"><span className="agenda-wk-time tabular-nums"><span>{formatInTimeZone(new Date(a.startAt), timezone, "HH")}</span><span className="agenda-wk-colon">:</span><span>{formatInTimeZone(new Date(a.startAt), timezone, "mm")}</span></span><span className="agenda-wk-name"> {a.clientName.split(" ")[0]}</span></span></span>
+                      {height > 30 && <span className="agenda-ev-l2">{a.serviceName}</span>}
+                      {height >= 70 && a.status !== "CONFIRMED" && <span className={`agenda-ev-l3 ${STATUS_TEXT[a.status] ?? "text-muted-foreground"}`}>{cfg.label}</span>}
+                      {conflict && <AlertTriangle className="absolute right-1 top-1 h-3 w-3 text-danger" aria-label="Conflito de horário" />}
                     </button>
                   );
                 })}
@@ -1177,8 +1275,8 @@ function MonthView({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="grid grid-cols-7 border-b border-border bg-surface-1">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="grid grid-cols-7 border-b border-border">
         {[
           ["Seg", "segunda-feira"],
           ["Ter", "terça-feira"],
@@ -1188,7 +1286,7 @@ function MonthView({
           ["Sáb", "sábado"],
           ["Dom", "domingo"],
         ].map(([shortLabel, fullLabel]) => (
-          <div key={shortLabel} className="py-2 text-center text-xs font-medium text-muted-foreground">
+          <div key={shortLabel} className="py-2 text-center text-xs font-semibold text-muted-foreground sm:border-r sm:border-border sm:last:border-r-0">
             <span aria-hidden="true">{shortLabel}</span>
             <span className="sr-only">{fullLabel}</span>
           </div>
@@ -1210,31 +1308,26 @@ function MonthView({
               onClick={() => onOpenDay(dStr)}
               aria-label={`${dateLabel}, ${appointmentLabel}, ${blocksOnDate(blocks, dStr, timezone).length} bloqueios${isToday ? ", hoje" : ""}${inMonth ? "" : ", fora do mês atual"}`}
               aria-current={isToday ? "date" : undefined}
-              className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center border-b border-r border-border px-0.5 py-1 transition-colors hover:bg-card-hover focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&:nth-child(7n)]:border-r-0 ${
-                inMonth ? "" : "bg-surface-1/40 text-muted-foreground/50"
+              className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[10px] px-0.5 py-1.5 text-sm font-medium transition-colors hover:bg-card-hover focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+                inMonth ? "text-foreground" : "text-muted-foreground"
               }`}
             >
-              {dayAppts.length > 0 && (
-                <span className="absolute right-1 top-1 text-xs font-semibold leading-none text-muted-foreground" aria-hidden="true">
-                  {dayAppts.length}
-                </span>
-              )}
-              <span className={`grid h-7 w-7 place-items-center rounded-full text-[13px] ${
+              <span className={`grid h-7 w-7 place-items-center rounded-full tabular-nums ${
                 isToday ? "bg-primary font-semibold text-primary-foreground" : ""
               }`}>
                 {format(day, "d")}
               </span>
-              <span className="mt-0.5 flex h-1.5 items-center justify-center gap-0.5" aria-hidden="true">
-                {blocksOnDate(blocks, dStr, timezone).length > 0 && <Ban className="h-3 w-3 text-danger" />}
+              <span className="flex h-3 items-center justify-center gap-[3px]" aria-hidden="true">
+                {blocksOnDate(blocks, dStr, timezone).length > 0 && <Ban className="h-3 w-3 text-muted-foreground" />}
                 {dayAppts.slice(0, 3).map((appointment) => {
-                  return <span key={appointment.id} className="h-1.5 w-1.5 rounded-full" style={{ background: appointment.professionalColor }} />;
+                  return <span key={appointment.id} className="h-[5px] w-[5px] rounded-full" style={{ background: appointment.professionalColor }} />;
                 })}
               </span>
             </button>
           );
         })}
       </div>
-      <p className="border-t border-border bg-surface-1 px-3 py-2 text-center text-xs text-muted-foreground sm:hidden">
+      <p className="border-t border-border px-3 py-2 text-center text-xs text-muted-foreground sm:hidden">
         Toque em um dia para abrir os agendamentos.
       </p>
       <div className="hidden grid-cols-7 sm:grid">
@@ -1243,11 +1336,12 @@ function MonthView({
           const inMonth = isSameMonth(day, dateObj);
           const isToday = dStr === today;
           const dayAppts = (byDay.get(dStr) ?? []).sort((a, b) => a.startAt.localeCompare(b.startAt));
+          const dayBlocks = blocksOnDate(blocks, dStr, timezone).length;
           return (
             <div
               key={dStr}
-              className={`min-h-[104px] border-b border-r border-border p-1.5 last:border-r-0 [&:nth-child(7n)]:border-r-0 ${
-                inMonth ? "" : "bg-surface-1/40"
+              className={`flex min-h-[104px] min-w-0 flex-col gap-[3px] overflow-hidden border-b border-r border-border px-1 py-1.5 [&:nth-child(7n)]:border-r-0 ${
+                inMonth ? "" : "bg-muted/40"
               }`}
             >
               <button
@@ -1255,37 +1349,35 @@ function MonthView({
                 onClick={() => onOpenDay(dStr)}
                 aria-label={`Abrir ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
                 aria-current={isToday ? "date" : undefined}
-                className={`mb-1 grid h-11 w-11 place-items-center rounded-full text-xs transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  isToday ? "bg-primary font-semibold text-primary-foreground" : inMonth ? "text-foreground" : "text-muted-foreground/50"
+                className={`ml-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-8 lg:w-8 ${
+                  isToday ? "bg-primary font-semibold text-primary-foreground" : inMonth ? "text-foreground hover:bg-card-hover" : "text-muted-foreground hover:bg-card-hover"
                 }`}
               >
                 {format(day, "d")}
               </button>
-              <div className="space-y-0.5">
-                {blocksOnDate(blocks, dStr, timezone).length > 0 && <button onClick={() => onOpenDay(dStr)} className="flex min-h-11 items-center gap-1 rounded bg-muted px-1 text-xs"><Ban size={12} />{blocksOnDate(blocks, dStr, timezone).length} bloqueio(s)</button>}
-                {dayAppts.slice(0, 3).map((a) => {
-                  const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
-                  return (
-                    <button
-                      type="button"
-                      key={a.id}
-                      onClick={() => onOpenDetail(a)}
-                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${cfg.label}`}
-                      data-appointment-professional={a.professionalId} data-colorful-appointment
-                      className="flex min-h-8 w-full items-center gap-1 truncate rounded px-1 py-1 text-left text-xs transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      style={{ background: `color-mix(in srgb, ${a.professionalColor} 60%, white)`, color: "#111827" }}
-                    >
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: a.professionalColor }} />
-                      <span className="truncate">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</span>
-                    </button>
-                  );
-                })}
-                {dayAppts.length > 3 && (
-                  <button type="button" onClick={() => onOpenDay(dStr)} className="min-h-8 px-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    +{dayAppts.length - 3} mais
+              {dayBlocks > 0 && <button type="button" onClick={() => onOpenDay(dStr)} className="inline-flex min-h-8 max-w-full items-center gap-1 self-start rounded-[5px] bg-muted px-1.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-6"><Ban aria-hidden="true" className="h-3 w-3 shrink-0" /><span className="truncate">{dayBlocks} bloqueio(s)</span></button>}
+              {dayAppts.slice(0, 3).map((a) => {
+                const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
+                return (
+                  <button
+                    type="button"
+                    key={a.id}
+                    onClick={() => onOpenDetail(a)}
+                    aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${cfg.label}`}
+                    title={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} · ${a.clientName} · ${a.serviceName}`}
+                    data-appointment-professional={a.professionalId} data-colorful-appointment
+                    className={`flex min-h-8 w-full min-w-0 items-center gap-1 rounded-[5px] bg-muted px-1 text-left text-xs text-foreground transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-6 ${a.status === "CANCELLED" ? "line-through" : ""}`}
+                  >
+                    <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: a.professionalColor }} />
+                    <span className="min-w-0 truncate"><span className="tabular-nums">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}</span> {a.clientName.split(" ")[0]}</span>
                   </button>
-                )}
-              </div>
+                );
+              })}
+              {dayAppts.length > 3 && (
+                <button type="button" onClick={() => onOpenDay(dStr)} className="min-h-8 self-start px-1 text-left text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-6">
+                  +{dayAppts.length - 3} mais
+                </button>
+              )}
             </div>
           );
         })}
@@ -1326,61 +1418,71 @@ function ListView({
 
   if (sorted.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-12 text-center text-sm text-muted-foreground">
+      <div className="rounded-xl border border-border bg-card p-12 text-center text-sm text-muted-foreground">
         Nenhum agendamento com esse filtro.
       </div>
     );
   }
 
-  let lastDay = "";
+  const groups: { day: string; items: Appointment[] }[] = [];
+  for (const appointment of sorted) {
+    const day = formatInTimeZone(new Date(appointment.startAt), timezone, "yyyy-MM-dd");
+    const last = groups.at(-1);
+    if (last?.day === day) last.items.push(appointment);
+    else groups.push({ day, items: [appointment] });
+  }
   return (
-    <div ref={listRef} className="overflow-hidden rounded-2xl border border-border bg-card">
-      {sorted.map((a) => {
-        const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
-        const pro = proById.get(a.professionalId);
-        const dayKey = formatInTimeZone(new Date(a.startAt), timezone, "yyyy-MM-dd");
-        const showDay = dayKey !== lastDay;
-        lastDay = dayKey;
-        return (
-          <div key={a.id}>
-            {showDay && (
-              <div data-day={dayKey} className="border-b border-border bg-surface-1 px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {formatInTimeZone(new Date(a.startAt), timezone, "EEEE, d 'de' MMMM", { locale: ptBR })}
-              </div>
-            )}
-            <button
-              onClick={() => onOpenDetail(a)}
-              className="flex w-full items-center gap-4 border-b border-border px-4 py-3 text-left transition last:border-0 hover:bg-card-hover"
-            >
-              <div className="w-14 shrink-0 text-center">
-                <p className="text-sm font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}</p>
-                <p className="text-xs text-muted-foreground">{formatInTimeZone(new Date(a.endAt), timezone, "HH:mm")}</p>
-              </div>
-              <span className="min-h-8 w-1 shrink-0 self-stretch rounded-full" style={{ background: a.professionalColor }} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-medium">{a.clientName}</p>
-                <p className="truncate text-[13px] text-muted-foreground">
-                  {a.serviceName}{pro ? ` · ${pro.name.split(" ")[0]}` : ""}
-                </p>
-                <span className={`mt-0.5 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold sm:hidden ${cfg.badgeClass}`}>{cfg.label}</span>
-              </div>
-              {a.waitlistCount > 0 && (
-                <span
-                  title={a.waitlistNext ? `Próximo da fila: ${a.waitlistNext}` : undefined}
-                  className="hidden shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-600 sm:inline-flex"
+    <div ref={listRef} className="space-y-4">
+      {groups.map((group) => (
+        <section key={group.day} data-day={group.day}>
+          <h2 className="mb-2 px-0.5 text-xs font-semibold uppercase tracking-[.04em] text-muted-foreground">
+            {formatInTimeZone(new Date(group.items[0]!.startAt), timezone, "EEEE, d 'de' MMMM", { locale: ptBR })}{group.day === today ? " · Hoje" : ""}
+          </h2>
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            {group.items.map((a) => {
+              const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
+              const pro = proById.get(a.professionalId);
+              const badges = (
+                <>
+                  {a.waitlistCount > 0 && (
+                    <span title={a.waitlistNext ? `Próximo da fila: ${a.waitlistNext}` : undefined} className="inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full bg-warning/15 px-2.5 text-xs font-medium text-warning">
+                      <Users aria-hidden="true" className="h-3 w-3" />
+                      {a.waitlistCount} na fila
+                    </span>
+                  )}
+                  <span className={`inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-medium ${cfg.badgeClass}`}>
+                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
+                    {cfg.label}
+                  </span>
+                </>
+              );
+              return (
+                <button
+                  type="button"
+                  key={a.id}
+                  onClick={() => onOpenDetail(a)}
+                  className="flex min-h-14 w-full items-center gap-3 border-b border-border px-3.5 py-2 text-left transition-colors last:border-b-0 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 >
-                  <Users className="h-3 w-3" />
-                  {a.waitlistCount} na fila
-                </span>
-              )}
-              <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:inline ${cfg.badgeClass}`}>
-                {cfg.label}
-              </span>
-              <p className="w-20 shrink-0 text-right text-[13px] font-semibold">{formatMoney(a.priceCents)}</p>
-            </button>
+                  <span aria-hidden="true" className="w-1 shrink-0 self-stretch rounded-full" style={{ background: a.professionalColor }} />
+                  <span className="w-12 shrink-0 text-sm font-semibold tabular-nums">
+                    {formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}
+                    <span className="block text-xs font-normal text-muted-foreground">{formatInTimeZone(new Date(a.endAt), timezone, "HH:mm")}</span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-sm font-medium ${a.status === "CANCELLED" ? "line-through" : ""}`}>{a.clientName}</span>
+                    <span className="block truncate text-sm text-muted-foreground">
+                      {a.serviceName}{pro ? ` · ${pro.name.split(" ")[0]}` : ""}
+                    </span>
+                    <span className="mt-1 flex flex-wrap gap-1 sm:hidden">{badges}</span>
+                  </span>
+                  <span className="hidden shrink-0 items-center gap-1.5 sm:flex">{badges}</span>
+                  <span className="w-20 shrink-0 whitespace-nowrap text-right text-sm font-medium tabular-nums sm:w-24">{formatMoney(a.priceCents)}</span>
+                </button>
+              );
+            })}
           </div>
-        );
-      })}
+        </section>
+      ))}
     </div>
   );
 }
@@ -1398,30 +1500,30 @@ function BlockOverlay({ block, date, timezone, start, end, name, onOpen, placeme
   const from = Math.max(start, first < date ? 0 : minutesOf(block.startAt, timezone));
   const to = Math.min(end, last > date ? 1440 : minutesOf(block.endAt, timezone));
   if (to <= from) return null;
-  return <AvailabilityBlockTrigger block={block} professionalName={name ?? "Profissional"} timezone={timezone} onOpen={onOpen} className="absolute z-[1] p-1 text-xs" style={{ left: `${placement?.leftPct ?? 0}%`, width: `${placement?.widthPct ?? 100}%`, top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN }} />;
+  return <AvailabilityBlockTrigger block={block} professionalName={name ?? "Profissional"} timezone={timezone} onOpen={onOpen} className="absolute z-[1]" style={{ left: `calc(${placement?.leftPct ?? 0}% + 2px)`, width: `calc(${placement?.widthPct ?? 100}% - 4px)`, top: (from - start) * PX_PER_MIN + 1, height: Math.max(6, (to - from) * PX_PER_MIN - 2) }} />;
 }
 
 function BlockList({ blocks, professionals, timezone, onOpenBlock }: { blocks: AvailabilityBlock[]; professionals: Professional[]; timezone: string; onOpenBlock?: (block: AvailabilityBlock) => void }) {
   if (!blocks.length) return null;
-  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><details open={blocks.length <= 2}><summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período · {blocks.length}<ChevronDown size={16} aria-hidden="true" className="ml-auto shrink-0 text-muted-foreground [details[open]_&]:rotate-180" /></summary><ul className="divide-y divide-border">{blocks.map(b => {
-    const content = <><strong>{professionals.find(p => p.id === b.professionalId)?.name}</strong> · {formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}<p className="text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</p></>;
-    return <li key={b.id} className="py-1 text-sm">{onOpenBlock ? <button type="button" onClick={() => onOpenBlock(b)} className="min-h-11 w-full rounded-lg px-2 py-1 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{content}</button> : <div className="px-2 py-1">{content}</div>}</li>;
+  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-card px-3"><details open={blocks.length <= 2}><summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold [&::-webkit-details-marker]:hidden"><Ban size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />Bloqueios do período · {blocks.length}<ChevronDown size={16} aria-hidden="true" className="ml-auto shrink-0 text-muted-foreground [details[open]_&]:rotate-180" /></summary><ul className="divide-y divide-border border-t border-border">{blocks.map(b => {
+    const content = <><strong className="font-semibold">{professionals.find(p => p.id === b.professionalId)?.name}</strong> · <span className="tabular-nums">{formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}</span><span className="block text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</span></>;
+    return <li key={b.id} className="py-1 text-sm">{onOpenBlock ? <button type="button" onClick={() => onOpenBlock(b)} className="min-h-11 w-full rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{content}</button> : <div className="px-1.5 py-1">{content}</div>}</li>;
   })}</ul></details></section>;
 }
 
-function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof List; label: string }) {
+/** Desktop view rail, the `.seg` of the prototype: one quiet track, the chosen view lifted. */
+function ViewBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`Visualização ${label}`}
       aria-pressed={active}
-      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+      className={`inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:min-h-[30px] lg:rounded-[7px] ${
+        active ? "bg-[hsl(var(--border))] font-semibold text-foreground ring-1 ring-inset ring-border-strong" : "font-medium text-muted-foreground hover:text-foreground"
       }`}
     >
-      <Icon aria-hidden="true" className="h-3.5 w-3.5" />
-      <span className="hidden sm:inline">{label}</span>
+      {label}
     </button>
   );
 }
@@ -1432,13 +1534,29 @@ function FilterChip({ active, onClick, children, icon: Icon, dot }: { active: bo
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
+      className={`inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-[10px] border px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-10 ${
+        active ? "border-primary bg-primary font-semibold text-primary-foreground" : "border-border-strong font-medium text-foreground hover:bg-card-hover"
       }`}
     >
-      {Icon && <Icon className="h-3.5 w-3.5" />}
-      {dot && <span className="h-2 w-2 rounded-full" style={{ background: dot }} />}
+      {Icon && <Icon aria-hidden="true" className="h-4 w-4" />}
+      {dot && <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: dot }} />}
       {children}
     </button>
+  );
+}
+
+/** Initials (or photo) in the professional's colour. `marker` carries the colour the column cards are compared with. */
+function ProAvatar({ pro, size, marker = false }: { pro: Professional; size: number; marker?: boolean }) {
+  const color = pro.colorHex ?? "#6B9FA8";
+  const letters = initials(pro.name).slice(0, size < 28 ? 1 : 2);
+  return (
+    <span
+      aria-hidden="true"
+      data-professional-color={marker ? color : undefined}
+      style={{ width: size, height: size, borderColor: color, background: `color-mix(in srgb, ${color} 34%, hsl(var(--card)))` }}
+      className="grid shrink-0 place-items-center overflow-hidden rounded-full border-2 text-xs font-semibold text-foreground"
+    >
+      {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{letters}</span>} /> : letters}
+    </span>
   );
 }
